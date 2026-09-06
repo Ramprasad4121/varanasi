@@ -21,12 +21,14 @@ export function hashscanAccountUrl(accountId: string, scope: HashscanScope): str
 
 /**
  * Link to a transaction page. Hedera txIds look like
- * `0.0.123@1697836800.123456789` — HashScan accepts that form directly.
+ * `0.0.123@1697836800.123456789` — HashScan canonical form uses dashes:
+ * `0.0.123-1697836800-123456789` under `/transaction/`.
  * Returns null when no txId was captured (verify-only flows).
  */
 export function hashscanTxUrl(txId: string | null | undefined, scope: HashscanScope): string | null {
   if (!txId) return null;
-  return `${BASE}/${scope}/tx/${encodeURIComponent(txId)}`;
+  const dash = txId.replace('@', '-').replace('.', '-');
+  return `${BASE}/${scope}/transaction/${dash}`;
 }
 
 export interface PaymentReceipt {

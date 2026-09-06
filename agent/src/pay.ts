@@ -24,7 +24,9 @@ export interface PayResult {
 
 export function hashscanTxUrl(txId: string, network: string): string {
   const net = network === "mainnet" ? "mainnet" : "testnet";
-  return `https://hashscan.io/${net}/transaction/${txId}`;
+  // HashScan wants shard.realm.num-sss-nnnnnnnnn; facilitators emit shard.realm.num@sss.nnnnnnnnn.
+  const dash = txId.replace("@", "-").replace(".", "-");
+  return `https://hashscan.io/${net}/transaction/${dash}`;
 }
 
 export interface PayerOptions {
@@ -44,10 +46,13 @@ async function buildSchemeClient(accountId: string, privateKey: string, network:
     throw new Error("@x402/hedera does not export createClientHederaSigner/ExactHederaScheme — check installed version.");
   }
   let key: any;
+  // NOTE: fromStringECDSA FIRST. Generic fromString() on 0x-hex ECDSA keys
+  // takes a deprecated path that produces signatures facilitators reject in
+  // preflight (verified empirically: fromString→402, fromStringECDSA→200).
   try {
-    key = hiero.PrivateKey.fromString(privateKey);
-  } catch {
     key = hiero.PrivateKey.fromStringECDSA(privateKey);
+  } catch {
+    key = hiero.PrivateKey.fromString(privateKey);
   }
   const signer = mkSigner(accountId, key, { network: caip2 });
   return { scheme: new Scheme(signer), caip2 };
@@ -69,11 +74,12 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
     throw new Error("@x402/fetch does not export wrapFetchWithPayment/x402Client — check installed version.");
   }
   const client = new X402Client((_version: number, accepts: any[]) => {
-    // Prefer the native HBAR leg (asset 0.0.0): the agent wallet is HBAR-funded.
-    // Fall back to whatever the service lists first (e.g. USDC when funded).
+    // Prefer the USDC leg (funded HTS token) over native HBAR: both
+    // facilitators have rejected the HBAR leg in preflight during testing.
+    // Fall back to whatever the service lists first.
     if (Array.isArray(accepts)) {
-      const hbar = accepts.find((a) => a?.asset === "0.0.0");
-      if (hbar) return hbar;
+      const usdc = accepts.find((a) => typeof a?.asset === "string" && a.asset !== "0.0.0");
+      if (usdc) return usdc;
       return accepts[0];
     }
     return accepts;
@@ -92,10 +98,23 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
   }
   const payload = (await res.json().catch(async () => ({ raw: await res.text() }))) as any;
 
-  // Receipt extraction: facilitators surface the settlement tx id in the
-  // payload or in the PAYMENT-RESPONSE header.
-  const txHash: string | null =
-    payload?.txId ?? payload?.txHash ?? payload?.receipt?.txId ?? (res.headers.get("payment-response") as string | null) ?? null;
+  // Receipt extraction: decode the base64 PAYMENT-RESPONSE header into the
+  // settlement tx id (authoritative), else fall back to payload fields.
+  let txHash: string | null =
+    payload?.txId ?? payload?.txHash ?? payload?.receipt?.txId ?? null;
+  const payRespHeader = res.headers.get("payment-response") as string | null;
+  if (payRespHeader) {
+    try {
+      const decode = (x402Fetch as any).decodePaymentResponseHeader;
+      if (typeof decode === "function") {
+        const decoded = decode(payRespHeader) as any;
+        txHash = decoded?.transaction ?? decoded?.txHash ?? decoded?.txId ?? txHash;
+      }
+    } catch {
+      // fall through to header-as-id fallback below
+    }
+    if (!txHash) txHash = payRespHeader;
+  }
   return {
     payload,
     txHash,

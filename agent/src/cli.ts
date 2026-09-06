@@ -75,9 +75,14 @@ program
       if (!opts.skipPay) {
         const paid = await payForSignal({}, { agent: identity.agentWallet, pool: intel.poolId });
         const p = paid.payload as any;
+        // Service shape: { signal: 'LONG'|'SHORT'|'NEUTRAL', confidence: 0..1 }.
+        const dirRaw = String(p?.direction ?? p?.signal ?? "neutral").toLowerCase();
+        const direction = dirRaw === "long" || dirRaw === "short" ? dirRaw : ("neutral" as const);
+        const conf = Number(p?.confidence ?? 0);
+        const signed = direction === "short" ? -conf : direction === "long" ? conf : 0;
         alpha = {
-          score: Number(p?.alphaScore ?? p?.score ?? 0),
-          direction: (p?.direction ?? "neutral") as "long" | "short" | "neutral",
+          score: Number(p?.alphaScore ?? p?.score ?? signed),
+          direction,
           receipt: { paid: paid.paid, txHash: paid.txHash, hashscanUrl: paid.hashscanUrl },
         };
       }
