@@ -1,0 +1,7 @@
+{
+  "aegisApiUrl": "https://aegis-agent.example.com",
+  "thresholdSecretId": "RISK_THRESHOLD_BPS",
+  "weightsSecretId": "STRATEGY_WEIGHTS",
+  "allowlistSecretId": "OPERATOR_ALLOWLIST",
+  "apiKeySecretId": "AEGIS_API_KEY"
+}

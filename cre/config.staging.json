@@ -1,0 +1,7 @@
+{
+  "aegisApiUrl": "http://127.0.0.1:3001",
+  "thresholdSecretId": "RISK_THRESHOLD_BPS",
+  "weightsSecretId": "STRATEGY_WEIGHTS",
+  "allowlistSecretId": "OPERATOR_ALLOWLIST",
+  "apiKeySecretId": "AEGIS_API_KEY"
+}

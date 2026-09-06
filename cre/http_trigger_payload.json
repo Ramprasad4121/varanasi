@@ -1,0 +1,7 @@
+{
+  "poolId": "USDC/ETH-0.3%",
+  "tvlUsd": 5000000,
+  "volume24hUsd": 1000000,
+  "alphaScore": 0.6,
+  "operator": "0xAgent000000000000000000000000000000000001"
+}
