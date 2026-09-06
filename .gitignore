@@ -9,3 +9,5 @@ contracts/out/
 contracts/broadcast/
 *.tsbuildinfo
 .DS_Store
+contracts/broadcast/
+contracts/cache/
