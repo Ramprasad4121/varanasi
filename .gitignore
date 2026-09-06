@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+*.log
+.env
+.env.local
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+*.tsbuildinfo
+.DS_Store
