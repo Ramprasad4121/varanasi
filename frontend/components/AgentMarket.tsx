@@ -19,10 +19,42 @@ import {
   type PublicClientLike,
 } from "./aegis";
 
-// ---------------------------------------------------------------------------
-// Agent marketplace: featured demo-known agent + onboard form + agent cards
-// (keeps existing onboard/refresh/revoke functionality, restyled as listings)
-// ---------------------------------------------------------------------------
+// Sepolia chain id for Sourcify repo links.
+const SEPOLIA_CHAIN_ID = 11155111;
+const sourcifyContract = (a: string) =>
+  `https://repo.sourcify.dev/contracts/full_match/${SEPOLIA_CHAIN_ID}/${a}`;
+
+// Uniform per-card evidence row: Etherscan tx + address + Sourcify links.
+function VerifyLine({ txHash }: { txHash?: string }) {
+  return (
+    <div className="verify-line">
+      <a
+        href={sepoliaAddress(REGISTRY)}
+        target="_blank"
+        rel="noreferrer"
+        className="verify-primary"
+      >
+        Verify live onchain
+      </a>{" "}
+      ·{" "}
+      {txHash ? (
+        <a href={sepoliaTx(txHash)} target="_blank" rel="noreferrer">
+          Etherscan tx ↗
+        </a>
+      ) : (
+        <span className="muted">tx pending</span>
+      )}{" "}
+      ·{" "}
+      <a href={sepoliaAddress(REGISTRY)} target="_blank" rel="noreferrer">
+        Etherscan address ↗
+      </a>{" "}
+      ·{" "}
+      <a href={sourcifyContract(REGISTRY)} target="_blank" rel="noreferrer">
+        Sourcify contract ↗
+      </a>
+    </div>
+  );
+}
 export default function AgentMarket({
   agents,
   publicClient,
@@ -141,7 +173,7 @@ export default function AgentMarket({
       </p>
 
       {/* Featured demo-known listing */}
-      <div className="card featured">
+      <div className="card featured" id="featured-agent">
         <div>
           <strong>sentinel-1.aegis.eth</strong>{" "}
           <span className="badge ok">authorized</span>{" "}
@@ -152,20 +184,7 @@ export default function AgentMarket({
           <code>isAuthorized(deployer) → true</code> · RiskGuard{" "}
           <code>authorize(wallet, 200, 5000) → wouldPass</code>
         </div>
-        <div>
-          mint{" "}
-          <a href={sepoliaTx(DEMO_MINT_TX)} target="_blank" rel="noreferrer">
-            <code>{DEMO_MINT_TX.slice(0, 18)}…</code> ↗
-          </a>{" "}
-          · registry{" "}
-          <a
-            href={sepoliaAddress(REGISTRY)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Etherscan ↗
-          </a>
-        </div>
+        <VerifyLine txHash={DEMO_MINT_TX} />
         <div className="row">
           <button onClick={checkSentinel}>Verify live onchain</button>
         </div>
@@ -214,6 +233,7 @@ export default function AgentMarket({
                   </a>
                 </div>
               )}
+              <VerifyLine txHash={a.txHash} />
               <div className="row">
                 <button onClick={() => refresh(a)}>Refresh onchain</button>
                 {!a.revoked && <button onClick={() => revoke(a)}>Revoke</button>}

@@ -7,7 +7,8 @@
  */
 import { Command } from "commander";
 import "dotenv/config";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, createWalletClient, http, keccak256, toHex, type Address } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { GraphClient } from "./graph.js";
 import { SubgraphAgent } from "./mcp.js";
@@ -172,6 +173,92 @@ program
       );
     } catch (e: any) {
       console.error(JSON.stringify({ ok: false, error: String(e?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+const REVOKE_ABI = [
+  {
+    type: "function",
+    name: "tokenByLabelHash",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "bytes32" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "agentOf",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "isAuthorized",
+    stateMutability: "view",
+    inputs: [{ name: "agentWallet", type: "address" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "revokeAgentByLabel",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "sublabel", type: "string" }],
+    outputs: [],
+  },
+] as const;
+
+program
+  .command("revoke")
+  .description("Revoke an agent subname: prints isAuthorized before/after")
+  .requiredOption("--label <sublabel>", "agent sublabel, e.g. sentinel-1")
+  .action(async (opts) => {
+    try {
+      const registry = process.env.AEGIS_REGISTRY as Address | undefined;
+      if (!registry) throw new Error("AEGIS_REGISTRY is not set.");
+      const pk = process.env.OWNER_PRIVATE_KEY ?? process.env.AEGIS_OWNER_KEY;
+      if (!pk) throw new Error("OWNER_PRIVATE_KEY is not set (human owner key).");
+      const label = String(opts.label).toLowerCase().trim();
+      const rpc = process.env.SEPOLIA_RPC_URL ?? "https://rpc.sepolia.org";
+      const pub = createPublicClient({ chain: sepolia, transport: http(rpc) });
+      const tokenId = (await pub.readContract({
+        address: registry,
+        abi: REVOKE_ABI,
+        functionName: "tokenByLabelHash",
+        args: [keccak256(toHex(label))],
+      })) as bigint;
+      const agent = (await pub.readContract({
+        address: registry,
+        abi: REVOKE_ABI,
+        functionName: "agentOf",
+        args: [tokenId],
+      })) as Address;
+      const before = (await pub.readContract({
+        address: registry,
+        abi: REVOKE_ABI,
+        functionName: "isAuthorized",
+        args: [agent],
+      })) as boolean;
+      console.log(JSON.stringify({ label, tokenId: tokenId.toString(), agent, isAuthorizedBefore: before }));
+      const account = privateKeyToAccount(pk as `0x${string}`);
+      const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
+      const txHash = await wallet.writeContract({
+        address: registry,
+        abi: REVOKE_ABI,
+        functionName: "revokeAgentByLabel",
+        args: [label],
+      });
+      console.log(JSON.stringify({ txHash }));
+      await pub.waitForTransactionReceipt({ hash: txHash });
+      const after = (await pub.readContract({
+        address: registry,
+        abi: REVOKE_ABI,
+        functionName: "isAuthorized",
+        args: [agent],
+      })) as boolean;
+      console.log(JSON.stringify({ isAuthorizedAfter: after, ok: true }, null, 2));
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;
     }
   });

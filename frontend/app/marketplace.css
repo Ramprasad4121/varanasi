@@ -63,3 +63,68 @@
 
 .timeline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
 .timeline .card { margin-top: 8px; }
+
+/* Judge-visibility wins: hero footline, CTA, verify rows, stepper. */
+
+.footline { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; }
+.footline a { text-decoration: underline; }
+
+.cta-primary {
+  min-height: 44px;
+  padding: 10px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  background: #24406e;
+  border-color: #4d7dd1;
+  cursor: pointer;
+}
+
+.verify-line { font-size: 16px; line-height: 1.6; margin-top: 8px; }
+.verify-line a { text-decoration: underline; font-size: 16px; }
+.verify-primary { font-weight: 700; }
+
+.stepper {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.stepper li {
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 44px;
+  font-size: 14px;
+  color: #8b94a5;
+  background: #0d1320;
+}
+.stepper li.active { border-color: #4d7dd1; color: #cdd8ea; }
+.stepper li.done { border-color: #2f4a2f; color: #9fd09f; }
+@media (max-width: 860px) {
+  .stepper { grid-template-columns: 1fr 1fr; }
+}
+
+.date-header { font-size: 14px; color: #8db4ff; margin: 16px 0 0; }
+
+/* 44px touch targets + visible tab focus. */
+.panel button, .hero button, .card button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.pool-tabs .tab { min-height: 44px; padding: 10px 14px; }
+.pool-tabs .tab:focus-visible, .cta-primary:focus-visible {
+  outline: 2px solid #8db4ff;
+  outline-offset: 2px;
+}
+
+/* Mobile order: Hero → featured → verdict → pools → signals.
+   (Hero is outside .market; featured ships inside the first .span.) */
+@media (max-width: 860px) {
+  .market { display: flex; flex-direction: column; }
+  .market > div:nth-of-type(1) { order: 1; } /* Agents incl. featured */
+  .market > div:nth-of-type(2) { order: 2; } /* Verdict timeline */
+  .market > section:nth-of-type(1) { order: 3; } /* Pool intel */
+  .market > section:nth-of-type(2) { order: 4; } /* Paid signals */
+}

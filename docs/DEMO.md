@@ -37,6 +37,14 @@ One command runs the whole loop:
 - `riskScoreBps: 200, decision: ACT` with factor breakdown
   (liquidity/activity/alpha), threshold 5000bps.
 
+## 5. Revoke (human run — evidence slot)
+
+- Cmd (forge): `SUBLABEL=sentinel-1 AEGIS_REGISTRY=0x0aed80646680eb333e0d2129f6f0fa54503b5381 forge script script/Revoke.s.sol --rpc-url sepolia --broadcast` (repo: `contracts/`)
+- Cmd (agent): `npx tsx src/cli.ts revoke --label sentinel-1` (repo: `agent/`; needs `OWNER_PRIVATE_KEY` = human owner key)
+- Expected: `isAuthorizedBefore: true` → tx mined → `isAuthorizedAfter: false`
+- Revoke tx: TODO (paste Sepolia tx hash + Etherscan link after human run)
+- Post-revoke CLI check: TODO (paste `revoked: true, authorized: false` output)
+
 ## Known quirks (documented for judges)
 
 - `@x402/hedera` `PrivateKey.fromString` on 0x-hex ECDSA keys yields

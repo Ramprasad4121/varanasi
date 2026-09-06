@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   DEMO_RECEIPTS,
+  LS_RECEIPTS,
   SIGNAL_URL,
   hashscanTx,
+  load,
   type Receipt,
 } from "./aegis";
 
@@ -31,21 +33,68 @@ export default function SignalPanel({
   receipts: Receipt[];
   onReceipts: (r: Receipt[]) => void;
 }) {
-  const [flow, setFlow] = useState<string[]>([
-    "idle — press “Request paid signal” to start the 402 flow.",
-  ]);
+  const [step, setStep] = useState(0); // completed steps of 4
   const [requirements, setRequirements] = useState("");
   const [txId, setTxId] = useState("");
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState("");
+  const loadedRef = useRef(false);
 
-  function push(line: string) {
-    setFlow((prev) => [...prev.slice(-5), line]);
-  }
+  // On load: GET persisted receipts from the service; localStorage stays as
+  // the cache fallback when the service is unreachable. Receipt shape is
+  // unchanged ({ txId, endpoint, amount, at }).
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    let cancelled = false;
+    async function loadPersisted() {
+      try {
+        const res = await fetch(receiptsEndpoint());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as unknown;
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray((data as { receipts?: unknown }).receipts)
+            ? (data as { receipts: unknown[] }).receipts
+            : [];
+        const normalized: Receipt[] = (list as Record<string, unknown>[])
+          .map((r) => ({
+            txId: String(
+              r.txId ?? r.tx_id ?? r.txHash ?? r.id ?? ""
+            ),
+            endpoint: String(r.endpoint ?? signalEndpoint()),
+            amount: String(r.amount ?? "(unknown)"),
+            at: String(
+              r.at ?? r.timestamp ?? new Date().toISOString()
+            ),
+          }))
+          .filter((r) => r.txId.length >= 3);
+        if (cancelled || normalized.length === 0) return;
+        const seen = new Set(normalized.map((r) => r.txId));
+        const cached = load<Receipt[]>(LS_RECEIPTS, []);
+        onReceipts([
+          ...normalized,
+          ...cached.filter((r) => !seen.has(r.txId)),
+        ]);
+        setStep(4);
+        setStatus(
+          `Loaded ${normalized.length} persisted receipt(s) from the service.`
+        );
+      } catch {
+        // Service unreachable — props/localStorage cache stands as fallback.
+      }
+    }
+    loadPersisted();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function requestSignal() {
     const url = signalEndpoint();
-    push(`1 · POST ${url} (no payment)…`);
+    setStep(1);
+    setStatus(`POST ${url} (no payment)…`);
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -55,19 +104,18 @@ export default function SignalPanel({
       if (res.status === 402) {
         const body = await res.text();
         setRequirements(body.slice(0, 1200));
-        push(
-          "2 · HTTP 402 Payment Required — service wants ~$0.01 USDC or 0.01 HBAR (hedera:testnet, Blocky402)."
-        );
-        push(
-          "3 · Browser can't sign Hedera transfers — pay via agent/ payer, then paste the receipt below."
+        setStep(2);
+        setStatus(
+          "HTTP 402 Payment Required — service wants ~$0.01 USDC or 0.01 HBAR (hedera:testnet, Blocky402). " +
+            "Browser can't sign Hedera transfers — pay via agent/payer, then paste the receipt below."
         );
       } else {
-        push(`2 · HTTP ${res.status} — no 402 (service may be open or changed).`);
+        setStatus(`HTTP ${res.status} — no 402 (service may be open or changed).`);
         setRequirements(await res.text().then((t) => t.slice(0, 1200)));
       }
     } catch (err) {
-      push(
-        `2 · Service unreachable at ${url} — is it running on :4021? (${
+      setStatus(
+        `Service unreachable at ${url} — is it running on :4021? (${
           err instanceof Error ? err.message : String(err)
         })`
       );
@@ -76,14 +124,21 @@ export default function SignalPanel({
 
   async function fetchReceipts() {
     const url = receiptsEndpoint();
-    push(`GET ${url}…`);
+    setStatus(`GET ${url}…`);
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      push(`Service receipts: ${(await res.text()).slice(0, 500)}`);
+      const data = (await res.json()) as unknown;
+      const count = Array.isArray(data)
+        ? data.length
+        : Array.isArray((data as { receipts?: unknown }).receipts)
+          ? (data as { receipts: unknown[] }).receipts.length
+          : 0;
+      setStatus(`Service receipts: ${count} persisted (see list below).`);
+      if (count > 0) setStep(4);
     } catch (err) {
-      push(
-        `Receipts endpoint unreachable (in-memory on the service; HashScan links are the durable proof). (${
+      setStatus(
+        `Receipts endpoint unreachable (file-backed on the service; HashScan links are the durable proof). (${
           err instanceof Error ? err.message : String(err)
         })`
       );
@@ -106,8 +161,8 @@ export default function SignalPanel({
       },
       ...receipts,
     ]);
-    push("4 · Receipt recorded — paid flow complete. Links verify on HashScan.");
-    setStatus("Receipt recorded.");
+    setStep(4);
+    setStatus("Receipt recorded — paid flow complete. Links verify on HashScan.");
     setTxId("");
   }
 
@@ -120,11 +175,27 @@ export default function SignalPanel({
         pinned below with HashScan proof.
       </p>
 
-      <ol className="flow">
-        {flow.map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
+      <ol className="stepper" aria-label="x402 payment flow">
+        {["Request", "402", "Pay", "Receipt"].map((label, i) => {
+          const done = step > i;
+          const current = step === i;
+          return (
+            <li
+              key={label}
+              className={done ? "done" : current ? "active" : "todo"}
+              aria-current={current ? "step" : undefined}
+            >
+              {i + 1} · {label}
+              {done ? " ✓" : ""}
+            </li>
+          );
+        })}
       </ol>
+      <p className="muted">
+        Slow network? The 402 round-trip can take up to ~30s — keep this panel
+        open. Receipts persist on the service and in localStorage, so a reload
+        never loses a paid receipt.
+      </p>
       <div className="row">
         <button onClick={requestSignal}>Request paid signal</button>
         <button onClick={fetchReceipts}>List service receipts</button>
@@ -153,7 +224,10 @@ export default function SignalPanel({
         <label>Hedera tx id (your paid receipt)</label>
         <input
           value={txId}
-          onChange={(e) => setTxId(e.target.value)}
+          onChange={(e) => {
+            setTxId(e.target.value);
+            if (e.target.value.trim()) setStep((s) => Math.max(s, 3));
+          }}
           placeholder="0.0.7162784-1788675749-710110370"
         />
         <label>Amount (e.g. $0.01 USDC)</label>

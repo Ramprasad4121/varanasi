@@ -47,8 +47,8 @@ See `docs/ARCHITECTURE.md`. Requires Sepolia RPC, Hedera testnet ECDSA accounts,
 
 ## Submission checklist
 
-- [ ] Sepolia deployment + verified contracts
-- [ ] Live The Graph queries (no mocks) in demo
-- [ ] Live Hedera x402 paid request (HashScan link)
-- [ ] ENSv2 subname mint + revoke/expire demo
-- [ ] 2-4 min demo video + public repo + README
+- [x] Sepolia deployment + verified contracts ([DEMO.md §1](docs/DEMO.md#1-identity-ensv2--sepolia) — AegisRegistry `0x0aed80646680eb333e0d2129f6f0fa54503b5381`, RiskGuard `0xc35861c4dbe63a9c8cfefd32c671998151c217ca`, Sourcify-verified)
+- [x] Live The Graph queries (no mocks) in demo ([DEMO.md §2](docs/DEMO.md#2-intel-the-graph-live-gateway) — official Uniswap V3 subgraph, pool `0x88e6a0c2...`)
+- [x] Live Hedera x402 paid request (HashScan link) ([DEMO.md §3](docs/DEMO.md#3-alpha-hedera-x402-blocky-testnet-facilitator) — [tx 0.0.7162784-1788675749-710110370](https://hashscan.io/testnet/transaction/0.0.7162784-1788675749-710110370))
+- [x] ENSv2 subname mint + revoke/expire demo (mint: [DEMO.md §1](docs/DEMO.md#1-identity-ensv2--sepolia) tx `0xaac0018d...`; revoke: TODO — run [`contracts/script/Revoke.s.sol`](contracts/script/Revoke.s.sol) or `aegis revoke --label`, paste tx in [DEMO.md §5](docs/DEMO.md#5-revoke-human-run--evidence-slot))
+- [ ] 2-4 min demo video + public repo + README (script: [VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md); video link: TODO)

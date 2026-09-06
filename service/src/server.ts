@@ -8,7 +8,7 @@
  * Free routes:
  *   GET  /health     liveness + config snapshot (no secrets)
  *   GET  /402-info   payment requirements preview for agent builders
- *   GET  /v1/receipts recent paid-request receipts (in-memory, last 100)
+ *   GET  /v1/receipts recent paid-request receipts (file-backed, data/receipts.json, last 100)
  *
  * Flow: client POSTs without payment -> 402 + payment requirements ->
  * client signs a Hedera TransferTransaction -> retries with payment ->
@@ -17,6 +17,8 @@
 import { config } from 'dotenv';
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import fs from 'node:fs';
+import path from 'node:path';
 import { paymentMiddleware } from '@x402/express';
 import { createResourceServer, facilitatorUrlFor } from './x402.js';
 import {
@@ -46,11 +48,29 @@ if (!SERVICE_ACCOUNT) {
   process.exit(1);
 }
 
-/** In-memory receipt log — last 100 paid requests (no secrets stored). */
-const receipts: PaymentReceipt[] = [];
+/** File-backed receipt log — last 100 paid requests (data/receipts.json, no secrets stored). */
+const RECEIPTS_FILE = path.join(process.cwd(), 'data', 'receipts.json');
+function loadReceipts(): PaymentReceipt[] {
+  try {
+    fs.mkdirSync(path.dirname(RECEIPTS_FILE), { recursive: true });
+    if (!fs.existsSync(RECEIPTS_FILE)) return [];
+    const raw = fs.readFileSync(RECEIPTS_FILE, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PaymentReceipt[]).slice(0, 100) : [];
+  } catch {
+    return []; // corrupt/unreadable file → start empty
+  }
+}
+const receipts: PaymentReceipt[] = loadReceipts();
 function recordReceipt(receipt: PaymentReceipt): void {
   receipts.unshift(receipt);
   if (receipts.length > 100) receipts.length = 100;
+  try {
+    fs.mkdirSync(path.dirname(RECEIPTS_FILE), { recursive: true });
+    fs.writeFileSync(RECEIPTS_FILE, JSON.stringify(receipts, null, 2));
+  } catch {
+    // best-effort persist — a failed write never fails the paid request
+  }
 }
 
 /**

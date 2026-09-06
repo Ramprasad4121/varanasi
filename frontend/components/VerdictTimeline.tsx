@@ -16,6 +16,7 @@ export default function VerdictTimeline({
   onVerdicts: (v: Verdict[]) => void;
 }) {
   const [status, setStatus] = useState("");
+  const [filter, setFilter] = useState<"ALL" | "ACT" | "SKIP">("ALL");
 
   function logFromIntel() {
     if (!intel) {
@@ -38,6 +39,21 @@ export default function VerdictTimeline({
     setStatus(`Logged ${decision} verdict from current intel.`);
   }
 
+  const shown = verdicts.filter(
+    (v) => filter === "ALL" || v.decision === filter
+  );
+  const groups = new Map<string, Verdict[]>();
+  for (const v of shown) {
+    const day = new Date(v.at).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    const list = groups.get(day);
+    if (list) list.push(v);
+    else groups.set(day, [v]);
+  }
+
   return (
     <section className="panel">
       <h2>Verdict timeline</h2>
@@ -56,11 +72,32 @@ export default function VerdictTimeline({
           Clear
         </button>
       </div>
-      {verdicts.length === 0 && (
-        <div className="status">No verdicts yet.</div>
+      <div className="pool-tabs" role="tablist" aria-label="Filter verdicts">
+        {(["ALL", "ACT", "SKIP"] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="tab"
+            aria-selected={filter === f}
+            className={filter === f ? "tab active" : "tab"}
+            onClick={() => setFilter(f)}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+      {shown.length === 0 && (
+        <div className="status">
+          {verdicts.length === 0
+            ? "No verdicts yet."
+            : `No ${filter} verdicts yet.`}
+        </div>
       )}
-      <ol className="timeline">
-        {verdicts.map((v) => (
+      {[...groups].map(([day, vs]) => (
+        <div key={day}>
+          <h3 className="date-header">{day}</h3>
+          <ol className="timeline">
+            {vs.map((v) => (
           <li key={v.id} className="card">
             <div>
               <span
@@ -80,8 +117,10 @@ export default function VerdictTimeline({
             </div>
             <div>{v.rationale}</div>
           </li>
-        ))}
-      </ol>
+            ))}
+          </ol>
+        </div>
+      ))}
       <div className="status">{status}</div>
     </section>
   );
