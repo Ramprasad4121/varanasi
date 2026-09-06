@@ -11,3 +11,6 @@ contracts/broadcast/
 .DS_Store
 contracts/broadcast/
 contracts/cache/
+contracts/lib/*/broadcast/
+contracts/lib/*/cache/
+contracts/lib/*/out/
