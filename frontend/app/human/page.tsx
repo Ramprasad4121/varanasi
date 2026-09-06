@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
-// /human — World Selfie Check route for AEGIS.
+// /human — World Selfie Check route for varanasi.
 // Verifies the human behind the wallet, then shows their abuse-prevention
 // tier + limits. Mirrors the policy in `agent/src/human.ts` (duplicated
 // deliberately: browser code can't import the agent package).
@@ -178,7 +178,7 @@ export default function HumanPage() {
               Reset
             </button>
             <a href="/" style={{ alignSelf: "center" }}>
-              ← Back to the AEGIS dashboard
+              ← Back to the varanasi dashboard
             </a>
           </div>
         </div>
@@ -218,7 +218,7 @@ function SetupNotice() {
         </li>
       </ol>
       <p className="envline">
-        <a href="/">← Back to the AEGIS dashboard</a>
+        <a href="/">← Back to the varanasi dashboard</a>
       </p>
     </section>
   );

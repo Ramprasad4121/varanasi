@@ -1,5 +1,5 @@
 /**
- * risk.ts — pure, dependency-free risk scorer for the AEGIS CRE workflow.
+ * risk.ts — pure, dependency-free risk scorer for the varanasi CRE workflow.
  *
  * This mirrors `agent/src/reason.ts` (same tiers, same bps math) so the
  * offchain agent heuristic and the enclave computation agree by construction.

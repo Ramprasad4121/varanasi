@@ -1,7 +1,7 @@
 /**
- * human.ts — World Selfie Check integration for AEGIS.
+ * human.ts — World Selfie Check integration for varanasi.
  *
- * Why this exists: AEGIS is a human-authorized agent economy. The abuse
+ * Why this exists: varanasi is a human-authorized agent economy. The abuse
  * vector is one human minting unlimited agents / granting huge allowances.
  * World Selfie Check (Beta) is the low-friction abuse-prevention signal —
  * a device-camera liveness + facial-similarity credential, no Orb needed:

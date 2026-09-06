@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-/// @title IENSv2 — minimal ENSv2 (Sepolia beta) integration surface for AEGIS
+/// @title IENSv2 — minimal ENSv2 (Sepolia beta) integration surface for varanasi
 /// @notice Real ENSv2 Sepolia integration point. Full ABIs + deployment addresses:
 ///         https://docs.ens.domains/learn/deployments#sepolia-ensv2-beta
 ///         Source: https://github.com/ensdomains/contracts-v2 (contracts/src/registry/PermissionedRegistry.sol,

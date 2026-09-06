@@ -29,7 +29,7 @@ import {
 } from "../components/aegis";
 
 // ---------------------------------------------------------------------------
-// AEGIS agent marketplace — composes Hero + Agents + Pool intel +
+// varanasi agent marketplace — composes Hero + Agents + Pool intel +
 // Paid signals + Verdict timeline. Every panel degrades gracefully when
 // contracts/RPC/service are unreachable (never crashes; shows addresses +
 // connect hints). State persists in localStorage.

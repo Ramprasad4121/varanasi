@@ -105,7 +105,7 @@ async function createTopicOnce(): Promise<string | null> {
     }
     try {
       const txResponse = await new TopicCreateTransaction()
-        .setTopicMemo('AEGIS x402 payment audit trail')
+        .setTopicMemo('varanasi x402 payment audit trail')
         .setAdminKey(op.key.publicKey)
         .setSubmitKey(op.key.publicKey)
         .execute(op.client);

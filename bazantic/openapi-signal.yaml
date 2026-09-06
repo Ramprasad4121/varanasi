@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: AEGIS Alpha-Signal Service (x402-gated)
+  title: varanasi Alpha-Signal Service (x402-gated)
   version: 0.1.0
   description: |
-    AEGIS premium alpha-signal API, gated by x402 micropayments on Hedera
+    varanasi premium alpha-signal API, gated by x402 micropayments on Hedera
     (`exact` scheme, `hedera:testnet` by default). Import this spec into a
     Bazantic x402/MPP Gateway so the paid routes become callable recipe steps.
 
@@ -18,14 +18,14 @@ info:
     0.01 HBAR (1000000 tinybars). POST /v1/score = $0.001 USDC or
     0.001 HBAR (100000 tinybars). Free: GET /health, /402-info, /v1/receipts.
   contact:
-    name: AEGIS (ETHOnline 2026)
+    name: varanasi (ETHOnline 2026)
   license:
     name: Demo — not financial advice
 servers:
   # REPLACE with the deployed service URL before importing into Bazantic,
-  # e.g. https://aegis-signal-xxxx.ngrok.io or the hackathon deploy URL.
+  # e.g. https://varanasi-signal-xxxx.ngrok.io or the hackathon deploy URL.
   - url: https://REPLACE-WITH-DEPLOYED-SERVICE-URL
-    description: AEGIS signal service (set to your live deployment)
+    description: varanasi signal service (set to your live deployment)
 tags:
   - name: paid
     description: x402-gated routes (402 without payment, 200 with payment)

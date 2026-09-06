@@ -574,7 +574,7 @@ export default function Treasury() {
         {status || "Sign in, authorize an agent, then fund it — all from the embedded wallet."}
       </div>
       <p className="envline" style={{ marginTop: 8 }}>
-        <a href="/">← Back to the AEGIS dashboard</a>
+        <a href="/">← Back to the varanasi dashboard</a>
       </p>
     </>
   );

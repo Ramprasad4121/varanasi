@@ -1,6 +1,6 @@
-# AEGIS Privy Treasury — `/privy`
+# varanasi Privy Treasury — `/privy`
 
-Privy-powered financial flow for AEGIS: email/social login → embedded self-custodial wallet on
+Privy-powered financial flow for varanasi: email/social login → embedded self-custodial wallet on
 Sepolia → human mints agent subnames with spend allowances → treasury ops (fund, approve task,
 revoke). One signature per action; onchain complexity hidden behind treasury buttons.
 

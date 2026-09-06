@@ -1,8 +1,8 @@
 {
-  "name": "@aegis/cre-confidential-workflow",
+  "name": "@varanasi/cre-confidential-workflow",
   "version": "0.1.0",
   "private": true,
-  "description": "AEGIS Chainlink CRE Confidential Workflow — private risk thresholds + operator strategy evaluated inside a TEE; only the ACT/SKIP verdict leaves the enclave.",
+  "description": "varanasi Chainlink CRE Confidential Workflow — private risk thresholds + operator strategy evaluated inside a TEE; only the ACT/SKIP verdict leaves the enclave.",
   "main": "dist/main.js",
   "scripts": {
     "typecheck": "tsc --noEmit",

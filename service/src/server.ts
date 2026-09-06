@@ -1,5 +1,5 @@
 /**
- * AEGIS alpha-signal service — live x402-gated API on Hedera testnet.
+ * varanasi alpha-signal service — live x402-gated API on Hedera testnet.
  *
  * Paid routes (x402 `exact` scheme, verified via facilitator):
  *   POST /v1/signal  premium alpha: {signal, confidence, features, txHint}
@@ -90,12 +90,12 @@ app.use(
     {
       'POST /v1/signal': {
         accepts: acceptsFor('/v1/signal', NETWORK, SERVICE_ACCOUNT),
-        description: 'AEGIS premium alpha signal (demo model)',
+        description: 'varanasi premium alpha signal (demo model)',
         mimeType: 'application/json',
       },
       'POST /v1/score': {
         accepts: acceptsFor('/v1/score', NETWORK, SERVICE_ACCOUNT),
-        description: 'AEGIS risk features (demo model)',
+        description: 'varanasi risk features (demo model)',
         mimeType: 'application/json',
       },
     },
@@ -198,7 +198,7 @@ app.get('/v1/receipts', (_req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 AEGIS signal service on http://localhost:${PORT}`);
+  console.log(`\n🚀 varanasi signal service on http://localhost:${PORT}`);
   console.log(`   Network:     ${NETWORK}`);
   console.log(`   Facilitator: ${FACILITATOR_URL}`);
   console.log(`   Receiver:    ${SERVICE_ACCOUNT}`);

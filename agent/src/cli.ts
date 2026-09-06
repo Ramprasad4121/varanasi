@@ -31,7 +31,7 @@ const RISKGUARD_ABI = [
 ] as const;
 
 const program = new Command();
-program.name("aegis").description("AEGIS agent — Graph intel + x402 alpha + ENS identity").version("0.1.0");
+program.name("aegis").description("varanasi agent — Graph intel + x402 alpha + ENS identity").version("0.1.0");
 
 program
   .command("analyze")

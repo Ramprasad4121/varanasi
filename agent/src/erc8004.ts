@@ -2,7 +2,7 @@
  * erc8004.ts — viem-based ERC-8004 onchain agent-identity helpers (Sepolia).
  *
  * ERC-8004 ("Trustless Agents", https://eips.ethereum.org/EIPS/eip-8004) gives
- * every AEGIS agent a portable onchain identity: an ERC-721 token in the
+ * every varanasi agent a portable onchain identity: an ERC-721 token in the
  * IdentityRegistry whose tokenURI points at a registration JSON file
  * (name, description, services[], x402Support, active), plus a shared
  * ReputationRegistry where clients post/query feedback (giveFeedback /
@@ -43,12 +43,12 @@ export const ERC8004_REPUTATION_REGISTRY = "0x8004BAa17C55a88189AE136b182e5fdA19
 /** Registration JSON `type` discriminator (EIP-8004, registration v1). */
 export const ERC8004_REGISTRATION_TYPE = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1" as const;
 
-/** AEGIS agent covered by the default registration builder. */
+/** varanasi agent covered by the default registration builder. */
 export const SENTINEL1_SUBLABEL = "sentinel-1" as const;
 export const SENTINEL1_ENS_NAME = "sentinel-1.aegis.eth" as const;
 export const SENTINEL1_MCP_ENDPOINT = "https://aegis.local/mcp" as const;
 
-/** Canonical IdentityRegistry subset used by AEGIS (EIP-8004 `register(string)` overload). */
+/** Canonical IdentityRegistry subset used by varanasi (EIP-8004 `register(string)` overload). */
 const IDENTITY_ABI = [
   {
     type: "function",
@@ -86,7 +86,7 @@ const REGISTERED_EVENT_ABI = [
   },
 ] as const;
 
-/** Canonical ReputationRegistry subset used by AEGIS (EIP-8004 fixed-point feedback). */
+/** Canonical ReputationRegistry subset used by varanasi (EIP-8004 fixed-point feedback). */
 const REPUTATION_ABI = [
   {
     type: "function",
@@ -310,10 +310,10 @@ export interface Sentinel1Overrides {
 export function buildSentinel1Registration(overrides: Sentinel1Overrides = {}): AgentRegistration {
   return {
     type: ERC8004_REGISTRATION_TYPE,
-    name: overrides.name ?? "AEGIS sentinel-1",
+    name: overrides.name ?? "varanasi sentinel-1",
     description:
       overrides.description ??
-      "AEGIS sentinel agent: ENSv2-gated market intel (The Graph) with x402-paid alpha signals. Sepolia + Hedera testnet.",
+      "varanasi sentinel agent: ENSv2-gated market intel (The Graph) with x402-paid alpha signals. Sepolia + Hedera testnet.",
     ...(overrides.image !== undefined ? { image: overrides.image } : {}),
     services: overrides.services ?? [{ name: "MCP", endpoint: SENTINEL1_MCP_ENDPOINT }],
     x402Support: overrides.x402Support ?? true,

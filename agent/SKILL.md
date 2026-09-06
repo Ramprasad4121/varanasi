@@ -1,4 +1,4 @@
-# AEGIS Agent — SKILL.md (The Graph AI tooling reuse contract)
+# varanasi Agent — SKILL.md (The Graph AI tooling reuse contract)
 
 Any Claude / Cursor / headless agent can drive live The Graph intel with this
 tooling. No repo checkout required beyond `agent/`.

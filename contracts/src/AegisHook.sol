@@ -13,7 +13,7 @@ import {ModifyLiquidityParams, SwapParams} from "v4-core/types/PoolOperation.sol
 import {AegisRegistry} from "./AegisRegistry.sol";
 import {RiskGuard} from "./RiskGuard.sol";
 
-/// @title AegisHook — Uniswap v4 `beforeSwap` risk gate for AEGIS agents
+/// @title AegisHook — Uniswap v4 `beforeSwap` risk gate for varanasi agents
 /// @notice A From-Scratch Uniswap v4 hook (ETHOnline 2026, Uniswap $3k track).
 ///         Any pool initialized with this hook only lets authorized low-risk
 ///         agents swap: `beforeSwap` reverts unless the swap's agent (tx.origin)
@@ -30,7 +30,7 @@ import {RiskGuard} from "./RiskGuard.sol";
 ///      CREATE2 with a mined salt — see contracts/script/DeployHook.s.sol
 ///      and contracts/UNISWAP.md ("hook-mining step").
 /// @dev Demo trust model (explicit): risk scores are written by owner/operators
-///      via `setAgentRisk` (stand-in for the offchain AEGIS reasoning engine +
+///      via `setAgentRisk` (stand-in for the offchain varanasi reasoning engine +
 ///      premium-signal pipeline). The swap's agent is attributed to `tx.origin`
 ///      — correct when the agent EOA drives the swap tx through a router, but
 ///      a production build should use signed attestations / ERC-8004 identity
@@ -151,7 +151,7 @@ contract AegisHook is IHooks {
 
     // ── Core gate ─────────────────────────────────────────────────────
 
-    /// @notice Gate every swap through AEGIS identity + attested risk.
+    /// @notice Gate every swap through varanasi identity + attested risk.
     /// @dev Attribute the swap to `tx.origin` (the agent EOA driving the tx).
     ///      Reverts `RiskGuard.UnauthorizedAgent` (no live `*.aegis.eth`
     ///      identity), `StaleAttestation` (no fresh score), or

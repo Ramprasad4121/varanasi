@@ -1,4 +1,4 @@
-# AEGIS Signal Service — live x402-gated alpha API (Hedera)
+# varanasi Signal Service — live x402-gated alpha API (Hedera)
 
 Express + TypeScript resource server. Two paid routes on **Hedera testnet**,
 verified/settled via an x402 facilitator. Adapted from the reference PoC

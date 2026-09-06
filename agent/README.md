@@ -1,6 +1,6 @@
-# @aegis/agent
+# @varanasi/agent
 
-TS agent layer for AEGIS (ETHOnline 2026). Owns `agent/` only — never touches
+TS agent layer for varanasi (ETHOnline 2026). Owns `agent/` only — never touches
 `contracts/`, `service/`, `frontend/`.
 
 Pipeline: **ENS resolve → Graph intel → pay x402 → reason → RiskGuard check → JSON.**

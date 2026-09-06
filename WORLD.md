@@ -1,6 +1,6 @@
-# WORLD.md — World Selfie Check × AEGIS
+# WORLD.md — World Selfie Check × varanasi
 
-AEGIS = human-authorized agents. Abuse vector: **one human minting unlimited
+varanasi = human-authorized agents. Abuse vector: **one human minting unlimited
 agents / granting high allowances**. World Selfie Check (Beta) is the
 abuse-prevention signal: a low-friction selfie credential (device-camera
 liveness + facial similarity, **no Orb needed**, Sandbox-testable).

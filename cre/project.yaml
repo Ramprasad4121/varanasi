@@ -1,7 +1,7 @@
 # ==========================================================================
-# CRE PROJECT SETTINGS FILE — AEGIS
+# CRE PROJECT SETTINGS FILE — varanasi
 # ==========================================================================
-# This workflow posts its verdict to the Aegis agent API and emits a signed
+# This workflow posts its verdict to the varanasi agent API and emits a signed
 # DON report for RiskGuard (Sepolia). The Sepolia RPC below is here so Step 4
 # can grow into a full on-chain `writeReport` without extra setup — see the
 # Keeper Bot / Event Reactor templates for the write path.

@@ -1,5 +1,5 @@
 /**
- * GraphClient — live The Graph Gateway access for AEGIS.
+ * GraphClient — live The Graph Gateway access for varanasi.
  *
  * Load-bearing by design: every `analyze` run queries a live Subgraph over
  * the network in the default path. There are NO mocks in the default path;

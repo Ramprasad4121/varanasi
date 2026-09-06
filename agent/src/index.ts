@@ -1,4 +1,4 @@
-/** AEGIS agent public surface. */
+/** varanasi agent public surface. */
 export {
   GraphClient,
   KNOWN_SUBGRAPHS,

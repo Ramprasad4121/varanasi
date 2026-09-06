@@ -1,6 +1,6 @@
 # AegisHook — Uniswap v4 Risk Hook (ETHOnline 2026, Uniswap From-Scratch)
 
-A `beforeSwap`-only Uniswap v4 hook: **only authorized low-risk AEGIS agents can swap**
+A `beforeSwap`-only Uniswap v4 hook: **only authorized low-risk varanasi agents can swap**
 in any pool initialized with it. Unauthorized or over-threshold swaps revert;
 authorized low-risk swaps pass through untouched (no fee take, no fee override).
 
@@ -23,7 +23,7 @@ authorized low-risk swaps pass through untouched (no fee take, no fee override).
 
 Risk scores are written by owner/operators via
 `setAgentRisk(agent, scoreBps, deadline)` — the demo stand-in for the offchain
-AEGIS reasoning engine. Per-pool caps via `setPoolCap(key, maxBps)`
+varanasi reasoning engine. Per-pool caps via `setPoolCap(key, maxBps)`
 (owner only). Success returns
 `(beforeSwap.selector, ZERO_DELTA, 0)`.
 

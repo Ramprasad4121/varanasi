@@ -1,9 +1,9 @@
-# Architecture — AEGIS
+# Architecture — varanasi
 
 ## Why this wins
 
 Judges in 2026 reward one thing: load-bearing sponsor tech in a coherent story.
-AEGIS tells it in one sentence: **agents can't transact without identity (ENSv2), data (The Graph), and money (Hedera x402).**
+varanasi tells it in one sentence: **agents can't transact without identity (ENSv2), data (The Graph), and money (Hedera x402).**
 
 Each sponsor is load-bearing, not cosmetic:
 - Remove ENSv2 → agents have no revocable identity / permissions.

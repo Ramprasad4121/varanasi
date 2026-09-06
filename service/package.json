@@ -1,7 +1,7 @@
 {
-  "name": "@aegis/signal-service",
+  "name": "@varanasi/signal-service",
   "version": "0.1.0",
-  "description": "AEGIS x402-gated alpha-signal API on Hedera testnet (Blocky402 / x402.org facilitator)",
+  "description": "varanasi x402-gated alpha-signal API on Hedera testnet (Blocky402 / x402.org facilitator)",
   "type": "module",
   "license": "MIT",
   "scripts": {

@@ -1,5 +1,5 @@
 # ==========================================================================
-# CRE WORKFLOW SETTINGS FILE — AEGIS confidential risk workflow
+# CRE WORKFLOW SETTINGS FILE — varanasi confidential risk workflow
 # ==========================================================================
 # cre/ doubles as the CRE project root AND the workflow directory, so
 # secrets-path points at ./secrets.yaml (not ../secrets.yaml as in the

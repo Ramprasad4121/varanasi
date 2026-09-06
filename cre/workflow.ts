@@ -14,7 +14,7 @@ import { scorePoolRisk, type ConfidentialParams, type PoolPublicInputs, type Ris
 // Non-sensitive wiring only. Every value that must stay private lives in the
 // Vault DON and is referenced here by secret ID (see ../secrets.yaml).
 export const configSchema = z.object({
-  // Aegis agent API base URL — verdicts are POSTed to `<aegisApiUrl>/v1/verdict`.
+  // varanasi agent API base URL — verdicts are POSTed to `<aegisApiUrl>/v1/verdict`.
   // NOTE: plain z.string(), NOT z.string().url(). The CRE WASM sandbox does not
   // provide the WHATWG URL global, so zod's .url() check unconditionally fails
   // at `cre workflow simulate` time ("Invalid url" for ANY value, including
@@ -115,10 +115,10 @@ export const onHttpTrigger = (runtime: TeeRuntime<Config>, payload: HTTPPayload)
   const apiKey = runtime.getSecret({ id: config.apiKeySecretId }).result().value
   const confidential = parseConfidential({ thresholdRaw, weightsRaw, allowlistRaw })
 
-  // ── Enclave decision: AEGIS heuristic over public intel + private params.
+  // ── Enclave decision: varanasi heuristic over public intel + private params.
   const verdict = scorePoolRisk(publicInputs, confidential)
 
-  // ── Step 3: Post the verdict to the Aegis agent API from the enclave ──
+  // ── Step 3: Post the verdict to the varanasi agent API from the enclave ──
   // `HTTPClient.sendRequest()` has a `TeeRuntime` overload, so passing the TEE
   // runtime executes the request from inside the enclave — the API key in the
   // Authorization header stays confidential from node operators.

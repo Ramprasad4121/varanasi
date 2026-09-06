@@ -48,7 +48,7 @@ function SetupNotice() {
         </li>
       </ol>
       <p className="envline">
-        <a href="/">← Back to the AEGIS dashboard</a>
+        <a href="/">← Back to the varanasi dashboard</a>
       </p>
     </section>
   );

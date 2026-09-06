@@ -1,4 +1,4 @@
-# Security review — AEGIS contracts (ethskills-driven, 2026-09-06)
+# Security review — varanasi contracts (ethskills-driven, 2026-09-06)
 
 Method: read `ethskills` router + `ship` + `security` + `standards` +
 `building-blocks` + `addresses` BEFORE further Solidity/onchain work.

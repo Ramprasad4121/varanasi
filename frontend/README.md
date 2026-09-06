@@ -1,4 +1,4 @@
-# AEGIS Frontend — Agent Marketplace
+# varanasi Frontend — Agent Marketplace
 
 Next.js 14 App Router + TypeScript + plain CSS. Owns `frontend/` only — never touches
 `contracts/`, `agent/`, `service/`.

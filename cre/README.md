@@ -1,14 +1,14 @@
-# AEGIS — Chainlink CRE Confidential Workflow
+# varanasi — Chainlink CRE Confidential Workflow
 
 From-scratch entry for **ETHOnline Chainlink $2k Best Confidential Workflow**.
 Built on the official [`hello-confidential-workflows-ts`](https://github.com/smartcontractkit/cre-templates)
 starter template shape (`handlerInTee` + `TeeRuntime` + `usingTheDons()`), with the
-template's demo scoring replaced by the real AEGIS risk heuristic.
+template's demo scoring replaced by the real varanasi risk heuristic.
 
 **One-liner:** pool intel goes in in the clear, the operator's private risk
 threshold / strategy weights / allowlist are applied **inside the TEE**, and only
 the verdict `{poolId, riskScoreBps, decision}` leaves for DON consensus,
-the Aegis agent API, and RiskGuard settlement on Sepolia.
+the varanasi agent API, and RiskGuard settlement on Sepolia.
 
 > **⚠️ Private beta.** [Confidential Workflows](https://docs.chain.link/cre/concepts/confidential-workflows)
 > require enrollment via your Chainlink account team to **deploy**

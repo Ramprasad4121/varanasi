@@ -1,5 +1,5 @@
 /**
- * Price table + asset switch for the AEGIS x402-gated signal API.
+ * Price table + asset switch for the varanasi x402-gated signal API.
  *
  * Two paid routes, each payable in EITHER USDC (HTS fungible token, priced
  * as a USD `Money` string the facilitator resolves) OR native HBAR (priced

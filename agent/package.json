@@ -1,8 +1,8 @@
 {
-  "name": "@aegis/agent",
+  "name": "@varanasi/agent",
   "version": "0.1.0",
   "private": true,
-  "description": "AEGIS agent layer — ENSv2 identity, live The Graph intel, Hedera x402 alpha, heuristic reasoning. ETHOnline 2026.",
+  "description": "varanasi agent layer — ENSv2 identity, live The Graph intel, Hedera x402 alpha, heuristic reasoning. ETHOnline 2026.",
   "type": "module",
   "bin": {
     "aegis": "./dist/cli.js"

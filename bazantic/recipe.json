@@ -1,8 +1,8 @@
 {
   "recipe": "Risk-gated swap check",
   "version": "0.1.0",
-  "by": "AEGIS (ETHOnline 2026) — attribution: <YOUR_BAZANTIC_USERNAME>",
-  "description": "Decide ACT vs SKIP on a USDC/WETH swap by chaining live Uniswap pool intel (The Graph, sponsor API) with a paid AEGIS alpha signal (x402) and a RiskGuard authorization read. The final decision depends on BOTH services: no healthy pool data, no trade; no affordable high-confidence signal, no trade; no RiskGuard authorization, no trade.",
+  "by": "varanasi (ETHOnline 2026) — attribution: <YOUR_BAZANTIC_USERNAME>",
+  "description": "Decide ACT vs SKIP on a USDC/WETH swap by chaining live Uniswap pool intel (The Graph, sponsor API) with a paid varanasi alpha signal (x402) and a RiskGuard authorization read. The final decision depends on BOTH services: no healthy pool data, no trade; no affordable high-confidence signal, no trade; no RiskGuard authorization, no trade.",
   "tracks": ["Best Recipe ($1k)", "Agentify ($1k)"],
   "services": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "id": "aegis-signal",
-      "name": "AEGIS x402 signal service (our API via Bazantic x402 gateway)",
+      "name": "varanasi x402 signal service (our API via Bazantic x402 gateway)",
       "access": "Bazantic x402/MPP Gateway importing bazantic/openapi-signal.yaml; payer needs Hedera testnet funds (~0.01 HBAR or $0.01 USDC per signal call)",
       "openapi": "bazantic/openapi-signal.yaml",
       "paidRoutes": ["POST /v1/signal ($0.01)", "POST /v1/score ($0.001)"],
@@ -63,7 +63,7 @@
       "service": "aegis-signal",
       "title": "Buy the x402 alpha signal",
       "when": "When step 1 returned sane pool intel (real TVL, expected symbols) and the user authorized micro-spend.",
-      "why": "Pool intel says WHERE liquidity is; the AEGIS signal says WHEN direction has edge (LONG/SHORT/NEUTRAL + calibrated confidence + feature breakdown). The recipe's value is the combination — neither service alone answers 'should I swap now?'.",
+      "why": "Pool intel says WHERE liquidity is; the varanasi signal says WHEN direction has edge (LONG/SHORT/NEUTRAL + calibrated confidence + feature breakdown). The recipe's value is the combination — neither service alone answers 'should I swap now?'.",
       "inputs": {
         "symbol": "ETH/USDC (matches the pool from step 1)",
         "payment": "$0.01 USDC (HTS) or 0.01 HBAR via the Bazantic x402 gateway — first call returns 402, gateway signs/retries"
@@ -103,6 +103,6 @@
       "step2 signal directional (LONG/SHORT) with confidence >= 0.55",
       "step3 RiskGuard authorize() passes (identity valid, risk under threshold)"
     ],
-    "dependsOnBoth": "Removing The Graph leaves no liquidity facts (signal alone could green-light a dead pool). Removing AEGIS leaves no timing edge (pool data alone says nothing about direction). The final ACT is the AND of both, gated by RiskGuard."
+    "dependsOnBoth": "Removing The Graph leaves no liquidity facts (signal alone could green-light a dead pool). Removing varanasi leaves no timing edge (pool data alone says nothing about direction). The final ACT is the AND of both, gated by RiskGuard."
   }
 }
