@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: AEGIS Alpha-Signal Service (x402-gated)
+  version: 0.1.0
+  description: |
+    AEGIS premium alpha-signal API, gated by x402 micropayments on Hedera
+    (`exact` scheme, `hedera:testnet` by default). Import this spec into a
+    Bazantic x402/MPP Gateway so the paid routes become callable recipe steps.
+
+    Payment flow (handled by the Bazantic gateway or an x402 client):
+    1. POST a paid route with no payment -> HTTP 402 + payment requirements.
+    2. Sign a Hedera TransferTransaction with an ECDSA key.
+    3. Retry with the payment payload (PAYMENT-SIGNATURE header).
+    4. Facilitator verifies, settles async; handler returns the payload plus
+       a `receipt` (HashScan links) proving settlement.
+
+    Pricing: POST /v1/signal = $0.01 USDC (HTS 0.0.429274 on testnet) or
+    0.01 HBAR (1000000 tinybars). POST /v1/score = $0.001 USDC or
+    0.001 HBAR (100000 tinybars). Free: GET /health, /402-info, /v1/receipts.
+  contact:
+    name: AEGIS (ETHOnline 2026)
+  license:
+    name: Demo — not financial advice
+servers:
+  # REPLACE with the deployed service URL before importing into Bazantic,
+  # e.g. https://aegis-signal-xxxx.ngrok.io or the hackathon deploy URL.
+  - url: https://REPLACE-WITH-DEPLOYED-SERVICE-URL
+    description: AEGIS signal service (set to your live deployment)
+tags:
+  - name: paid
+    description: x402-gated routes (402 without payment, 200 with payment)
+  - name: free
+    description: No-payment informational routes
+paths:
+  /v1/signal:
+    post:
+      tags: [paid]
+      summary: Premium alpha signal (x402-gated)
+      description: |
+        Returns {signal, confidence, features, txHint} plus a payment `receipt`.
+        First call without payment returns HTTP 402 with payment requirements
+        (see GET /402-info for a preview).
+      operationId: getAlphaSignal
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalRequest'
+      parameters:
+        - $ref: '#/components/parameters/PaymentSignature'
+      responses:
+        '200':
+          description: Paid signal + settlement receipt
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AlphaSignal'
+                  - type: object
+                    required: [receipt]
+                    properties:
+                      receipt:
+                        $ref: '#/components/schemas/PaymentReceipt'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+  /v1/score:
+    post:
+      tags: [paid]
+      summary: Risk features (x402-gated, cheaper)
+      description: |
+        Returns {riskScore, riskBand, factors} plus a payment `receipt`.
+        Intended as the pre-check before acting on a /v1/signal hint.
+      operationId: getRiskScore
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreRequest'
+      parameters:
+        - $ref: '#/components/parameters/PaymentSignature'
+      responses:
+        '200':
+          description: Risk score + settlement receipt
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RiskScore'
+                  - type: object
+                    required: [receipt]
+                    properties:
+                      receipt:
+                        $ref: '#/components/schemas/PaymentReceipt'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+  /health:
+    get:
+      tags: [free]
+      summary: Liveness + config snapshot (no secrets)
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /402-info:
+    get:
+      tags: [free]
+      summary: Payment requirements preview for agent builders
+      description: |
+        Returns facilitator URLs, per-route accepts (scheme, network, payTo,
+        USDC/HBAR prices), and a howToPay string. Same shape as a live 402 body.
+      operationId: get402Info
+      responses:
+        '200':
+          description: Payment requirements
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoResponse'
+  /v1/receipts:
+    get:
+      tags: [free]
+      summary: Recent paid-request receipts (in-memory, last 100)
+      operationId: listReceipts
+      responses:
+        '200':
+          description: Receipt log
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count, receipts]
+                properties:
+                  count:
+                    type: integer
+                  receipts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentReceipt'
+components:
+  parameters:
+    PaymentSignature:
+      name: PAYMENT-SIGNATURE
+      in: header
+      required: false
+      description: |
+        Base64 x402 payment payload for the Hedera `exact` scheme.
+        Omit on the first call to receive the HTTP 402 requirements.
+      schema:
+        type: string
+  responses:
+    PaymentRequired:
+      description: |
+        HTTP 402 — payment required. Body carries the x402 accepts
+        (scheme `exact`, network, payTo, price) the client must satisfy.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InfoResponse'
+  schemas:
+    SignalRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+          default: ETH/USDC
+          example: ETH/USDC
+          description: Trading pair symbol (uppercased server-side).
+    ScoreRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+          default: ETH/USDC
+          example: ETH/USDC
+    SignalFeatures:
+      type: object
+      required: [rsiProxy, momentumProxy, volatilityProxy, volumeProxy, emaSpreadBps]
+      properties:
+        rsiProxy:
+          type: number
+          minimum: 0
+          maximum: 100
+        momentumProxy:
+          type: number
+          minimum: -1
+          maximum: 1
+        volatilityProxy:
+          type: number
+          minimum: 0
+          maximum: 1
+        volumeProxy:
+          type: number
+          minimum: 0
+          maximum: 1
+        emaSpreadBps:
+          type: number
+    AlphaSignal:
+      type: object
+      required: [symbol, signal, confidence, features, txHint, generatedAt, model, disclaimer]
+      properties:
+        symbol:
+          type: string
+          example: ETH/USDC
+        signal:
+          type: string
+          enum: [LONG, SHORT, NEUTRAL]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        features:
+          $ref: '#/components/schemas/SignalFeatures'
+        txHint:
+          type: string
+          description: Hypothetical execution hint — NOT a trade instruction.
+        generatedAt:
+          type: string
+          format: date-time
+        model:
+          type: string
+          example: aegis-demo-v0
+        disclaimer:
+          type: string
+    RiskFactor:
+      type: object
+      required: [name, weight, value]
+      properties:
+        name:
+          type: string
+          example: volatility
+        weight:
+          type: number
+        value:
+          type: number
+    RiskScore:
+      type: object
+      required: [symbol, riskScore, riskBand, factors, generatedAt, model, disclaimer]
+      properties:
+        symbol:
+          type: string
+          example: ETH/USDC
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 0 (safe) .. 100 (extreme risk).
+        riskBand:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, EXTREME]
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskFactor'
+        generatedAt:
+          type: string
+          format: date-time
+        model:
+          type: string
+          example: aegis-demo-v0
+        disclaimer:
+          type: string
+    PaymentReceipt:
+      type: object
+      required: [route, network, payTo, facilitator, txId, hashscanTxUrl, hashscanAccountUrl, servedAt]
+      properties:
+        route:
+          type: string
+          example: /v1/signal
+        network:
+          type: string
+          enum: ['hedera:testnet', 'hedera:mainnet']
+        payTo:
+          type: string
+          description: Receiver Hedera account ID (no keys ever exposed).
+        facilitator:
+          type: string
+          format: uri
+        txId:
+          type: string
+          nullable: true
+          description: Hedera txId from settle response, when available.
+        hashscanTxUrl:
+          type: string
+          nullable: true
+          format: uri
+        hashscanAccountUrl:
+          type: string
+          format: uri
+        servedAt:
+          type: string
+          format: date-time
+    HealthResponse:
+      type: object
+      required: [status, service, network, facilitator, receiver, paidRoutes, receiptsServed, port]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: aegis-signal
+        network:
+          type: string
+        facilitator:
+          type: string
+          format: uri
+        receiver:
+          type: string
+          description: Service Hedera account ID (public receiver, not a secret).
+        paidRoutes:
+          type: array
+          items:
+            type: string
+        receiptsServed:
+          type: integer
+        port:
+          type: integer
+    RouteAccepts:
+      type: object
+      required: [scheme, network, payTo, usdc, hbar, description]
+      properties:
+        scheme:
+          type: string
+          example: exact
+        network:
+          type: string
+        payTo:
+          type: string
+        usdc:
+          type: object
+          required: [tokenId, usdPrice]
+          properties:
+            tokenId:
+              type: string
+              example: 0.0.429274
+            usdPrice:
+              type: string
+              example: $0.01
+        hbar:
+          type: object
+          required: [asset, amountTinybars]
+          properties:
+            asset:
+              type: string
+              example: 0.0.0
+            amountTinybars:
+              type: string
+              example: '1000000'
+        description:
+          type: string
+    InfoResponse:
+      type: object
+      required: [facilitator, supported, verify, routes, howToPay]
+      properties:
+        facilitator:
+          type: string
+          format: uri
+        supported:
+          type: string
+          format: uri
+        verify:
+          type: string
+          format: uri
+        routes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RouteAccepts'
+        howToPay:
+          type: string

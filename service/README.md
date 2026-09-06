@@ -122,14 +122,39 @@ curl -s https://api.blocky402.com/supported | head -c 300; echo
    behind a real x402 settlement. Swap `signal.ts` for the Graph-fed model
    without touching agent or frontend."*
 
-## 6. Files
+## 6. HCS payment audit trail (Hedera track)
+
+Every served paid request is mirrored, best-effort, to Hedera Consensus
+Service as a verifiable timestamped receipt
+`{route, payTo, txId, amount, asset, servedAt}` (`src/hcs.ts`).
+
+- **Automatic** — no topic setup needed: on the first paid request the
+  service creates one HCS topic with the operator key, caches the id in
+  memory, and prints it. Persist the printed id as `HCS_TOPIC_ID` in
+  `service/.env` to reuse it across restarts (avoids a create-tx each boot).
+- **Best-effort** — HCS failures never fail the paid request: `logReceipt`
+  returns `{skipped: reason}`, logs a warning, and the paid response has
+  already been served (fire-and-forget `void` call after `res.json`).
+  `HCS_ENABLED=0` disables the trail entirely.
+- **Requires the operator key at runtime** — unlike x402 settlement (the
+  facilitator signs), the HCS trail is signed by this service, so
+  `HEDERA_SERVICE_PRIVATE_KEY` must be the real ECDSA key when
+  `HCS_ENABLED=1`. Keys are never printed or logged.
+- **Verify on HashScan** — open
+  `https://hashscan.io/testnet/topic/<TOPIC_ID>` (mainnet: `/mainnet/topic/…`).
+  Each paid request appears as a sequenced consensus message; match the
+  `sequenceNumber` from the service log and the `txId` against the payment
+  transfer.
+
+## 7. Files
 
 ```
 service/
   src/server.ts    Express app, x402 gate, paid + free routes, receipt log
   src/pricing.ts   price table ($0.01 signal / $0.001 score) + USDC/HBAR switch
   src/signal.ts    DEMO deterministic mock alpha (TODO: real Graph-fed model)
-  src/hashscan.ts  HashScan link builders + PaymentReceipt shape
-  src/x402.ts      resource-server factory + facilitator URL resolution
-  .env.example     HEDERA_SERVICE_ACCOUNT_ID, HEDERA_NETWORK, X402_* , PORT
+   src/hashscan.ts  HashScan link builders + PaymentReceipt shape
+   src/hcs.ts       HCS audit trail: topic auto-create + best-effort logReceipt
+   src/x402.ts      resource-server factory + facilitator URL resolution
+   .env.example     HEDERA_SERVICE_ACCOUNT_ID, HEDERA_NETWORK, X402_* , PORT, HCS_*
 ```

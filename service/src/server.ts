@@ -22,12 +22,14 @@ import { createResourceServer, facilitatorUrlFor } from './x402.js';
 import {
   PRICE_TABLE,
   acceptsFor,
+  priceFor,
   usdcTokenId,
   type HederaNetwork,
   type PaidRoute,
 } from './pricing.js';
 import { generateSignal, generateScore } from './signal.js';
 import { buildReceipt, type PaymentReceipt } from './hashscan.js';
+import { logReceipt as logReceiptToHcs } from './hcs.js';
 
 config();
 
@@ -114,6 +116,16 @@ app.post('/v1/signal', (req: Request, res: Response) => {
   });
   recordReceipt(receipt);
   res.json({ ...alpha, receipt });
+  // Best-effort HCS audit trail — fire-and-forget AFTER the paid response;
+  // a failure here never fails the paid request (see src/hcs.ts).
+  void logReceiptToHcs({
+    route: receipt.route,
+    payTo: receipt.payTo,
+    txId: receipt.txId,
+    amount: priceFor('/v1/signal').usd,
+    asset: 'USDC|HBAR',
+    servedAt: receipt.servedAt,
+  });
 });
 
 app.post('/v1/score', (req: Request, res: Response) => {
@@ -128,6 +140,16 @@ app.post('/v1/score', (req: Request, res: Response) => {
   });
   recordReceipt(receipt);
   res.json({ ...score, receipt });
+  // Best-effort HCS audit trail — fire-and-forget AFTER the paid response;
+  // a failure here never fails the paid request (see src/hcs.ts).
+  void logReceiptToHcs({
+    route: receipt.route,
+    payTo: receipt.payTo,
+    txId: receipt.txId,
+    amount: priceFor('/v1/score').usd,
+    asset: 'USDC|HBAR',
+    servedAt: receipt.servedAt,
+  });
 });
 
 // ---- free routes ----------------------------------------------------------

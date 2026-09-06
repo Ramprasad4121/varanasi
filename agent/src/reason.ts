@@ -97,8 +97,29 @@ function finish(score: number, factors: ReasonOutput["factors"], thresholdBps: n
   };
 }
 
-/** LLM plug point: swap heuristic rationale for model-generated text (TODO). */
-export async function llmRationale(_input: ReasonInput, base: ReasonOutput): Promise<string> {
-  // TODO: call your LLM here (OpenAI/Anthropic/local) with Graph intel + alpha.
-  return base.rationale;
+/**
+ * LLM plug point: swap heuristic rationale for model-generated text.
+ *
+ * Default stays heuristic (no network, no key). Pass `{ llm: true, ... }`
+ * to attempt `brain.ts:reasonWithLLM()` — ANY LLM failure falls back to
+ * `base.rationale`. Dynamic import avoids a reason↔brain require cycle.
+ */
+export async function llmRationale(
+  input: ReasonInput,
+  base: ReasonOutput,
+  opts: { llm?: boolean } = {},
+): Promise<string> {
+  if (!opts.llm) return base.rationale;
+  try {
+    const { reasonWithLLM } = await import("./brain.js");
+    const out = await reasonWithLLM(
+      { tvlUsd: input.tvlUsd, volume24hUsd: input.volume24hUsd, fees24hUsd: input.fees24hUsd },
+      { score: input.alphaScore, direction: input.alphaDirection },
+      { identityOk: input.identityOk },
+      DEFAULT_THRESHOLD_BPS,
+    );
+    return out.rationale;
+  } catch {
+    return base.rationale;
+  }
 }

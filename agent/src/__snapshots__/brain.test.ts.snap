@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`prompt > system prompt pins analyst role + strict JSON contract (snapshot) 1`] = `"You are a DeFi risk analyst scoring a Uniswap pool for an automated agent. Higher score = riskier. Score is in basis points, integer 0..10000. Decide ACT (safe to proceed) or SKIP (too risky) vs the given threshold. Consider: thin liquidity (low TVL), low 24h turnover (volume/TVL), bearish paid alpha signal, revoked agent identity (always SKIP). Output STRICT JSON only, no markdown, no prose outside the JSON: {"riskScoreBps": <int 0..10000>, "decision": "ACT"|"SKIP",  "rationale": "<one or two sentences>",  "factors": [{"name": "<slug>", "bps": <int>, "note": "<short>"}]}"`;
+
+exports[`prompt > user prompt carries intel/alpha/identity/threshold (snapshot) 1`] = `"{"intel":{"tvlUsd":5000000,"volume24hUsd":1000000,"fees24hUsd":3000},"alpha":{"score":0.8,"direction":"long"},"identity":{"authorized":true},"thresholdBps":5000}"`;

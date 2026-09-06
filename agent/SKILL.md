@@ -58,7 +58,28 @@ const verdict = analyzeRisk({ tvlUsd: pool.tvlUsd, volume24hUsd: pool.volume24hU
 ```
 
 Raw dump is a demo fail. The intel must flow into `analyzeRisk` (or the
-`llmRationale` plug point) and out as a scored decision.
+`reasonWithLLM` LLM path) and out as a scored decision.
+
+### LLM reasoning (opt-in)
+
+```ts
+import { reasonWithLLM } from "./src/brain.js";
+const verdict = await reasonWithLLM(
+  { tvlUsd: pool.tvlUsd, volume24hUsd: pool.volume24hUsd, fees24hUsd: pool.fees24hUsd },
+  { score: 0.4, direction: "long" },
+  { authorized: true },
+  5000,
+);
+// → { riskScoreBps, decision, rationale, factors, llm: true|false }
+```
+
+Env: `LLM_BASE_URL` (default `http://localhost:1234/v1` — local LM Studio,
+no key needed), `LLM_API_KEY` (required only for remote base URLs, never log
+it), `LLM_MODEL` (default `local-model`). Opt-in via CLI `--llm` (default
+off — behavior unchanged). ANY LLM failure (no key, timeout, bad JSON,
+schema violation) falls back to the `analyzeRisk` heuristic with
+`{ llm: false }`; `analyze` JSON also reports
+`"mode": { "reason": "heuristic" | "llm-with-heuristic-fallback" }`.
 
 ## 4. Local MCP server config (Claude Desktop / Cursor)
 

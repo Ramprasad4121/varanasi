@@ -13,6 +13,7 @@ import { GraphClient } from "./graph.js";
 import { SubgraphAgent } from "./mcp.js";
 import { resolveAgentSubname } from "./ens.js";
 import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
+import { reasonWithLLM } from "./brain.js";
 import { payForSignal } from "./pay.js";
 
 const RISKGUARD_ABI = [
@@ -44,6 +45,7 @@ program
   .option("--skip-pay", "skip the x402 payment leg (reason over Graph intel only)")
   .option("--no-mcp", "skip local MCP server, use direct Gateway")
   .option("--threshold <bps>", "risk threshold in bps", String(DEFAULT_THRESHOLD_BPS))
+  .option("--llm", "opt-in LLM reasoning via brain.ts (fallback: heuristic); default off")
   .action(async (opts) => {
     const started = Date.now();
     const thresholdBps = Number(opts.threshold);
@@ -87,18 +89,26 @@ program
         };
       }
 
-      // 4. Reason (pure heuristic, no LLM key)
-      const verdict = analyzeRisk(
-        {
-          tvlUsd: intel.tvlUsd,
-          volume24hUsd: intel.volume24hUsd,
-          fees24hUsd: intel.fees24hUsd,
-          alphaScore: alpha.score,
-          alphaDirection: alpha.direction,
-          identityOk: identity.authorized,
-        },
-        thresholdBps,
-      );
+      // 4. Reason (pure heuristic by default; --llm opts into brain.ts with heuristic fallback)
+      const useLlm = Boolean(opts.llm);
+      const verdict = useLlm
+        ? await reasonWithLLM(
+            { tvlUsd: intel.tvlUsd, volume24hUsd: intel.volume24hUsd, fees24hUsd: intel.fees24hUsd },
+            { score: alpha.score, direction: alpha.direction },
+            { authorized: identity.authorized },
+            thresholdBps,
+          )
+        : analyzeRisk(
+            {
+              tvlUsd: intel.tvlUsd,
+              volume24hUsd: intel.volume24hUsd,
+              fees24hUsd: intel.fees24hUsd,
+              alphaScore: alpha.score,
+              alphaDirection: alpha.direction,
+              identityOk: identity.authorized,
+            },
+            thresholdBps,
+          );
 
       // 5. RiskGuard read-only check (static call — never sends a tx)
       let guard: { address: string | null; wouldPass: boolean | null; error: string | null } = {
@@ -131,7 +141,7 @@ program
         JSON.stringify(
           {
             ok: true,
-            mode: { graph: graph.mode, mcp: useMcp ? "preferred-with-gateway-fallback" : "gateway-direct" },
+            mode: { graph: graph.mode, mcp: useMcp ? "preferred-with-gateway-fallback" : "gateway-direct", reason: useLlm ? "llm-with-heuristic-fallback" : "heuristic" },
             agent: {
               name: identity.name,
               wallet: identity.agentWallet,

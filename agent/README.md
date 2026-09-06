@@ -57,12 +57,49 @@ with `mode.graph: "live" | "offline"` and x402 receipts
 | `src/graph.ts` | `GraphClient` — live Gateway, official Uniswap IDs (`KNOWN_SUBGRAPHS`), curated pools (`CURATED_POOLS`), `query()` escape hatch |
 | `src/mcp.ts` | MCP stdio wrapper (`search_subgraphs/get_schema/run_query`) + Gateway fallback |
 | `src/ens.ts` | viem ENSv2 resolver (`AegisRegistry` + Universal Resolver V2, registry-only fallback) |
-| `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point |
+| `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point (opt-in LLM via brain) |
+| `src/brain.ts` | opt-in LLM reasoning `reasonWithLLM` (OpenAI-compatible chat API, heuristic fallback, `{ llm }` flag) |
 | `src/pay.ts` | x402 payer (`@x402/fetch` + Hedera ECDSA signer, HashScan receipts) |
 | `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports |
 
-## LLM plug
+## LLM reasoning (opt-in, heuristic fallback)
 
-`reason.ts:llmRationale(input, base)` is the seam: pass Graph intel + alpha to
-your model and return enriched rationale text. Scoring math stays in
-`analyzeRisk` so decisions remain deterministic and testable.
+`src/brain.ts:reasonWithLLM(intel, alpha, identity, thresholdBps, opts)`
+calls an OpenAI-compatible chat API with a tight DeFi-risk system prompt
+(`LLM_SYSTEM_PROMPT` — model must return STRICT JSON
+`{ riskScoreBps 0..10000, decision ACT|SKIP, rationale, factors[] }`,
+15s timeout, strict schema validation). ANY failure (no key for a remote
+endpoint, timeout, network error, bad JSON, schema violation) falls back to
+`analyzeRisk` and marks the verdict `{ llm: false }` (LLM path: `{ llm: true }`).
+
+Env (never print `LLM_API_KEY`):
+
+```bash
+LLM_BASE_URL=http://localhost:1234/v1  # default: local LM Studio, no key needed
+LLM_API_KEY=                           # optional locally; required for remote base URLs
+LLM_MODEL=local-model                  # default
+```
+
+```bash
+# Heuristic (default — behavior unchanged, no LLM call)
+npx tsx src/cli.ts analyze --agent agent-1.aegis.eth --pool <pool-id> --offline --skip-pay
+
+# LLM reasoning (local LM Studio first: open LM Studio, start server on :1234)
+npx tsx src/cli.ts analyze --agent agent-1.aegis.eth --pool <pool-id> --offline --skip-pay --llm
+
+# LLM reasoning (remote OpenAI-compatible endpoint)
+LLM_BASE_URL=https://api.example.com/v1 LLM_API_KEY=<key> LLM_MODEL=<model> \
+  npx tsx src/cli.ts analyze --agent agent-1.aegis.eth --pool <pool-id> --skip-pay --llm
+```
+
+`analyze` JSON reports `"mode": { ..., "reason": "heuristic" | "llm-with-heuristic-fallback" }`
+and the verdict carries `llm: true|false` so judges can verify which path ran.
+Without `--llm`, no LLM code runs. Without a key for a remote endpoint, no
+network call is attempted — heuristic is used directly.
+
+## LLM plug (legacy seam)
+
+`reason.ts:llmRationale(input, base, { llm })` stays heuristic by default;
+pass `{ llm: true }` to route through `reasonWithLLM` with the same fallback
+guarantee. Scoring math stays in `analyzeRisk` so decisions remain
+deterministic and testable.

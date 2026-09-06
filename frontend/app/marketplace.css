@@ -1,0 +1,65 @@
+/* AEGIS marketplace additions — plain CSS, no UI libs. Mobile-first. */
+
+.hero {
+  background: linear-gradient(180deg, #141b2e 0%, #121826 100%);
+  border: 1px solid #2b3450;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; }
+}
+.kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8db4ff;
+  margin-bottom: 8px;
+}
+.pitch { margin: 0 0 8px; font-size: 26px; line-height: 1.2; }
+.sub { margin: 0; color: #aeb7c6; font-size: 14px; max-width: 60ch; }
+.sub code, .card code, .flow code { color: #cdd8ea; }
+
+.stats { display: flex; flex-direction: column; gap: 10px; }
+.stat {
+  background: #0d1320;
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-label { color: #8b94a5; font-size: 12px; }
+.stat-num { font-size: 24px; }
+
+.market { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .market { grid-template-columns: 1fr; } }
+.market .span { grid-column: 1 / -1; }
+
+.cards { display: flex; flex-direction: column; gap: 0; }
+.card.featured { border-color: #3d5a99; background: #101a30; }
+
+.pool-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tab { margin-top: 0; background: #0d1320; }
+.tab.active { background: #24406e; border-color: #4d7dd1; }
+.quote { border-color: #2f4a2f; }
+
+.flow {
+  font-size: 13px;
+  color: #aeb7c6;
+  background: #0d1320;
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 10px 12px 10px 28px;
+  margin: 0 0 4px;
+}
+.flow li { margin: 3px 0; }
+
+.timeline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.timeline .card { margin-top: 8px; }
