@@ -36,8 +36,9 @@ program
   .command("analyze")
   .description("Analyze a pool/vault: ENS → Graph → x402 → reason → RiskGuard → JSON")
   .requiredOption("--agent <subname>", "agent subname, e.g. agent-1.aegis.eth")
-  .requiredOption("--pool <id>", "pool/vault id on the subgraph")
-  .option("--vault", "query the ERC-4626 vaults subgraph instead of Uniswap V3")
+  .requiredOption("--pool <id>", "pool/pair id on the subgraph")
+  .option("--pair", "query the Uniswap V2 subgraph (pair/pairs) instead of Uniswap V3")
+  .option("--vault", "deprecated alias for --pair (V2 pairs leg)")
   .option("--subgraph <id>", "override subgraph id")
   .option("--offline", "fixture mode (no network Graph call; tests only)")
   .option("--skip-pay", "skip the x402 payment leg (reason over Graph intel only)")
@@ -57,8 +58,8 @@ program
       const subgraphs = new SubgraphAgent(graph);
       let intel;
       try {
-        intel = opts.vault
-          ? await graph.vaultIntel(opts.pool, opts.subgraph)
+        intel = opts.pair || opts.vault
+          ? await graph.pairIntel(opts.pool, opts.subgraph)
           : await graph.poolIntel(opts.pool, opts.subgraph);
       } finally {
         subgraphs.disconnect();

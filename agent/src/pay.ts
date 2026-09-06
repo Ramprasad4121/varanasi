@@ -34,23 +34,23 @@ export interface PayerOptions {
   hederaNetwork?: string;
 }
 
-/** Build the Hedera signer object expected by @x402/hedera (runtime-resolved). */
-async function buildHederaSigner(accountId: string, privateKey: string): Promise<any> {
+/** Build the x402 scheme client for Hedera `exact` payments (runtime-resolved). */
+async function buildSchemeClient(accountId: string, privateKey: string, network: string): Promise<any> {
   const hederaMod: any = await import("@x402/hedera");
-  const mkSigner =
-    hederaMod.createHederaSigner ?? hederaMod.HederaSigner ?? hederaMod.default?.createHederaSigner;
-  if (typeof mkSigner === "function") return mkSigner({ accountId, privateKey });
-
-  // Fallback: hand-roll an ECDSA signer with @hiero-ledger/sdk primitives so the
-  // payer still functions even if the helper name moved.
-  const key = hiero.PrivateKey.fromStringECDSA(privateKey);
-  return {
-    address: accountId,
-    async sign(data: Uint8Array): Promise<Uint8Array> {
-      return key.sign(data);
-    },
-    publicKey: key.publicKey.toStringRaw(),
-  };
+  const caip2 = network === "mainnet" ? "hedera:mainnet" : "hedera:testnet";
+  const mkSigner = hederaMod.createClientHederaSigner;
+  const Scheme = hederaMod.ExactHederaScheme;
+  if (typeof mkSigner !== "function" || typeof Scheme !== "function") {
+    throw new Error("@x402/hedera does not export createClientHederaSigner/ExactHederaScheme — check installed version.");
+  }
+  let key: any;
+  try {
+    key = hiero.PrivateKey.fromString(privateKey);
+  } catch {
+    key = hiero.PrivateKey.fromStringECDSA(privateKey);
+  }
+  const signer = mkSigner(accountId, key, { network: caip2 });
+  return { scheme: new Scheme(signer), caip2 };
 }
 
 export async function payForSignal(opts: PayerOptions = {}, body: Record<string, unknown> = {}): Promise<PayResult> {
@@ -62,12 +62,24 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
     throw new Error("HEDERA_AGENT_ACCOUNT_ID / HEDERA_AGENT_PRIVATE_KEY are required to pay for the x402 signal.");
   }
 
-  const signer = await buildHederaSigner(accountId, privateKey);
+  const { scheme, caip2 } = await buildSchemeClient(accountId, privateKey, network);
   const wrap = (x402Fetch as any).wrapFetchWithPayment;
-  if (typeof wrap !== "function") {
-    throw new Error("@x402/fetch does not export wrapFetchWithPayment — check installed version.");
+  const X402Client = (x402Fetch as any).x402Client;
+  if (typeof wrap !== "function" || typeof X402Client !== "function") {
+    throw new Error("@x402/fetch does not export wrapFetchWithPayment/x402Client — check installed version.");
   }
-  const paidFetch = wrap(fetch, signer) as typeof fetch;
+  const client = new X402Client((_version: number, accepts: any[]) => {
+    // Prefer the native HBAR leg (asset 0.0.0): the agent wallet is HBAR-funded.
+    // Fall back to whatever the service lists first (e.g. USDC when funded).
+    if (Array.isArray(accepts)) {
+      const hbar = accepts.find((a) => a?.asset === "0.0.0");
+      if (hbar) return hbar;
+      return accepts[0];
+    }
+    return accepts;
+  });
+  client.register(caip2, scheme);
+  const paidFetch = wrap(fetch, client) as typeof fetch;
 
   const res = await paidFetch(signalUrl, {
     method: "POST",

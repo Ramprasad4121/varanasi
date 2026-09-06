@@ -33,7 +33,7 @@ export const DEFAULT_SUBGRAPH_MCP: McpConfig = {
 export const MCP_TOOLS = [
   {
     name: "search_subgraphs",
-    description: "Discover live subgraphs by keyword (e.g. 'uniswap v3', 'erc4626 vaults').",
+    description: "Discover live subgraphs by keyword (e.g. 'uniswap v3', 'uniswap v2').",
     inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
   },
   {
@@ -166,9 +166,13 @@ export class SubgraphAgent {
   async searchSubgraphs(query: string, useMcp = true): Promise<unknown> {
     const mcp = await this.tryMcp(useMcp);
     if (mcp) return mcp.callTool("search_subgraphs", { query });
-    // Fallback: curated standardized IDs act as the discovery result.
+    // Fallback: curated official Uniswap IDs act as the discovery result.
     const { KNOWN_SUBGRAPHS } = await import("./graph.js");
-    return [{ id: KNOWN_SUBGRAPHS.uniswapV3, name: "uniswap-v3 (standardized DEX)" }, { id: KNOWN_SUBGRAPHS.erc4626, name: "erc4626-vaults (standardized)" }];
+    return [
+      { id: KNOWN_SUBGRAPHS.uniswapV3, name: "uniswap-v3 (official, Uniswap-native schema)" },
+      { id: KNOWN_SUBGRAPHS.uniswapV2, name: "uniswap-v2 (official, Uniswap-native schema)" },
+      { id: KNOWN_SUBGRAPHS.uniswapV4, name: "uniswap-v4 (official)" },
+    ];
   }
 
   async runQuery(subgraphId: string, gql: string, variables: Record<string, unknown> = {}, useMcp = true): Promise<unknown> {
