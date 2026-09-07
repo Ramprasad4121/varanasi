@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — live The Graph Gateway client (GraphClient, toPoolIntel; env: GRAPH_API_KEY, GRAPH_UNISWAP_*_ID, AEGIS_OFFLINE).
  * GraphClient — live The Graph Gateway access for varanasi.
  *
  * Load-bearing by design: every `analyze` run queries a live Subgraph over
@@ -25,6 +26,7 @@
  */
 import { GraphQLClient } from "graphql-request";
 
+/** Base URL for The Graph Gateway (key + subgraph id are appended per query). */
 export const GATEWAY_BASE = "https://gateway.thegraph.com/api";
 
 /** Official Uniswap subgraphs (The Graph decentralized network).
@@ -48,13 +50,21 @@ export const CURATED_POOLS = [
   { id: "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed", name: "WBTC/WETH 0.3%" },
 ] as const;
 
+/** Normalized pool/pair intel consumed by analyzeRisk (plus a raw excerpt for auditability). */
 export interface PoolIntel {
+  /** Subgraph id the intel came from. */
   subgraphId: string;
+  /** Pool/pair contract address (id). */
   poolId: string;
+  /** Human-readable pool name (e.g. USDC/WETH 0.05%). */
   name: string;
+  /** Token symbols [token0, token1]. */
   symbols: string[];
+  /** Total value locked in USD. */
   tvlUsd: number;
+  /** 24h trading volume in USD (rough daily flow derived from cumulative when needed). */
   volume24hUsd: number;
+  /** 24h LP fees in USD (estimated from feeTier when not in query). */
   fees24hUsd: number;
   /** Raw Graph response excerpt for auditability (judges can diff vs Gateway). */
   rawExcerpt: unknown;
@@ -142,6 +152,8 @@ export const MAX_SANE_TVL_USD = 50_000_000_000;
  * the top of orderBy-totalValueLockedUSD with fake ~$1B TVLs. Curated pools
  * fetched via poolIntel()/CURATED_POOLS bypass this filter — pinning beats
  * ordering.
+ * @param p Raw pool/pair row with TVL and token symbols.
+ * @returns True when TVL is finite/positive/within cap and both symbols are sane.
  */
 export function isSanePool(p: {
   totalValueLockedUSD?: string | null;
@@ -161,12 +173,15 @@ function gatewayUrl(apiKey: string, subgraphId: string): string {
   return `${GATEWAY_BASE}/${apiKey}/subgraphs/id/${subgraphId}`;
 }
 
+/** Options for GraphClient (key and offline fixture mode). */
 export interface GraphClientOptions {
+  /** The Graph Gateway API key (default: env GRAPH_API_KEY). */
   apiKey?: string;
   /** When true, all queries return the local fixture (tests only). */
   offline?: boolean;
 }
 
+/** Local fixture returned for every query when offline mode is on (tests only, never demos). */
 export const OFFLINE_FIXTURE = {
   pool: {
     id: "0xoffline-pool",
@@ -188,20 +203,35 @@ export const OFFLINE_FIXTURE = {
   },
 };
 
+/** Live Gateway client with an offline fixture escape hatch for tests. */
 export class GraphClient {
   private apiKey: string;
   private offline: boolean;
 
+  /**
+   * Build a client reading GRAPH_API_KEY / AEGIS_OFFLINE unless overridden.
+   * @param opts Optional apiKey and offline flag.
+   */
   constructor(opts: GraphClientOptions = {}) {
     this.apiKey = opts.apiKey ?? process.env.GRAPH_API_KEY ?? "";
     this.offline = opts.offline ?? process.env.AEGIS_OFFLINE === "1";
   }
 
+  /**
+   * Live/offline mode flag (offline returns the local fixture).
+   * @returns "live" for Gateway queries, "offline" for fixture mode.
+   */
   get mode(): "live" | "offline" {
     return this.offline ? "offline" : "live";
   }
 
-  /** Generic escape hatch: run any GraphQL against any subgraph ID. */
+  /**
+   * Generic escape hatch: run any GraphQL against any subgraph ID.
+   * @param subgraphId Target subgraph id.
+   * @param gql GraphQL query string.
+   * @param variables Query variables.
+   * @returns Typed query result (or the offline fixture when offline).
+   */
   async query<T = unknown>(subgraphId: string, gql: string, variables: Record<string, unknown> = {}): Promise<T> {
     if (this.offline) return OFFLINE_FIXTURE as unknown as T;
     if (!this.apiKey) {
@@ -211,7 +241,12 @@ export class GraphClient {
     return client.request<T>(gql, variables);
   }
 
-  /** Uniswap V3 pool intel via the Uniswap-native schema (official V3 subgraph default). */
+  /**
+   * Uniswap V3 pool intel via the Uniswap-native schema (official V3 subgraph default).
+   * @param poolId Pool id (checksummed or lowercase).
+   * @param subgraphId Subgraph id (default: official Uniswap V3).
+   * @returns Normalized PoolIntel.
+   */
   async poolIntel(poolId: string, subgraphId: string = KNOWN_SUBGRAPHS.uniswapV3): Promise<PoolIntel> {
     const data = await this.query<{ pool: UniswapPoolRaw }>(subgraphId, UNISWAP_POOL_QUERY, {
       id: poolId.toLowerCase(),
@@ -219,7 +254,12 @@ export class GraphClient {
     return toPoolIntel(subgraphId, data.pool);
   }
 
-  /** Uniswap V2 pair intel via the Uniswap-native schema (official V2 subgraph default). */
+  /**
+   * Uniswap V2 pair intel via the Uniswap-native schema (official V2 subgraph default).
+   * @param pairId Pair id.
+   * @param subgraphId Subgraph id (default: official Uniswap V2).
+   * @returns Normalized PoolIntel.
+   */
   async pairIntel(pairId: string, subgraphId: string = KNOWN_SUBGRAPHS.uniswapV2): Promise<PoolIntel> {
     const data = await this.query<{ pair: UniswapPoolRaw }>(subgraphId, UNISWAP_V2_PAIR_QUERY, {
       id: pairId.toLowerCase(),
@@ -230,6 +270,9 @@ export class GraphClient {
   /**
    * @deprecated The ERC-4626/Messari vaults leg is retired (wrong subgraph IDs,
    * dead schema). Use pairIntel() for Uniswap V2 or query() for V4.
+   * @param vaultId Vault/pair id forwarded to pairIntel.
+   * @param subgraphId Subgraph id (default: official Uniswap V2).
+   * @returns Normalized PoolIntel via pairIntel.
    */
   async vaultIntel(vaultId: string, subgraphId: string = KNOWN_SUBGRAPHS.uniswapV2): Promise<PoolIntel> {
     return this.pairIntel(vaultId, subgraphId);
@@ -240,6 +283,9 @@ export class GraphClient {
    * isSanePool sanity filter (drops >$50B fake-TVL spam and junk symbols),
    * because raw orderBy-totalValueLockedUSD ordering is gamed by spam pools.
    * Never use for demos — pin CURATED_POOLS instead.
+   * @param first How many sane pools to return.
+   * @param subgraphId Subgraph id (default: official Uniswap V3).
+   * @returns Up to `first` sanity-filtered PoolIntel rows.
    */
   async topPools(first = 5, subgraphId: string = KNOWN_SUBGRAPHS.uniswapV3): Promise<PoolIntel[]> {
     if (this.offline) return [toPoolIntel(subgraphId, OFFLINE_FIXTURE.pool)];
@@ -268,6 +314,12 @@ export interface UniswapPoolRaw {
   inputTokens?: { symbol: string }[] | null;
 }
 
+/**
+ * Normalize a raw Uniswap pool/pair row into PoolIntel (tvl, rough daily flow, fee estimate).
+ * @param subgraphId Subgraph the row came from.
+ * @param p Raw pool/pair row (null throws).
+ * @returns Normalized PoolIntel.
+ */
 export function toPoolIntel(
   subgraphId: string,
   p: UniswapPoolRaw | null,

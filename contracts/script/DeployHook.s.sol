@@ -9,6 +9,8 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {RiskGuard} from "../src/RiskGuard.sol";
 import {AegisHook} from "../src/AegisHook.sol";
 
+/// @title DeployHook — canonical CREATE2 deployment for AegisHook
+/// @author Ramprasad
 /// @notice Deploy AegisHook to Sepolia at a hook-valid address (HookMiner pattern).
 /// @dev Mining AND deployment both go through the canonical keyless CREATE2
 ///      deployer (Arachnid deterministic-deployment-proxy, same address on
@@ -37,6 +39,8 @@ contract DeployHook is Script {
     /// @notice Keyless cross-chain CREATE2 deployer (Arachnid proxy). Same on all EVM chains.
     address internal constant CANONICAL_CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+    /// @notice Mine a hook-valid salt and deploy AegisHook via the canonical CREATE2 deployer.
+    /// @dev Reads POOL_MANAGER, RISK_GUARD, DEFAULT_MAX_BPS, OWNER, OPERATOR, AGENT, RISK_SCORE_BPS, RISK_TTL_DAYS, HOOK_SALT from env.
     function run() external {
         address poolManager = vm.envOr("POOL_MANAGER", SEPOLIA_POOL_MANAGER);
         address riskGuard = vm.envOr("RISK_GUARD", SEPOLIA_RISK_GUARD);
@@ -100,7 +104,10 @@ contract DeployHook is Script {
         console.log("Owner:          ", hook.owner());
     }
 
-    /// @notice CREATE2 address for (initcode, salt) via the canonical deployer.
+    /// @notice Compute the CREATE2 address for (initcode, salt) via the canonical deployer.
+    /// @param initcode Creation code + constructor args for AegisHook.
+    /// @param salt Salt to use for CREATE2.
+    /// @return addr Deterministic deployment address.
     function _addrFor(bytes memory initcode, bytes32 salt) internal pure returns (address) {
         return address(
             uint160(
@@ -114,6 +121,9 @@ contract DeployHook is Script {
     /// @notice HookMiner-style brute force: find a salt so the canonical
     ///         deployer lands the hook on a beforeSwap-only address
     ///         (`uint160(addr) & 0x3FFF == 0x0080`). ~16k iterations on average.
+    /// @param initcode Creation code + constructor args for AegisHook.
+    /// @return salt Salt that yields a beforeSwap-only address.
+    /// @return expected The hook address that will be deployed with that salt.
     function _mineSalt(bytes memory initcode) internal view returns (bytes32 salt, address expected) {
         bytes32 initHash = keccak256(initcode);
         for (uint256 i = 0; i < 500_000; i++) {

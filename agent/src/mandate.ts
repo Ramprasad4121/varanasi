@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — offline EIP-712 mandate signing for TaskEscrow (signMandate, verifyMandate; no env, no RPC).
  * mandate.ts — agent-side EIP-712 mandate signing for VaranasiTaskEscrow.
  *
  * One signed object authorizes one escrowed task. The human owner (payer)
@@ -60,26 +61,43 @@ export const MANDATE_TYPE_STRING =
 /** keccak256 of the locked type string — must equal onchain MANDATE_TYPEHASH. */
 export const MANDATE_TYPEHASH: Hash = keccak256(toHex(MANDATE_TYPE_STRING));
 
-/** Sepolia Etherscan link for an address (explorer-ready receipt field). */
+/**
+ * Sepolia Etherscan link for an address (explorer-ready receipt field).
+ * @param address Address to link.
+ * @returns Etherscan address URL.
+ */
 export function sepoliaAddressUrl(address: string): string {
   return `https://sepolia.etherscan.io/address/${address}`;
 }
 
-/** Sepolia Etherscan link for a transaction hash (explorer-ready receipt field). */
+/**
+ * Sepolia Etherscan link for a transaction hash (explorer-ready receipt field).
+ * @param txHash Transaction hash to link.
+ * @returns Etherscan transaction URL.
+ */
 export function sepoliaTxUrl(txHash: string): string {
   return `https://sepolia.etherscan.io/tx/${txHash}`;
 }
 
 /** Mandate fields — mirrors TaskEscrow.Mandate (uints as bigint, no precision loss). */
 export interface Mandate {
+  /** Agent wallet authorized via ENS/AegisRegistry (re-checked live at release). */
   agent: Address;
+  /** Merchant/payee who receives funds on release (single-merchant scope). */
   merchant: Address;
+  /** ERC20 token for the escrow (USDC-first; no ETH path). */
   token: Address;
+  /** Max escrowed amount in token base units. */
   cap: bigint;
+  /** Validation window open (unix seconds, block.timestamp clock). */
   windowStart: bigint;
+  /** Validation window close inclusive (unix seconds). */
   windowEnd: bigint;
+  /** Refund gate: refund allowed iff block.timestamp > expiry (unix seconds). */
   expiry: bigint;
+  /** Per-signer replay nullifier (arbitrary uint256, burned at fund). */
   nonce: bigint;
+  /** EIP-712 + mandate chain id (must equal domain chainId). */
   chainId: bigint;
 }
 
@@ -98,12 +116,19 @@ export const MANDATE_TYPES = {
   ],
 } as const;
 
+/** EIP-712 domain overrides (escrow deployment + chain id). */
 export interface MandateDomainOpts {
+  /** TaskEscrow deployment address (domain verifyingContract). */
   verifyingContract?: Address;
+  /** EIP-712 domain chain id (default: Sepolia). */
   chainId?: number;
 }
 
-/** EIP-712 domain bound to one chain + one escrow deployment. */
+/**
+ * EIP-712 domain bound to one chain + one escrow deployment.
+ * @param opts Domain overrides (verifyingContract, chainId).
+ * @returns EIP-712 domain object.
+ */
 export function mandateDomain(opts: MandateDomainOpts = {}) {
   return {
     name: MANDATE_DOMAIN_NAME,
@@ -123,6 +148,9 @@ function isZeroAddress(a: string): boolean {
  * Static mandate checks mirroring TaskEscrow._checkMandate (minus the
  * block.timestamp / block.chainid liveness checks, which only the chain
  * can enforce at fund time). Throws on the first violation.
+ * @param m Mandate to validate.
+ * @param expectedChainId Chain id the mandate must bind to.
+ * @returns void — throws on violation, otherwise returns normally.
  */
 export function validateMandate(m: Mandate, expectedChainId: bigint = BigInt(SEPOLIA_CHAIN_ID)): void {
   if (isZeroAddress(m.agent)) throw new Error("ZeroAgent: mandate.agent is zero");
@@ -133,7 +161,11 @@ export function validateMandate(m: Mandate, expectedChainId: bigint = BigInt(SEP
   if (m.windowStart > m.windowEnd) throw new Error(`BadWindow: windowStart ${m.windowStart} > windowEnd ${m.windowEnd}`);
 }
 
-/** EIP-712 struct hash (no domain) — mirrors TaskEscrow.mandateStructHash. */
+/**
+ * EIP-712 struct hash (no domain) — mirrors TaskEscrow.mandateStructHash.
+ * @param m Mandate to hash.
+ * @returns Struct hash.
+ */
 export function mandateStructHash(m: Mandate): Hash {
   return keccak256(
     encodeAbiParameters(
@@ -168,6 +200,9 @@ export function mandateStructHash(m: Mandate): Hash {
 /**
  * Full EIP-712 digest to sign — mirrors TaskEscrow.mandateDigest
  * (EIP-191 prefix + domain separator + struct hash).
+ * @param m Mandate to digest.
+ * @param opts Domain overrides (verifyingContract, chainId).
+ * @returns EIP-712 signing digest.
  */
 export function mandateDigest(m: Mandate, opts: MandateDomainOpts = {}): Hash {
   return hashTypedData({
@@ -182,22 +217,36 @@ export function mandateDigest(m: Mandate, opts: MandateDomainOpts = {}): Hash {
  * taskId derivation — mirrors TaskEscrow.mandateTaskId:
  * keccak256(abi.encode(digest)). Domain-bound, so ids differ across
  * chains and deployments.
+ * @param m Mandate to derive the task id for.
+ * @param opts Domain overrides (verifyingContract, chainId).
+ * @returns Domain-bound taskId.
  */
 export function mandateTaskId(m: Mandate, opts: MandateDomainOpts = {}): Hash {
   const digest = mandateDigest(m, opts);
   return keccak256(encodeAbiParameters([{ type: "bytes32" }], [digest]));
 }
 
+/** Signed mandate bundle: mandate plus signature, signer, digest, hashes, and taskId. */
 export interface SignedMandate {
+  /** Original mandate struct that was signed. */
   mandate: Mandate;
+  /** 65-byte EIP-712 signature (r||s||v). */
   signature: Hash;
+  /** Recovered payer signer address. */
   signer: Address;
+  /** Full EIP-712 digest that was signed (EIP-191 + domain + struct hash). */
   digest: Hash;
+  /** EIP-712 struct hash (no domain). */
   structHash: Hash;
+  /** Domain-bound taskId = keccak256(abi.encode(digest)). */
   taskId: Hash;
 }
 
-/** 65-byte uncompressed secp256k1 key → Ethereum address (viem-free, pure keccak). */
+/**
+ * 65-byte uncompressed secp256k1 key → Ethereum address (viem-free, pure keccak).
+ * @param pub 65-byte uncompressed public key (0x04 prefix).
+ * @returns Derived Ethereum address.
+ */
 export function addressFromPublicKey(pub: Uint8Array): Address {
   if (pub.length !== 65 || pub[0] !== 0x04) throw new Error("BadPubKey: expected 65-byte uncompressed key");
   const hash = keccak256(bytesToHex(pub.slice(1)));
@@ -210,7 +259,11 @@ function keyBytesFromPrivateKey(privateKey: Hex): Uint8Array {
   return keyBytes;
 }
 
-/** Payer address for a private key (offline, bytes API — see module note). */
+/**
+ * Payer address for a private key (offline, bytes API — see module note).
+ * @param privateKey 32-byte secp256k1 private key.
+ * @returns Derived payer address.
+ */
 export function addressFromPrivateKey(privateKey: Hex): Address {
   return addressFromPublicKey(secp256k1.getPublicKey(keyBytesFromPrivateKey(privateKey), false));
 }
@@ -219,6 +272,10 @@ export function addressFromPrivateKey(privateKey: Hex): Address {
  * Sign a mandate with a payer private key (offline, no RPC).
  * Validates static fields first, then EIP-712 signs with the
  * domain bound to the live escrow + Sepolia (overridable).
+ * @param m Mandate to sign.
+ * @param privateKey Payer signing key (in-memory only, never stored).
+ * @param opts Domain overrides (verifyingContract, chainId).
+ * @returns SignedMandate bundle (signature, signer, digest, taskId).
  */
 export async function signMandate(
   m: Mandate,
@@ -250,6 +307,10 @@ export async function signMandate(
  * Verify a mandate signature offline: recovers the signer from the
  * domain-bound digest. Returns the recovered address; set
  * `expectedSigner` to enforce payer attribution (else BadSig onchain).
+ * @param m Mandate that was signed.
+ * @param signature 65-byte EIP-712 signature.
+ * @param opts Domain overrides plus optional expectedSigner to enforce.
+ * @returns Recovered signer address.
  */
 export async function verifyMandate(
   m: Mandate,
@@ -278,18 +339,29 @@ export async function verifyMandate(
 // Nonces are per-signer arbitrary nullifiers (NOT sequential): any fresh
 // uint256 works; the chain burns usedNonce[signer][nonce] at fund.
 
-/** Fresh random uint256 nonce (collision-safe, no RPC needed). */
+/**
+ * Fresh random uint256 nonce (collision-safe, no RPC needed).
+ * @returns Random uint256 nonce.
+ */
 export function randomNonce(): bigint {
   return BigInt("0x" + randomBytes(32).toString("hex"));
 }
 
-/** Nonce from unix-ms entropy (human-readable fallback; prefer randomNonce). */
+/**
+ * Nonce from unix-ms entropy (human-readable fallback; prefer randomNonce).
+ * @param nowMs Unix time in ms (default: Date.now()).
+ * @returns Time-scoped uint256 nonce.
+ */
 export function timeNonce(nowMs: number = Date.now()): bigint {
   const rand = BigInt("0x" + randomBytes(8).toString("hex")) % 2n ** 64n;
   return (BigInt(Math.max(0, Math.floor(nowMs))) << 64n) | rand;
 }
 
-/** JSON-safe mandate (bigints → decimal strings) for CLI output / storage. */
+/**
+ * JSON-safe mandate (bigints → decimal strings) for CLI output / storage.
+ * @param m Mandate to serialize.
+ * @returns String-valued mandate record.
+ */
 export function mandateToJson(m: Mandate): Record<string, string> {
   return {
     agent: m.agent,
@@ -304,7 +376,11 @@ export function mandateToJson(m: Mandate): Record<string, string> {
   };
 }
 
-/** Parse a mandate back from JSON-safe form (validates static fields). */
+/**
+ * Parse a mandate back from JSON-safe form (validates static fields).
+ * @param j String-valued mandate record from mandateToJson.
+ * @returns Validated Mandate.
+ */
 export function mandateFromJson(j: Record<string, string>): Mandate {
   const m: Mandate = {
     agent: j.agent as Address,

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+ * @author Ramprasad — `aegis analyze|revoke|mandate` orchestration (ENS → Graph → x402 → reason → RiskGuard; env: GRAPH_API_KEY, SEPOLIA_RPC_URL, AEGIS_REGISTRY, RISK_GUARD, HEDERA_*, SIGNAL_URL).
  * CLI: `aegis analyze --agent <subname> --pool <id> [--vault] [--offline] [--skip-pay]`
  *
  * Orchestrates: ENS resolve → Graph intel → pay x402 → reason → RiskGuard

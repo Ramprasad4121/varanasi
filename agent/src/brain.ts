@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — LLM reasoning with heuristic fallback (reasonWithLLM, parseLlmVerdict; env: LLM_BASE_URL, LLM_API_KEY, LLM_MODEL).
  * brain.ts — LLM reasoning with heuristic fallback.
  *
  * `reasonWithLLM()` calls an OpenAI-compatible chat API (LM Studio local
@@ -19,8 +20,11 @@
  */
 import { analyzeRisk, type ReasonInput, type ReasonOutput } from "./reason.js";
 
+/** Default OpenAI-compatible base URL (local LM Studio, no key needed). */
 export const DEFAULT_LLM_BASE_URL = "http://localhost:1234/v1";
+/** Default model name used when LLM_MODEL is unset. */
 export const DEFAULT_LLM_MODEL = "local-model";
+/** Abort timeout in ms for a single LLM chat-completion request. */
 export const LLM_TIMEOUT_MS = 15_000;
 
 /** Tight system prompt — pins the analyst role + strict JSON contract. */
@@ -36,32 +40,49 @@ export const LLM_SYSTEM_PROMPT = [
   ' "factors": [{"name": "<slug>", "bps": <int>, "note": "<short>"}]}',
 ].join(" ");
 
+/** Pool intel facts scored by the LLM/heuristic paths. */
 export interface BrainIntel {
+  /** Total value locked in USD. */
   tvlUsd: number;
+  /** 24h trading volume in USD. */
   volume24hUsd: number;
+  /** 24h LP fees in USD (optional). */
   fees24hUsd?: number;
 }
 
+/** Paid x402 alpha signal facts. */
 export interface BrainAlpha {
+  /** Alpha score in [-1, 1] (negative = bearish). */
   score?: number;
+  /** Signal direction. */
   direction?: "long" | "short" | "neutral";
 }
 
+/** Agent identity facts feeding the risk score. */
 export interface BrainIdentity {
+  /** True when the agent wallet is authorized. */
   authorized?: boolean;
+  /** True when identity checks passed upstream. */
   identityOk?: boolean;
+  /** True when the agent was revoked/expired. */
   revoked?: boolean;
 }
 
+/** Overrides for the LLM call (base URL, key, model, timeout, injectable fetch). */
 export interface LlmReasonOptions {
+  /** OpenAI-compatible base URL (default: env LLM_BASE_URL or local LM Studio). */
   baseUrl?: string;
+  /** API key (required only for remote base URLs; never logged). */
   apiKey?: string;
+  /** Model name (default: env LLM_MODEL or local-model). */
   model?: string;
+  /** Abort timeout in ms. */
   timeoutMs?: number;
   /** Injectable fetch for tests (defaults to global fetch). */
   fetchImpl?: typeof fetch;
 }
 
+/** Heuristic verdict plus the LLM-origin flag. */
 export type BrainVerdict = ReasonOutput & {
   /** true when the verdict came from the LLM, false on heuristic fallback. */
   llm: boolean;
@@ -76,6 +97,11 @@ interface ResolvedLlmConfig {
   timeoutMs: number;
 }
 
+/**
+ * Resolve the effective LLM config from explicit opts over env over defaults.
+ * @param opts Explicit overrides (baseUrl, apiKey, model, timeoutMs).
+ * @returns Resolved { baseUrl, apiKey, model, timeoutMs } (baseUrl trailing-slash trimmed).
+ */
 export function resolveLlmConfig(opts: LlmReasonOptions = {}): ResolvedLlmConfig {
   const baseUrl = (opts.baseUrl ?? process.env.LLM_BASE_URL ?? DEFAULT_LLM_BASE_URL).replace(/\/+$/, "");
   const apiKey = opts.apiKey ?? process.env.LLM_API_KEY ?? "";
@@ -84,7 +110,11 @@ export function resolveLlmConfig(opts: LlmReasonOptions = {}): ResolvedLlmConfig
   return { baseUrl, apiKey, model, timeoutMs };
 }
 
-/** Local LM Studio-style URLs never need a key; remote ones do. */
+/**
+ * Local LM Studio-style URLs never need a key; remote ones do.
+ * @param baseUrl LLM base URL to classify.
+ * @returns True for localhost/127.0.0.1 http(s) URLs.
+ */
 export function isLocalBaseUrl(baseUrl: string): boolean {
   return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(baseUrl);
 }
@@ -93,6 +123,8 @@ export function isLocalBaseUrl(baseUrl: string): boolean {
  * P2 trust boundary: only https:// remotes or http(s) localhost are allowed.
  * Plain-http remote URLs are rejected (warn + heuristic fallback in
  * `reasonWithLLM`) so an LLM key / prompt never goes over cleartext.
+ * @param baseUrl LLM base URL to vet.
+ * @returns True when the URL is localhost or https://.
  */
 export function isAllowedLlmBaseUrl(baseUrl: string): boolean {
   const trimmed = baseUrl.trim();
@@ -100,7 +132,13 @@ export function isAllowedLlmBaseUrl(baseUrl: string): boolean {
   return /^https:\/\//i.test(trimmed);
 }
 
-/** Shared input mapping so LLM and heuristic paths score the same facts. */
+/**
+ * Shared input mapping so LLM and heuristic paths score the same facts.
+ * @param intel Pool intel facts (tvl, volume, fees).
+ * @param alpha Paid alpha signal (score, direction).
+ * @param identity Identity facts (authorized/identityOk/revoked).
+ * @returns ReasonInput for analyzeRisk.
+ */
 export function toReasonInput(intel: BrainIntel, alpha: BrainAlpha = {}, identity: BrainIdentity = {}): ReasonInput {
   const identityOk =
     identity.identityOk ?? (identity.authorized !== undefined ? identity.authorized : identity.revoked !== undefined ? !identity.revoked : undefined);
@@ -114,7 +152,14 @@ export function toReasonInput(intel: BrainIntel, alpha: BrainAlpha = {}, identit
   };
 }
 
-/** User message: the facts to score, as compact JSON. */
+/**
+ * User message: the facts to score, as compact JSON.
+ * @param intel Pool intel facts.
+ * @param alpha Paid alpha signal.
+ * @param identity Identity facts.
+ * @param thresholdBps Risk threshold in bps.
+ * @returns Compact JSON string sent as the LLM user message.
+ */
 export function buildLlmUserPrompt(
   intel: BrainIntel,
   alpha: BrainAlpha,
@@ -128,7 +173,11 @@ function fallback(intel: BrainIntel, alpha: BrainAlpha, identity: BrainIdentity,
   return { ...analyzeRisk(toReasonInput(intel, alpha, identity), thresholdBps), llm: false };
 }
 
-/** Strict schema validation: score int 0..10000, decision ACT|SKIP. */
+/**
+ * Strict schema validation: score int 0..10000, decision ACT|SKIP.
+ * @param raw Raw model output string (must be strict JSON).
+ * @returns Validated ReasonOutput, or null when parsing/schema checks fail.
+ */
 export function parseLlmVerdict(raw: string): ReasonOutput | null {
   let v: unknown;
   try {
@@ -187,6 +236,12 @@ function extractContent(json: unknown): string | null {
 /**
  * Reason with the LLM, falling back to `analyzeRisk` on ANY failure.
  * Never throws for LLM-side reasons — the worst case is `{ llm: false }`.
+ * @param intel Pool intel facts.
+ * @param alpha Paid alpha signal.
+ * @param identity Identity facts.
+ * @param thresholdBps Risk threshold in bps.
+ * @param opts LLM overrides (baseUrl, apiKey, model, timeoutMs, fetchImpl).
+ * @returns BrainVerdict with llm true on the LLM path, false on heuristic fallback.
  */
 export async function reasonWithLLM(
   intel: BrainIntel,

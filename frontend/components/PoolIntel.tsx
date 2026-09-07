@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — PoolIntel panel: curated Uniswap pools + CoinGecko live prices + The Graph subgraph query + intel JSON parse; live deps CoinGecko public API, gateway.thegraph.com (NEXT_PUBLIC_GRAPH_API_KEY), CURATED_POOLS; degrades to demo-known stats + unreachable notes when keys/APIs missing.
 import { useState } from "react";
 import {
   CURATED_POOLS,

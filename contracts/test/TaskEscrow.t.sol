@@ -65,7 +65,8 @@ contract ReentrantERC20 {
     }
 }
 
-/// @title TaskEscrow.t.sol — locked test matrix T1-T17 (+ forge side of T18).
+/// @title TaskEscrowTest — locked test matrix T1-T17 (+ forge side of T18)
+/// @author Ramprasad
 /// @notice T18 (TS sign/verify), T19 (TS client vs anvil), T20 (Sepolia E2E)
 ///         live outside Foundry per the eng review worktree plan; the EIP-712
 ///         round-trip / tamper / wrong-chain cases below are their onchain

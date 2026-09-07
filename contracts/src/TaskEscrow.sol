@@ -10,6 +10,7 @@ import {RiskGuard} from "./RiskGuard.sol";
 
 /// @title VaranasiTaskEscrow — ERC20-only escrow gated by EIP-712 mandates,
 ///         allowlisted validator scores, and a live RiskGuard re-check.
+/// @author Ramprasad
 /// @notice Phase 1 (ETHOnline 2026). Locked architecture per eng review:
 ///         ERC20-only (no payable, no receive/fallback), EIP-712 mandate with
 ///         embedded registry (no separate MandateRegistry contract), release iff
@@ -68,6 +69,7 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         uint256 chainId; // must equal block.chainid (cross-chain replay guard)
     }
 
+    /// @notice Lifecycle states for a task (None = uninitialized).
     enum State {
         None,
         Funded,
@@ -77,6 +79,9 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         Cancelled
     }
 
+    /// @notice Stored task record: embedded mandate fields plus settlement state.
+    /// @dev fundedAmount records tokens RECEIVED (fee-on-transfer safe); scoreBps
+    ///      always holds the LATEST validator score (last-write-wins).
     struct Task {
         address payer; // mandate signer, receives refund/cancel
         address agent; // identity checked live via RiskGuard at release
@@ -99,12 +104,16 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         "Mandate(address agent,address merchant,address token,uint256 cap,uint64 windowStart,uint64 windowEnd,uint64 expiry,uint256 nonce,uint256 chainId)"
     );
 
+    /// @notice Basis-points denominator: scores and thresholds are 0-10_000.
     uint256 public constant BPS_DENOMINATOR = 10_000;
 
     // ── Storage ──
 
+    /// @notice Live RiskGuard re-checked inline at every release.
     RiskGuard public immutable riskGuard;
+    /// @notice Contract admin: manages validators, threshold, ownership.
     address public owner;
+    /// @notice Global release bar: release requires latest score >= thresholdBps.
     uint256 public thresholdBps;
 
     /// @notice signer => nonce => consumed (per-signer replay nullifier).
@@ -116,6 +125,7 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
 
     // ── Events (authoritative receipt; service indexes these read-only) ──
 
+    /// @notice Emitted when escrow is funded from the payer's allowance.
     event TaskFunded(
         bytes32 indexed taskId,
         address indexed payer,
@@ -126,42 +136,76 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         uint64 expiry,
         uint256 nonce
     );
+    /// @notice Emitted when an allowlisted validator submits (or revises) a score.
     event ValidationSubmitted(bytes32 indexed taskId, address indexed validator, uint256 scoreBps);
+    /// @notice Emitted when escrowed funds are released to the merchant.
     event TaskReleased(bytes32 indexed taskId, address indexed payee, uint256 amount);
+    /// @notice Emitted when escrowed funds are refunded to the payer after expiry.
     event TaskRefunded(bytes32 indexed taskId, address indexed payer, uint256 amount);
+    /// @notice Emitted when the payer cancels a pre-validation escrow.
     event TaskCancelled(bytes32 indexed taskId, address indexed payer, uint256 amount);
+    /// @notice Emitted when the validator allowlist is updated.
     event ValidatorUpdated(address indexed validator, bool allowed);
+    /// @notice Emitted when the global release threshold is updated.
     event ThresholdUpdated(uint256 thresholdBps);
+    /// @notice Emitted when contract ownership is transferred.
     event OwnershipTransferred(address indexed next);
 
     // ── Distinct errors (no shared/clever reuse; CLI maps revert -> message) ──
 
+    /// @notice EIP-712 signature failed to recover a valid signer.
     error BadSig(address recovered);
+    /// @notice Mandate nonce was already consumed by this signer.
     error NonceUsed(address signer, uint256 nonce);
+    /// @notice Task id already exists (replay or duplicate mandate).
     error TaskExists(bytes32 taskId);
+    /// @notice Task id is unknown (never funded).
     error UnknownTask(bytes32 taskId);
+    /// @notice Mandate expiry is not in the future at fund time.
     error MandateExpired(uint64 expiry, uint256 nowTs);
+    /// @notice Validation window is inverted (start > end).
     error BadWindow(uint64 windowStart, uint64 windowEnd);
+    /// @notice Mandate agent address is zero.
     error ZeroAgent();
+    /// @notice Mandate merchant address is zero.
     error ZeroMerchant();
+    /// @notice Mandate token address is zero.
     error ZeroToken();
+    /// @notice Mandate cap is zero.
     error ZeroCap();
+    /// @notice Address argument is zero.
     error ZeroAddress();
+    /// @notice Token pull pre-check failed (allowance or balance below cap).
     error TokenFail(address token, address from, uint256 amount);
+    /// @notice Mandate chain id does not match the execution chain.
     error ChainIdMismatch(uint256 mandateChainId, uint256 chainId);
+    /// @notice Caller is not an allowlisted validator.
     error NotValidator(address caller);
+    /// @notice Task is not in Funded/Validated state for validation.
     error StaleTask(bytes32 taskId);
+    /// @notice Validation submitted outside the mandate window.
     error OutsideWindow(bytes32 taskId, uint256 nowTs);
+    /// @notice Score exceeds 10_000 bps.
     error BadScore(uint256 scoreBps);
+    /// @notice No validation exists yet for this task.
     error NoValidation(bytes32 taskId);
+    /// @notice Task was never funded or validated.
     error NotFundedOrValidated(bytes32 taskId);
+    /// @notice Latest score is below the global threshold.
     error ScoreBelowThreshold(bytes32 taskId, uint256 scoreBps, uint256 thresholdBps);
+    /// @notice Release attempted after expiry.
     error WindowExpired(bytes32 taskId, uint256 nowTs, uint64 expiry);
+    /// @notice Refund attempted before expiry (must be strictly after).
     error NotExpired(bytes32 taskId, uint256 nowTs, uint64 expiry);
+    /// @notice Task already reached a terminal state.
     error AlreadySettled(bytes32 taskId);
+    /// @notice Task already validated (cancel no longer allowed).
     error AlreadyValidated(bytes32 taskId);
+    /// @notice Caller is not the mandate payer.
     error NotPayer(address caller, address payer);
+    /// @notice Caller is not the contract owner.
     error NotOwner(address caller);
+    /// @notice Threshold exceeds 10_000 bps.
     error BadThreshold(uint256 thresholdBps);
 
     modifier onlyOwner() {
@@ -169,6 +213,7 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         _;
     }
 
+    /// @notice Deploy the escrow bound to a live RiskGuard and threshold.
     /// @param _riskGuard Live RiskGuard re-checked inline at every release.
     /// @param _thresholdBps Global release bar: score >= threshold (<= 10_000).
     constructor(address _riskGuard, uint256 _thresholdBps) EIP712("VaranasiTaskEscrow", "1") {
@@ -181,18 +226,25 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
 
     // ── Admin (owner-managed validator set + threshold; no sweep fn exists) ──
 
+    /// @notice Add or remove an allowlisted validator.
+    /// @param validator Validator address to update.
+    /// @param allowed True to allow, false to remove.
     function setValidator(address validator, bool allowed) external onlyOwner {
         if (validator == address(0)) revert ZeroAddress();
         isValidator[validator] = allowed;
         emit ValidatorUpdated(validator, allowed);
     }
 
+    /// @notice Update the global release threshold (score must be >= threshold).
+    /// @param _thresholdBps New threshold in bps (must be <= 10_000).
     function setThreshold(uint256 _thresholdBps) external onlyOwner {
         if (_thresholdBps > BPS_DENOMINATOR) revert BadThreshold(_thresholdBps);
         thresholdBps = _thresholdBps;
         emit ThresholdUpdated(_thresholdBps);
     }
 
+    /// @notice Transfer contract admin rights to a new owner.
+    /// @param next New owner address (must be non-zero).
     function transferOwnership(address next) external onlyOwner {
         if (next == address(0)) revert ZeroAddress();
         owner = next;
@@ -202,6 +254,8 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     // ── EIP-712 helpers (public for clients/tests; domain binds chainId + this) ──
 
     /// @notice EIP-712 struct hash of a mandate (without domain separator).
+    /// @param m Mandate to hash.
+    /// @return structHash keccak256 of the Mandate type encoding.
     function mandateStructHash(Mandate calldata m) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -220,18 +274,24 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     }
 
     /// @notice Full EIP-712 digest to sign (EIP-191 prefix + domain + struct).
+    /// @param m Mandate to digest (domain binds chainId and this contract).
+    /// @return digest Signable digest for the payer's EIP-712 signature.
     function mandateDigest(Mandate calldata m) public view returns (bytes32) {
         return _hashTypedDataV4(mandateStructHash(m));
     }
 
     /// @notice Lightweight state read (service indexer / UI poll this, not the
     ///         full 12-field tasks tuple).
+    /// @param taskId Task to query.
+    /// @return state Current lifecycle state of the task.
     function taskState(bytes32 taskId) external view returns (State) {
         return tasks[taskId].state;
     }
 
     /// @notice taskId derivation: keccak of the domain-bound digest (chain +
     ///         verifyingContract bound, so cross-chain/cross-deploy ids differ).
+    /// @param m Mandate whose task id is derived.
+    /// @return taskId keccak256 of the mandate digest.
     function mandateTaskId(Mandate calldata m) public view returns (bytes32) {
         return keccak256(abi.encode(mandateDigest(m)));
     }

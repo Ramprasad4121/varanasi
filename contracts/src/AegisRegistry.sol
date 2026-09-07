@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {IPermissionedRegistry, IPermissionedResolver} from "./interfaces/IENSv2.sol";
 
 /// @title AegisRegistry — ENSv2-backed agent identity registry (Sepolia)
+/// @author Ramprasad
 /// @notice Wraps the ENSv2 Permissioned Registry. Each agent is `sublabel.aegis.eth`:
 ///         expiring, revocable, human-owned. RiskGuard and offchain services treat
 ///         `isAuthorized(agentWallet)` as the single source of truth.
@@ -27,31 +28,40 @@ contract AegisRegistry {
     string public parentName;
 
     // Canonical Sepolia ENSv2 Beta addresses (https://docs.ens.domains/learn/deployments#sepolia-ensv2-beta)
+    /// @notice Canonical Sepolia ETHRegistry (PermissionedRegistry).
     address public constant SEPOLIA_ETH_REGISTRY = 0xBDC85dD5b15D7ecb354cd7cb6f2c50b4f2c4F0E2;
+    /// @notice Canonical Sepolia RootRegistry (PermissionedRegistry).
     address public constant SEPOLIA_ROOT_REGISTRY = 0x8115186E8f2E0B0281e86ab91f0f48Ba90364354;
+    /// @notice Canonical Sepolia ENSV2Resolver.
     address public constant SEPOLIA_ENSV2_RESOLVER = 0x508cb4E4596429Ca98a1bB3112d88D18F92456b5;
+    /// @notice Canonical Sepolia PermissionedResolver implementation.
     address public constant SEPOLIA_PERMISSIONED_RESOLVER_IMPL = 0x9EAe5C2730a7dD16BDD1DeE6421a1B91e3B0365e;
+    /// @notice Canonical Sepolia UniversalResolverV2 implementation.
     address public constant SEPOLIA_UNIVERSAL_RESOLVER_V2 = 0x4A1817d13E9cF196f471725176355C1234b63C70;
+    /// @notice Canonical upgradeable Universal Resolver proxy (resolution entry point).
     address public constant SEPOLIA_UR_PROXY = 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe;
 
+    /// @notice Contract admin: manages ENS wiring and may revoke any identity.
     address public owner;
+    /// @notice Next agent token id to mint (starts at 1).
     uint256 public nextTokenId = 1;
 
-    /// tokenId => expiry timestamp (0 = never minted)
+    /// @notice tokenId => expiry timestamp (0 = never minted).
     mapping(uint256 => uint64) public expiry;
-    /// tokenId => human owner (has revoke/renew rights)
+    /// @notice tokenId => human owner (has revoke/renew rights).
     mapping(uint256 => address) public tokenOwner;
-    /// tokenId => agent wallet bound to the subname
+    /// @notice tokenId => agent wallet bound to the subname.
     mapping(uint256 => address) public agentOf;
-    /// tokenId => revoked flag
+    /// @notice tokenId => revoked flag.
     mapping(uint256 => bool) public revoked;
-    /// tokenId => sublabel (e.g. "agent-1" for agent-1.aegis.eth)
+    /// @notice tokenId => sublabel (e.g. "agent-1" for agent-1.aegis.eth).
     mapping(uint256 => string) public sublabelOf;
-    /// sublabel hash => tokenId (enforces unique sublabels)
+    /// @notice sublabel hash => tokenId (enforces unique sublabels).
     mapping(bytes32 => uint256) public tokenByLabelHash;
-    /// agent wallet => tokenId (reverse lookup for isAuthorized)
+    /// @notice agent wallet => tokenId (reverse lookup for isAuthorized).
     mapping(address => uint256) public tokenByAgent;
 
+    /// @notice Emitted when a new agent identity is minted.
     event AgentMinted(
         uint256 indexed tokenId,
         string sublabel,
@@ -59,14 +69,22 @@ contract AegisRegistry {
         address indexed humanOwner,
         uint64 expiry
     );
+    /// @notice Emitted when an agent identity is revoked.
     event AgentRevoked(uint256 indexed tokenId, string sublabel, address indexed humanOwner);
+    /// @notice Emitted when an agent identity expiry is extended.
     event AgentRenewed(uint256 indexed tokenId, string sublabel, uint64 newExpiry);
+    /// @notice Emitted when the ENSv2 wiring addresses are updated.
     event ENSAddressesUpdated(address registry, address resolver, address universalResolver);
 
+    /// @notice Caller is neither the token owner nor the admin.
     error NotTokenOwner();
+    /// @notice Token id was never minted.
     error UnknownToken();
+    /// @notice Sublabel (or agent wallet) is already registered.
     error LabelTaken();
+    /// @notice Address argument is zero.
     error ZeroAddress();
+    /// @notice Expiry duration is zero.
     error ZeroExpiry();
 
     modifier onlyOwner() {
@@ -74,6 +92,11 @@ contract AegisRegistry {
         _;
     }
 
+    /// @notice Deploy the registry with ENSv2 wiring and parent name.
+    /// @param _ensRegistry ENSv2 registry address (zero = mock mode).
+    /// @param _ensResolver ENSv2 resolver address.
+    /// @param _universalResolver UniversalResolverV2 entry point.
+    /// @param _parentName Human-readable parent name (e.g. "aegis.eth").
     constructor(address _ensRegistry, address _ensResolver, address _universalResolver, string memory _parentName) {
         owner = msg.sender;
         ensRegistry = _ensRegistry;
@@ -94,10 +117,13 @@ contract AegisRegistry {
     }
 
     /// @notice Set the parent name node (namehash of e.g. `aegis.eth`) once owned on Sepolia.
+    /// @param _parentNode Namehash of the parent name.
     function setParentNode(bytes32 _parentNode) external onlyOwner {
         parentNode = _parentNode;
     }
 
+    /// @notice Transfer contract admin rights to a new address.
+    /// @param next New owner address (must be non-zero).
     function transferAdmin(address next) external onlyOwner {
         if (next == address(0)) revert ZeroAddress();
         owner = next;

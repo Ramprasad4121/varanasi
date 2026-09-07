@@ -1,3 +1,15 @@
+/**
+ * @author Ramprasad
+ * @module workflow — CRE confidential risk workflow: TEE HTTP handler + DON report.
+ *
+ * Purpose: validate public pool inputs in-enclave, apply confidential Vault DON
+ * secrets (threshold/weights/allowlist/API key) via scorePoolRisk, best-effort
+ * POST the verdict triple to the varanasi agent API, and cross to the Workflow
+ * DON for a consensus-signed report consumed by RiskGuard.
+ *
+ * Env deps: none read directly (non-sensitive wiring arrives via validated
+ * `configSchema`; secrets arrive via `runtime.getSecret` from the Vault DON).
+ */
 import {
   cre,
   hexToBase64,
@@ -91,6 +103,14 @@ const parseConfidential = (args: {
 // ─── TEE HTTP Callback ──────────────────────────────────────
 // Receives a `TeeRuntime`, not a `Runtime`. Everything here runs inside the
 // enclave until we explicitly cross back with `usingTheDons()`.
+/**
+ * TEE HTTP handler: score pool risk in-enclave, best-effort POST the verdict,
+ * then cross to the DON for a consensus-signed report.
+ * @param runtime Attested TEE runtime (config + Vault DON secrets + logging).
+ * @param payload Raw HTTP trigger payload carrying public pool inputs.
+ * @returns Human-readable verdict summary ("ACT/SKIP @ <bps> for <poolId>").
+ * @throws On invalid config URL, malformed public inputs, or invalid secrets.
+ */
 export const onHttpTrigger = (runtime: TeeRuntime<Config>, payload: HTTPPayload): string => {
   const config = runtime.config
 
@@ -187,6 +207,11 @@ export const onHttpTrigger = (runtime: TeeRuntime<Config>, payload: HTTPPayload)
 }
 
 // ─── Workflow Init ──────────────────────────────────────────
+/**
+ * Register the confidential HTTP-trigger workflow handler.
+ * @param config Validated non-sensitive wiring (API URL + secret IDs).
+ * @returns Array with the single TEE-pinned HTTP handler (Nitro, us-west-2).
+ */
 export function initWorkflow(config: Config) {
   const httpTrigger = new cre.capabilities.HTTPCapability()
 

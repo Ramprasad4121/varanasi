@@ -1,3 +1,4 @@
+# Author: Ramprasad — varanasi Alpha-Signal Service OpenAPI spec for Bazantic gateway import.
 openapi: 3.0.3
 info:
   title: varanasi Alpha-Signal Service (x402-gated)
@@ -18,7 +19,7 @@ info:
     0.01 HBAR (1000000 tinybars). POST /v1/score = $0.001 USDC or
     0.001 HBAR (100000 tinybars). Free: GET /health, /402-info, /v1/receipts.
   contact:
-    name: varanasi (ETHOnline 2026)
+    name: Ramprasad (varanasi, ETHOnline 2026)
   license:
     name: Demo — not financial advice
 servers:

@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — Subgraph MCP wrapper with Gateway fallback (SubgraphAgent, McpClient; env: GRAPH_API_KEY).
  * mcp.ts — minimal MCP client wrapper for Subgraph MCP + Gateway fallback.
  *
  * Tool surface (mirrors the Subgraph MCP server exposed via The Graph):
@@ -17,19 +18,24 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { GraphClient } from "./graph.js";
 
+/** Config launching the Subgraph MCP server over stdio (command + args + env). */
 export interface McpConfig {
   /** Command launching the Subgraph MCP server (stdio). */
   command?: string;
+  /** Args for the MCP server command. */
   args?: string[];
+  /** Env vars for the MCP server process (e.g. GRAPH_API_KEY). */
   env?: Record<string, string>;
 }
 
+/** Default MCP server launch (npx @thegraph/subgraph-mcp with env GRAPH_API_KEY). */
 export const DEFAULT_SUBGRAPH_MCP: McpConfig = {
   command: "npx",
   args: ["-y", "@thegraph/subgraph-mcp"],
   env: { GRAPH_API_KEY: process.env.GRAPH_API_KEY ?? "" },
 };
 
+/** Tool surface mirrored from the Subgraph MCP server (search_subgraphs/get_schema/run_query). */
 export const MCP_TOOLS = [
   {
     name: "search_subgraphs",
@@ -56,6 +62,7 @@ export const MCP_TOOLS = [
   },
 ] as const;
 
+/** Names of the MCP tools in MCP_TOOLS. */
 export type McpToolName = (typeof MCP_TOOLS)[number]["name"];
 
 /** Thin JSON-RPC stdio client for an MCP server child process. */
@@ -85,10 +92,20 @@ export class McpClient {
     this.notify("notifications/initialized");
   }
 
+  /**
+   * List the mirrored MCP tool surface.
+   * @returns The MCP_TOOLS descriptor array.
+   */
   toolsList(): typeof MCP_TOOLS {
     return MCP_TOOLS;
   }
 
+  /**
+   * Call an MCP tool and parse a text payload as JSON when possible.
+   * @param name Tool name (search_subgraphs, get_schema, run_query).
+   * @param args Tool arguments.
+   * @returns Parsed JSON payload, or raw text when it is not JSON.
+   */
   async callTool<T = unknown>(name: McpToolName, args: Record<string, unknown>): Promise<T> {
     const res = (await this.request("tools/call", { name, arguments: args })) as {
       content?: { type: string; text: string }[];
@@ -104,6 +121,10 @@ export class McpClient {
     }
   }
 
+  /**
+   * Kill the MCP server child process (safe to call when disconnected).
+   * @returns void.
+   */
   disconnect(): void {
     this.proc?.kill();
     this.proc = null;
@@ -158,11 +179,22 @@ export class McpClient {
 export class SubgraphAgent {
   private mcp: McpClient | null = null;
 
+  /**
+   * Build an agent over a GraphClient with an MCP fallback config.
+   * @param graph GraphClient used for the direct-Gateway fallback.
+   * @param mcpConfig MCP server launch config.
+   */
   constructor(
     private graph = new GraphClient(),
     private mcpConfig: McpConfig = DEFAULT_SUBGRAPH_MCP,
   ) {}
 
+  /**
+   * Discover subgraphs by keyword (MCP search, else curated Uniswap ids).
+   * @param query Keyword query, e.g. "uniswap v3".
+   * @param useMcp False forces the curated-id fallback.
+   * @returns MCP search result or the curated Uniswap id list.
+   */
   async searchSubgraphs(query: string, useMcp = true): Promise<unknown> {
     const mcp = await this.tryMcp(useMcp);
     if (mcp) return mcp.callTool("search_subgraphs", { query });
@@ -175,6 +207,14 @@ export class SubgraphAgent {
     ];
   }
 
+  /**
+   * Run GraphQL against a subgraph (MCP run_query, else direct Gateway).
+   * @param subgraphId Target subgraph id.
+   * @param gql GraphQL query string.
+   * @param variables Query variables.
+   * @param useMcp False forces direct Gateway.
+   * @returns Live query result.
+   */
   async runQuery(subgraphId: string, gql: string, variables: Record<string, unknown> = {}, useMcp = true): Promise<unknown> {
     const mcp = await this.tryMcp(useMcp);
     if (mcp) {
@@ -187,6 +227,10 @@ export class SubgraphAgent {
     return this.graph.query(subgraphId, gql, variables);
   }
 
+  /**
+   * Drop the cached MCP client (safe to call when disconnected).
+   * @returns void.
+   */
   disconnect(): void {
     this.mcp?.disconnect();
     this.mcp = null;

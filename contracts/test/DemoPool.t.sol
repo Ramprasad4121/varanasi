@@ -10,6 +10,8 @@ import {MockERC20} from "../src/MockERC20.sol";
 import {AegisHook} from "../src/AegisHook.sol";
 import {DemoPoolLib} from "../script/DemoPool.s.sol";
 
+/// @title DemoPoolTest — fork-free unit tests for DemoPoolLib + MockERC20
+/// @author Ramprasad
 /// @notice Fork-free unit coverage for the DemoPool showtime flow.
 /// @dev Full pool creation needs Sepolia (live hook + periphery), so this file
 ///      covers the pure helpers (sorting, key params, range, unlock-data

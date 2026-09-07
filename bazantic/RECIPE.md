@@ -1,5 +1,7 @@
 # varanasi × Bazantic — "Risk-gated swap check" recipe
 
+Author: Ramprasad
+
 Bazantic tracks targeted: **Best Recipe ($1k)** + **Agentify ($1k)**.
 All integration files live in `bazantic/` only — nothing else in the repo is touched.
 

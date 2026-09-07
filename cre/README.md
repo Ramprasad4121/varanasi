@@ -1,5 +1,7 @@
 # varanasi — Chainlink CRE Confidential Workflow
 
+Author: Ramprasad
+
 From-scratch entry for **ETHOnline Chainlink $2k Best Confidential Workflow**.
 Built on the official [`hello-confidential-workflows-ts`](https://github.com/smartcontractkit/cre-templates)
 starter template shape (`handlerInTee` + `TeeRuntime` + `usingTheDons()`), with the

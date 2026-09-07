@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — World Selfie Check tiers + proof verification (tierFor, verifySelfieProof; env: WORLD_RP_ID, WORLD_ACTION, WORLD_SELFIE_SANDBOX).
  * human.ts — World Selfie Check integration for varanasi.
  *
  * Why this exists: varanasi is a human-authorized agent economy. The abuse
@@ -26,9 +27,12 @@
  *     integration-test artifacts, never production uniqueness.
  */
 
+/** Human tier: verified-unique-human or capped guest. */
 export type HumanTier = "verified" | "guest";
 
+/** Agent limits + allowances granted to one human tier. */
 export interface TierPolicy {
+  /** Tier identifier (verified or guest). */
   tier: HumanTier;
   /** Max agents one human may mint/authorize. */
   maxAgents: number;
@@ -55,6 +59,9 @@ export const VERIFIED_TIER: TierPolicy = {
  * succeeded AND the nullifier was stored (UNIQUE constraint — see WORLD.md).
  * A verified flag without a nullifier, or an empty nullifier, falls back
  * to guest: fail closed.
+ * @param humanNullifierHash Stored World nullifier hash (null/empty → guest).
+ * @param verified True only after verifySelfieProof succeeded with a stored nullifier.
+ * @returns TierPolicy (verified tier or capped guest tier copy).
  */
 export function tierFor(
   humanNullifierHash: string | null | undefined,
@@ -81,6 +88,7 @@ export interface SelfieProof {
   [key: string]: unknown;
 }
 
+/** Config for verifySelfieProof (rp id, action/signal binding, sandbox, verifier override). */
 export interface VerifyConfig {
   /** Developer Portal `rp_id` (backend verify URL is scoped to it). */
   rpId: string;
@@ -99,6 +107,7 @@ export interface VerifyConfig {
   fetchImpl?: typeof fetch;
 }
 
+/** Outcome of verifySelfieProof (verdict, nullifier, credential, sandbox flag). */
 export interface VerifyResult {
   ok: boolean;
   /** True only when the World verifier (or sandbox shape-check) accepted the proof. */
@@ -110,15 +119,24 @@ export interface VerifyResult {
   detail?: string;
 }
 
+/** Default World backend verify endpoint base (rp id is appended per call). */
 export const WORLD_VERIFY_BASE = "https://developer.world.org/api/v4/verify";
 
-/** True when `WORLD_SELFIE_SANDBOX` is `1` or `true` (case-insensitive). */
+/**
+ * True when `WORLD_SELFIE_SANDBOX` is `1` or `true` (case-insensitive).
+ * @param env Env map to read (default: process.env).
+ * @returns True when sandbox shape-validation mode is enabled.
+ */
 export function isSandboxEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const v = (env.WORLD_SELFIE_SANDBOX ?? "").toLowerCase().trim();
   return v === "1" || v === "true";
 }
 
-/** Build a `VerifyConfig` from env: `WORLD_RP_ID`, `WORLD_ACTION`, `WORLD_SELFIE_SANDBOX`. */
+/**
+ * Build a `VerifyConfig` from env: `WORLD_RP_ID`, `WORLD_ACTION`, `WORLD_SELFIE_SANDBOX`.
+ * @param env Env map to read (default: process.env).
+ * @returns Pick of rpId, action, and sandbox flag.
+ */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Pick<VerifyConfig, "rpId" | "action" | "sandbox"> {
   return {
     rpId: env.WORLD_RP_ID ?? "",
@@ -148,6 +166,9 @@ function credentialOf(proof: SelfieProof): string | null {
  * Sandbox path (`sandbox: true`): no network. Accepts proofs whose shape
  * matches a Selfie Check result — non-empty nullifier + credential
  * `selfie` (or legacy `face`) — and marks the result `sandbox: true`.
+ * @param proof IDKit Selfie Check result (forwarded AS-IS in production).
+ * @param config VerifyConfig (rpId, action/signal binding, sandbox, verifier override).
+ * @returns VerifyResult with ok/verified, nullifierHash, credentialType, and sandbox flag.
  */
 export async function verifySelfieProof(
   proof: SelfieProof,

@@ -1,5 +1,7 @@
 # Demo evidence — varanasi end-to-end (all live, 2026-09-06)
 
+Author: Ramprasad
+
 One command runs the whole loop:
 `npx tsx src/cli.ts analyze --agent sentinel-1.aegis.eth --pool 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 --no-mcp`
 (repo: `agent/`; needs `agent/.env` — gitignored, never committed)

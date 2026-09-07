@@ -17,6 +17,8 @@ import {AegisRegistry} from "../src/AegisRegistry.sol";
 import {RiskGuard} from "../src/RiskGuard.sol";
 import {AegisHook} from "../src/AegisHook.sol";
 
+/// @title AegisHookTest — unit tests for AegisHook against real v4-core types
+/// @author Ramprasad
 /// @notice Unit tests for AegisHook against REAL v4-core types.
 /// @dev The hook is deployed via CREATE2 with a mined salt so its address
 ///      carries exactly the beforeSwap permission bit — the same HookMiner

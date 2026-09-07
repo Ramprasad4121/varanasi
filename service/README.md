@@ -1,5 +1,7 @@
 # varanasi Signal Service — live x402-gated alpha API (Hedera)
 
+Author: Ramprasad
+
 Express + TypeScript resource server. Two paid routes on **Hedera testnet**,
 verified/settled via an x402 facilitator. Adapted from the reference PoC
 [hedera-dev/x402-inference-pay-per-request-poc](https://github.com/hedera-dev/x402-inference-pay-per-request-poc)

@@ -1,5 +1,8 @@
 /**
- * DEMO ONLY — deterministic mock alpha generator.
+ * @author Ramprasad
+ * @module signal — DEMO ONLY deterministic mock alpha generator.
+ *
+ * Env deps: none (pure; no network calls, no env reads).
  *
  * Produces a stable, pseudo-random signal from (symbol, minute-bucket) via a
  * seeded PRNG. Makes NO network calls and uses NO real market data, so judges
@@ -91,6 +94,12 @@ function deriveFeatures(symbol: string, at: Date): SignalFeatures {
   };
 }
 
+/**
+ * Generate a deterministic demo alpha signal for a symbol and time bucket.
+ * @param symbolRaw Trading-pair symbol (e.g. "ETH/USDC"); uppercased, defaults to ETH/USDC.
+ * @param at Bucket timestamp (default now); same symbol+minute returns the same signal.
+ * @returns AlphaSignal with direction, confidence, features, txHint and demo disclaimer.
+ */
 export function generateSignal(symbolRaw: string, at: Date = new Date()): AlphaSignal {
   const symbol = (symbolRaw || 'ETH/USDC').toUpperCase();
   const features = deriveFeatures(symbol, at);
@@ -122,6 +131,12 @@ export function generateSignal(symbolRaw: string, at: Date = new Date()): AlphaS
   };
 }
 
+/**
+ * Generate a deterministic demo risk score for a symbol and time bucket.
+ * @param symbolRaw Trading-pair symbol; uppercased, defaults to ETH/USDC.
+ * @param at Bucket timestamp (default now).
+ * @returns RiskScore with 0..100 score, band, factor breakdown and demo disclaimer.
+ */
 export function generateScore(symbolRaw: string, at: Date = new Date()): RiskScore {
   const symbol = (symbolRaw || 'ETH/USDC').toUpperCase();
   const features = deriveFeatures(`risk:${symbol}`, at);

@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — VerdictTimeline list: local ACT/SKIP verdicts logged from Pool intel (ACT if riskScore < 50), newest-first with filter; no live deps (RiskGuard is the onchain gate, not called here); degrades to empty-state hints when no intel/verdicts.
 import { useState } from "react";
 import type { IntelRecord, Verdict } from "./aegis";
 

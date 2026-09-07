@@ -1,5 +1,6 @@
 /**
- * varanasi alpha-signal service — live x402-gated API on Hedera testnet.
+ * @author Ramprasad
+ * @module server — varanasi alpha-signal service: live x402-gated API on Hedera testnet.
  *
  * Paid routes (x402 `exact` scheme, verified via facilitator):
  *   POST /v1/signal  premium alpha: {signal, confidence, features, txHint}
@@ -13,6 +14,10 @@
  * Flow: client POSTs without payment -> 402 + payment requirements ->
  * client signs a Hedera TransferTransaction -> retries with payment ->
  * facilitator /verify passes -> handler runs, facilitator settles async.
+ *
+ * Env deps: PORT, HEDERA_NETWORK (testnet|mainnet), HEDERA_SERVICE_ACCOUNT_ID
+ * (required receiver), X402_FACILITATOR_URL / X402_{TESTNET,MAINNET}_FACILITATOR_URL
+ * (via facilitatorUrlFor in x402.ts).
  */
 import { config } from 'dotenv';
 import express, { type Request, type Response } from 'express';

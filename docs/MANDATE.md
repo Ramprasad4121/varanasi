@@ -1,5 +1,7 @@
 # Varanasi Mandate Spec (Phase 1 — ETHOnline 2026)
 
+Author: Ramprasad
+
 One signed object authorizes one escrowed task. The human owner (payer) signs;
 the agent (or anyone) submits. Settlement never depends on ERC-8004 onchain
 state (Sepolia has no code at the canonical registry addresses — client reads

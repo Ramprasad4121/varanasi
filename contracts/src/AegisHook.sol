@@ -14,6 +14,7 @@ import {AegisRegistry} from "./AegisRegistry.sol";
 import {RiskGuard} from "./RiskGuard.sol";
 
 /// @title AegisHook — Uniswap v4 `beforeSwap` risk gate for varanasi agents
+/// @author Ramprasad
 /// @notice A From-Scratch Uniswap v4 hook (ETHOnline 2026, Uniswap $3k track).
 ///         Any pool initialized with this hook only lets authorized low-risk
 ///         agents swap: `beforeSwap` reverts unless the swap's agent (tx.origin)
@@ -58,6 +59,7 @@ contract AegisHook is IHooks {
     uint256 public defaultMaxAllowedBps;
 
     /// @notice Attested risk score for an agent wallet + expiry timestamp.
+    /// @dev scoreBps is 0-10_000; deadline is a block.timestamp expiry.
     struct Attestation {
         uint64 scoreBps;
         uint64 deadline;
@@ -72,13 +74,21 @@ contract AegisHook is IHooks {
 
     // ── Events ────────────────────────────────────────────────────────
 
+    /// @notice Emitted when an agent risk attestation is written or refreshed.
     event AgentRiskSet(address indexed agent, uint64 scoreBps, uint64 deadline, address indexed setter);
+    /// @notice Emitted when a per-pool cap is set or overwritten.
     event PoolCapSet(PoolId indexed poolId, uint256 maxAllowedBps, address indexed setter);
+    /// @notice Emitted when a per-pool cap is cleared (falls back to default).
     event PoolCapCleared(PoolId indexed poolId, address indexed setter);
+    /// @notice Emitted when the fallback default cap is updated.
     event DefaultCapSet(uint256 maxAllowedBps, address indexed setter);
+    /// @notice Emitted when a risk-engine writer is granted or revoked.
     event OperatorSet(address indexed operator, bool allowed, address indexed setter);
+    /// @notice Emitted when the bound RiskGuard is repointed.
     event RiskGuardUpdated(address indexed riskGuard, address indexed setter);
+    /// @notice Emitted when hook admin rights are transferred.
     event OwnershipTransferred(address indexed next, address indexed prev);
+    /// @notice Emitted when a swap passes the identity + risk gate.
     event SwapAuthorized(address indexed agent, PoolId indexed poolId, uint256 scoreBps, uint256 maxAllowedBps);
 
     // ── Errors ────────────────────────────────────────────────────────
@@ -87,11 +97,17 @@ contract AegisHook is IHooks {
     error NotPoolManager(address caller);
     /// @notice No attestation exists, or it expired (stale risk data).
     error StaleAttestation(address agent);
+    /// @notice Caller is not the hook owner.
     error NotOwner(address caller);
+    /// @notice Caller is neither owner nor an authorized operator.
     error NotOperator(address caller);
+    /// @notice Address argument is zero.
     error ZeroAddress();
+    /// @notice Risk score exceeds 10_000 bps.
     error BadScore(uint256 scoreBps);
+    /// @notice Deadline is not in the future.
     error BadDeadline(uint64 deadline);
+    /// @notice Cap exceeds 10_000 bps.
     error BadCap(uint256 maxAllowedBps);
     /// @notice A non-swap hook entrypoint was called (never happens: bits unset).
     error WrongHookFunction();
@@ -106,6 +122,7 @@ contract AegisHook is IHooks {
         _;
     }
 
+    /// @notice Deploy a beforeSwap-only hook; validates address permission bits.
     /// @param _poolManager Bound PoolManager (Sepolia: 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543).
     /// @param _riskGuard Live RiskGuard (Sepolia: 0xc35861C4dbE63A9C8cFEfd32C671998151c217cA).
     /// @param _defaultMaxAllowedBps Fallback per-swap cap in bps (e.g. 5_000 = 50%).
@@ -152,6 +169,10 @@ contract AegisHook is IHooks {
     // ── Core gate ─────────────────────────────────────────────────────
 
     /// @notice Gate every swap through varanasi identity + attested risk.
+    /// @param key Pool key of the swap being gated.
+    /// @return selector beforeSwap selector on success.
+    /// @return delta Zero delta (hook takes no fees).
+    /// @return fee Zero fee override.
     /// @dev Attribute the swap to `tx.origin` (the agent EOA driving the tx).
     ///      Reverts `RiskGuard.UnauthorizedAgent` (no live `*.aegis.eth`
     ///      identity), `StaleAttestation` (no fresh score), or
@@ -177,6 +198,9 @@ contract AegisHook is IHooks {
     // ── Risk attestation writes (owner/operator) ──────────────────────
 
     /// @notice Attest (or refresh) an agent's risk score until `deadline`.
+    /// @param agent Agent wallet to attest.
+    /// @param scoreBps Risk score in bps (must be <= 10_000).
+    /// @param deadline Expiry timestamp (must be in the future).
     /// @dev Demo stand-in for the offchain reasoning engine. Production:
     ///      replace with EIP-712 signed attestations verified onchain.
     function setAgentRisk(address agent, uint256 scoreBps, uint64 deadline) external onlyOperator {
@@ -190,6 +214,8 @@ contract AegisHook is IHooks {
     // ── Policy admin (owner) ──────────────────────────────────────────
 
     /// @notice Set (or overwrite) the per-pool cap for `key`'s pool.
+    /// @param key Pool key whose pool cap is set.
+    /// @param maxAllowedBps New per-pool cap in bps (must be <= 10_000).
     function setPoolCap(PoolKey calldata key, uint256 maxAllowedBps) external onlyOwner {
         if (maxAllowedBps > MAX_BPS) revert BadCap(maxAllowedBps);
         PoolId poolId = key.toId();
@@ -199,6 +225,7 @@ contract AegisHook is IHooks {
     }
 
     /// @notice Clear a per-pool cap so the pool falls back to the default cap.
+    /// @param key Pool key whose per-pool cap is cleared.
     function clearPoolCap(PoolKey calldata key) external onlyOwner {
         PoolId poolId = key.toId();
         poolCapSet[poolId] = false;
@@ -206,6 +233,7 @@ contract AegisHook is IHooks {
     }
 
     /// @notice Set the fallback cap for pools without a per-pool cap.
+    /// @param maxAllowedBps New default cap in bps (must be <= 10_000).
     function setDefaultMaxAllowedBps(uint256 maxAllowedBps) external onlyOwner {
         if (maxAllowedBps > MAX_BPS) revert BadCap(maxAllowedBps);
         defaultMaxAllowedBps = maxAllowedBps;
@@ -213,6 +241,7 @@ contract AegisHook is IHooks {
     }
 
     /// @notice Repoint at a new RiskGuard (e.g. after a guard upgrade).
+    /// @param _riskGuard New RiskGuard contract.
     function setRiskGuard(RiskGuard _riskGuard) external onlyOwner {
         if (address(_riskGuard) == address(0)) revert ZeroAddress();
         riskGuard = _riskGuard;
@@ -220,6 +249,8 @@ contract AegisHook is IHooks {
     }
 
     /// @notice Grant/revoke risk-engine writer rights.
+    /// @param operator Writer address to update.
+    /// @param allowed True to grant, false to revoke.
     function setOperator(address operator, bool allowed) external onlyOwner {
         if (operator == address(0)) revert ZeroAddress();
         operators[operator] = allowed;
@@ -227,6 +258,7 @@ contract AegisHook is IHooks {
     }
 
     /// @notice Hand admin rights to `next` (e.g. a multisig post-deploy).
+    /// @param next New owner address (must be non-zero).
     function transferOwnership(address next) external onlyOwner {
         if (next == address(0)) revert ZeroAddress();
         address prev = owner;
@@ -237,26 +269,32 @@ contract AegisHook is IHooks {
     // ── Views ─────────────────────────────────────────────────────────
 
     /// @notice Effective cap for `key`'s pool (per-pool cap or default).
+    /// @param key Pool key to query.
+    /// @return cap Effective cap in bps.
     function effectiveCap(PoolKey calldata key) external view returns (uint256) {
         PoolId poolId = key.toId();
         return poolCapSet[poolId] ? poolMaxAllowedBps[poolId] : defaultMaxAllowedBps;
     }
 
     /// @notice Live registry behind the bound RiskGuard.
+    /// @return registry AegisRegistry used for identity checks.
     function registry() external view returns (AegisRegistry) {
         return riskGuard.registry();
     }
 
     // ── Unused IHooks entrypoints (unreachable: permission bits unset) ─
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function beforeInitialize(address, PoolKey calldata, uint160) external pure override returns (bytes4) {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function afterInitialize(address, PoolKey calldata, uint160, int24) external pure override returns (bytes4) {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function beforeAddLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
         pure
@@ -266,6 +304,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function afterAddLiquidity(
         address,
         PoolKey calldata,
@@ -277,6 +316,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function beforeRemoveLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         external
         pure
@@ -286,6 +326,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function afterRemoveLiquidity(
         address,
         PoolKey calldata,
@@ -297,6 +338,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function afterSwap(address, PoolKey calldata, SwapParams calldata, BalanceDelta, bytes calldata)
         external
         pure
@@ -306,6 +348,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function beforeDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
         external
         pure
@@ -315,6 +358,7 @@ contract AegisHook is IHooks {
         revert WrongHookFunction();
     }
 
+    /// @notice Unused hook entrypoint: always reverts (only beforeSwap is enabled).
     function afterDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
         external
         pure

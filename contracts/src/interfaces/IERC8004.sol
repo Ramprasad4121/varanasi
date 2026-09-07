@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 /// @title IERC8004 — minimal ERC-8004 (Trustless Agents) surface for varanasi
+/// @author Ramprasad
 /// @notice Canonical registry addresses (CREATE2, same cross-chain where deployed):
 ///         - IdentityRegistry:   0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
 ///         - ReputationRegistry: 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63

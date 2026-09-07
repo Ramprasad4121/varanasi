@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — SignalPanel paid x402 flow: POST /v1/signal 402-then-paid stepper + persisted receipts with HashScan links; live dep signal service (SIGNAL_URL, /v1/signal + /v1/receipts); degrades to localStorage cache + demo-known txs + unreachable status when service down.
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   DEMO_RECEIPTS,

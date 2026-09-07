@@ -1,3 +1,4 @@
+// Author: Ramprasad — root layout: static topbar + globals.css + metadata shell; no live deps; no graceful-degradation needed (static only).
 import type { Metadata } from "next";
 import "./globals.css";
 

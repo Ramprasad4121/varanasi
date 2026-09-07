@@ -1,5 +1,6 @@
 /**
- * Hedera Consensus Service (HCS) audit trail for paid x402 requests.
+ * @author Ramprasad
+ * @module hcs — Hedera Consensus Service (HCS) audit trail for paid x402 requests.
  *
  * After a paid `/v1/signal` or `/v1/score` request is served, the service
  * fire-and-forgets a JSON receipt
@@ -17,6 +18,10 @@
  *   `HCS_TOPIC_ID` (avoids a create-tx on every restart).
  * - Secrets: private keys are read from env only, used to sign, and NEVER
  *   printed or included in messages.
+ *
+ * Env deps: HCS_ENABLED (0/false/no/off disables), HCS_TOPIC_ID (reuse),
+ * HEDERA_NETWORK (testnet|mainnet), HEDERA_SERVICE_ACCOUNT_ID +
+ * HEDERA_SERVICE_PRIVATE_KEY (operator signing; never logged).
  */
 
 import {

@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — viem ENSv2 agent-subname resolver (resolveAgentSubname; env: SEPOLIA_RPC_URL, AEGIS_REGISTRY, ENSV2_UNIVERSAL_RESOLVER).
  * ens.ts — viem-based ENSv2 agent-subname resolver (Sepolia).
  *
  * resolveAgentSubname(name):
@@ -81,6 +82,7 @@ const ADDR_ABI = [
   },
 ] as const;
 
+/** Resolved agent identity: registry binding plus optional ENS wildcard leg. */
 export interface AgentIdentity {
   /** Full subname, e.g. "agent-1.aegis.eth". */
   name: string;
@@ -96,12 +98,21 @@ export interface AgentIdentity {
   mode: "registry+ens" | "registry-only";
 }
 
+/** Overrides for RPC URL, registry, and Universal Resolver (env defaults apply). */
 export interface EnsResolverOptions {
+  /** Sepolia RPC URL override (default: env SEPOLIA_RPC_URL or public RPC). */
   rpcUrl?: string;
+  /** AegisRegistry address override (default: env AEGIS_REGISTRY). */
   registry?: Address;
+  /** Universal Resolver V2 address override (default: env ENSV2_UNIVERSAL_RESOLVER, null disables ENS leg). */
   universalResolver?: Address | null;
 }
 
+/**
+ * Split a subname into its label and parent (lowercased, trimmed).
+ * @param name Full subname, e.g. "agent-1.aegis.eth".
+ * @returns Sublabel and parent domain.
+ */
 export function splitSubname(name: string): { sublabel: string; parent: string } {
   const normalized = name.toLowerCase().trim();
   const dot = normalized.indexOf(".");
@@ -109,11 +120,20 @@ export function splitSubname(name: string): { sublabel: string; parent: string }
   return { sublabel: normalized.slice(0, dot), parent: normalized.slice(dot + 1) };
 }
 
+/**
+ * Build a Sepolia viem public client for registry/ENS reads.
+ * @param rpcUrl Optional RPC URL (default: env SEPOLIA_RPC_URL or public Sepolia RPC).
+ * @returns Sepolia PublicClient.
+ */
 export function makeClient(rpcUrl?: string): PublicClient {
   return createPublicClient({ chain: sepolia, transport: http(rpcUrl ?? process.env.SEPOLIA_RPC_URL ?? "https://rpc.sepolia.org") });
 }
 
-/** DNS wire-format encoding for ENS names (viem v2 has no public helper). */
+/**
+ * DNS wire-format encoding for ENS names (viem v2 has no public helper).
+ * @param name Dotted ENS name to encode.
+ * @returns 0x-prefixed DNS wire-format encoding.
+ */
 export function dnsEncodeName(name: string): `0x${string}` {
   const parts: number[] = [];
   for (const label of name.split(".")) {
@@ -125,6 +145,13 @@ export function dnsEncodeName(name: string): `0x${string}` {
   return `0x${Buffer.from(parts).toString("hex")}` as `0x${string}`;
 }
 
+/**
+ * Resolve an agent subname via AegisRegistry, plus the optional ENS wildcard leg.
+ * @param name Agent subname, e.g. "agent-1.aegis.eth".
+ * @param opts Resolver overrides (rpcUrl, registry, universalResolver).
+ * @param client Optional injected viem public client.
+ * @returns AgentIdentity with registry binding and ENS agreement flags.
+ */
 export async function resolveAgentSubname(name: string, opts: EnsResolverOptions = {}, client?: PublicClient): Promise<AgentIdentity> {
   const registry = (opts.registry ?? (process.env.AEGIS_REGISTRY as Address)) as Address;
   if (!registry) throw new Error("AEGIS_REGISTRY is not set — cannot resolve agent identity.");

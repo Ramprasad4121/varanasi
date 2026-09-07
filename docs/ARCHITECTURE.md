@@ -1,5 +1,7 @@
 # Architecture — varanasi
 
+Author: Ramprasad
+
 ## Why this wins
 
 Judges in 2026 reward one thing: load-bearing sponsor tech in a coherent story.

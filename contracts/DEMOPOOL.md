@@ -1,5 +1,7 @@
 # DemoPool — live hook-revert showtime (Sepolia)
 
+Author: Ramprasad
+
 Live wiring (verified on Sepolia TODAY):
 
 | Role             | Address                                      |

@@ -1,5 +1,7 @@
 # AegisHook — Uniswap v4 Risk Hook (ETHOnline 2026, Uniswap From-Scratch)
 
+Author: Ramprasad
+
 A `beforeSwap`-only Uniswap v4 hook: **only authorized low-risk varanasi agents can swap**
 in any pool initialized with it. Unauthorized or over-threshold swaps revert;
 authorized low-risk swaps pass through untouched (no fee take, no fee override).

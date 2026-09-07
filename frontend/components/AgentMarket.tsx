@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — AgentMarket listings: featured sentinel-1 + onboard/mint via AegisRegistry.mintAgent, refresh via agentOf, revoke; live deps Sepolia RPC/registry via viem + window.ethereum; degrades to local pending records + status hints when undeployed/offline/no wallet.
 import { useCallback, useState, type FormEvent } from "react";
 import {
   createWalletClient,

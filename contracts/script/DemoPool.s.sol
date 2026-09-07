@@ -15,35 +15,56 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 
 import {MockERC20} from "../src/MockERC20.sol";
 
+/// @title DemoPoolLib — shared constants + pure helpers for the AegisHook demo
+/// @author Ramprasad
 /// @notice Shared constants + pure helpers for the AegisHook live revert demo.
 /// @dev All addresses verified live on Sepolia. Fork-free helpers are covered
 ///      by contracts/test/DemoPool.t.sol; the full flow needs Sepolia.
 library DemoPoolLib {
     // ── Live Sepolia wiring (verified) ──
+    /// @notice Live AegisHook on Sepolia (beforeSwap-only, mined address).
     address internal constant HOOK = 0xf3710A05cbb61eb8B1a73886eb68a341f69D0080;
+    /// @notice Canonical Uniswap v4 PoolManager on Sepolia.
     address internal constant POOL_MANAGER = 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543;
+    /// @notice Uniswap v4 PositionManager on Sepolia.
     address internal constant POSITION_MANAGER = 0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4;
+    /// @notice Permit2 on Sepolia (token approval hub).
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // ── Pool params ──
+    /// @notice Pool fee tier (0.30%).
     uint24 internal constant FEE = 3000;
+    /// @notice Tick spacing for fee tier 3000.
     int24 internal constant TICK_SPACING = 60;
+    /// @notice Lower tick of the demo range.
     int24 internal constant TICK_LOWER = -600;
+    /// @notice Upper tick of the demo range.
     int24 internal constant TICK_UPPER = 600;
     /// @notice 1:1 starting price (2**96).
     uint160 internal constant SQRT_PRICE_1_1 = 79228162514264337593543950336;
 
     // ── Demo funding ──
+    /// @notice Amount minted for each demo token.
     uint256 internal constant MINT_SUPPLY = 1_000_000 ether;
+    /// @notice Amount of token0 deposited as liquidity.
     uint256 internal constant DEPOSIT0 = 1_000 ether;
+    /// @notice Amount of token1 deposited as liquidity.
     uint256 internal constant DEPOSIT1 = 1_000 ether;
 
+    /// @notice Address argument is zero.
     error ZeroAddress();
+    /// @notice Token addresses are identical (cannot sort).
     error IdenticalTokens();
+    /// @notice Tick range is invalid (inverted or misaligned to spacing).
     error BadRange(int24 tickLower, int24 tickUpper);
+    /// @notice Computed liquidity is zero.
     error ZeroLiquidity();
 
     /// @notice Sort two token addresses into (currency0, currency1), currency0 < currency1.
+    /// @param tokenA First token address (must be non-zero).
+    /// @param tokenB Second token address (must be non-zero, != tokenA).
+    /// @return c0 Currency wrapping the lower address.
+    /// @return c1 Currency wrapping the higher address.
     function sortCurrencies(address tokenA, address tokenB) internal pure returns (Currency c0, Currency c1) {
         if (tokenA == address(0) || tokenB == address(0)) revert ZeroAddress();
         if (tokenA == tokenB) revert IdenticalTokens();
@@ -53,6 +74,9 @@ library DemoPoolLib {
     }
 
     /// @notice Build the demo PoolKey: fee 3000, tickSpacing 60, hooks = live AegisHook.
+    /// @param currency0 Sorted lower currency.
+    /// @param currency1 Sorted higher currency.
+    /// @return key PoolKey with live hook, fee 3000 and tickSpacing 60.
     function buildKey(Currency currency0, Currency currency1) internal pure returns (PoolKey memory key) {
         key = PoolKey({
             currency0: currency0,
@@ -64,6 +88,8 @@ library DemoPoolLib {
     }
 
     /// @notice Validate the fixed -600/+600 range against tickSpacing 60.
+    /// @return tickLower Lower tick (-600).
+    /// @return tickUpper Upper tick (+600).
     function validatedTicks() internal pure returns (int24 tickLower, int24 tickUpper) {
         (tickLower, tickUpper) = (TICK_LOWER, TICK_UPPER);
         if (tickLower >= tickUpper) revert BadRange(tickLower, tickUpper);
@@ -73,6 +99,7 @@ library DemoPoolLib {
     }
 
     /// @notice Liquidity units for (DEPOSIT0, DEPOSIT1) over -600/+600 at 1:1.
+    /// @return liquidity Liquidity amount for the fixed range and deposit sizes.
     function liquidityForDeposit() internal pure returns (uint256 liquidity) {
         uint160 sqrtA = TickMath.getSqrtPriceAtTick(TICK_LOWER);
         uint160 sqrtB = TickMath.getSqrtPriceAtTick(TICK_UPPER);
@@ -81,6 +108,10 @@ library DemoPoolLib {
     }
 
     /// @notice Encode PositionManager unlockData for MINT_POSITION + SETTLE_PAIR.
+    /// @param key PoolKey for the demo pool.
+    /// @param liquidity Liquidity units to mint (must be > 0).
+    /// @param owner Liquidity position owner (must be non-zero).
+    /// @return unlockData ABI-encoded actions + params for PositionManager.modifyLiquidities.
     function mintUnlockData(PoolKey memory key, uint256 liquidity, address owner)
         internal
         pure
@@ -99,6 +130,8 @@ library DemoPoolLib {
     }
 }
 
+/// @title DemoPool — one-shot Sepolia demo: tokens + pool + liquidity
+/// @author Ramprasad
 /// @notice ONE demo script: deploy 2 mocks, fund sender, init the hooked pool,
 ///         approve via Permit2, mint -600/+600 liquidity. Broadcast on Sepolia.
 /// @dev Holds no value: `run` is non-payable and the script has no receive/fallback.
@@ -106,6 +139,7 @@ library DemoPoolLib {
 ///        forge script script/DemoPool.s.sol --rpc-url $SEPOLIA_RPC_URL \
 ///          --private-key $SEPOLIA_PRIVATE_KEY --sender $ADDR --broadcast
 contract DemoPool is Script {
+    /// @notice Deploy demo tokens, initialize the AegisHook pool at 1:1, and seed -600/+600 liquidity.
     function run() external {
         address sender = msg.sender;
         require(sender != address(0), "zero sender");

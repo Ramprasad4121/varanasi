@@ -1,5 +1,7 @@
 # WORLD.md — World Selfie Check × varanasi
 
+Author: Ramprasad
+
 varanasi = human-authorized agents. Abuse vector: **one human minting unlimited
 agents / granting high allowances**. World Selfie Check (Beta) is the
 abuse-prevention signal: a low-friction selfie credential (device-camera

@@ -1,5 +1,7 @@
 # @varanasi/agent
 
+Author: Ramprasad
+
 TS agent layer for varanasi (ETHOnline 2026). Owns `agent/` only — never touches
 `contracts/`, `service/`, `frontend/`.
 

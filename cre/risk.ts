@@ -1,5 +1,8 @@
 /**
- * risk.ts — pure, dependency-free risk scorer for the varanasi CRE workflow.
+ * @author Ramprasad
+ * @module risk — pure, dependency-free risk scorer for the varanasi CRE workflow.
+ *
+ * Env deps: none (pure function of public inputs + confidential params).
  *
  * This mirrors `agent/src/reason.ts` (same tiers, same bps math) so the
  * offchain agent heuristic and the enclave computation agree by construction.

@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — /human World Selfie Check route: tier + limits mirror of agent/src/human.ts; live dep World ID verify (server-side) + NEXT_PUBLIC_WORLD_* env; degrades to SetupNotice/guest tier + local shape-check in sandbox.
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — viem TaskEscrow lane client (fundMandate, taskState, release/refund/cancel; env: SEPOLIA_RPC_URL).
  * escrow.ts — agent-side viem client for VaranasiTaskEscrow (Sepolia).
  *
  * Lane: mandate (signed OFFCHAIN via mandate.ts) → fund → submitValidation
@@ -37,7 +38,10 @@ export const DEFAULT_SEPOLIA_RPC_URL = "https://rpc.sepolia.org";
 /** Wallet client with a known account — caller supplies it, we never sign for them. */
 export type EscrowWallet = WalletClient<Transport, Chain, Account>;
 
+/** Escrow read/write options (RPC URL and escrow deployment override for tests). */
+/** Escrow read/write options (RPC URL and escrow deployment override for tests). */
 export interface EscrowOptions {
+  /** Sepolia RPC URL override (default: env SEPOLIA_RPC_URL or public RPC). */
   rpcUrl?: string;
   /** Override for tests / redeploys (default: live Sepolia escrow). */
   escrow?: Address;
@@ -179,9 +183,14 @@ export const TASK_ESCROW_ABI = [
 
 /** Onchain State enum labels (TaskEscrow.State). */
 export const TASK_STATES = ["None", "Funded", "Validated", "Released", "Refunded", "Cancelled"] as const;
+/** Label for a TaskEscrow.State value. */
 export type TaskStateLabel = (typeof TASK_STATES)[number];
 
-/** Read-only escrow client (no keys). */
+/**
+ * Read-only escrow client (no keys).
+ * @param rpcUrl Optional RPC URL (default: env SEPOLIA_RPC_URL or public Sepolia RPC).
+ * @returns Sepolia PublicClient.
+ */
 export function makeEscrowClient(rpcUrl?: string): PublicClient {
   return createPublicClient({
     chain: sepolia,
@@ -193,7 +202,13 @@ function escrowAddress(opts: EscrowOptions = {}): Address {
   return opts.escrow ?? (TASK_ESCROW_ADDRESS as Address);
 }
 
-/** Lightweight state read — what the service indexer / UI polls. */
+/**
+ * Lightweight state read — what the service indexer / UI polls.
+ * @param taskId Task id (bytes32).
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @param client Optional injected public client.
+ * @returns Numeric state plus its label.
+ */
 export async function taskState(
   taskId: Hash,
   opts: EscrowOptions = {},
@@ -209,23 +224,43 @@ export async function taskState(
   return { state, label: (TASK_STATES[state] ?? "None") as TaskStateLabel };
 }
 
+/** Full onchain task record as a named object (12-field tuple decoded). */
 export interface EscrowTask {
+  /** Payer (mandate signer) who funded the task. */
   payer: Address;
+  /** Agent wallet bound in the mandate. */
   agent: Address;
+  /** Merchant/payee on release. */
   merchant: Address;
+  /** ERC20 token for the escrow. */
   token: Address;
+  /** Max escrowed amount (cap). */
   cap: bigint;
+  /** Actual funded amount. */
   fundedAmount: bigint;
+  /** Validation window open (unix seconds). */
   windowStart: bigint;
+  /** Validation window close inclusive (unix seconds). */
   windowEnd: bigint;
+  /** Refund gate expiry (unix seconds). */
   expiry: bigint;
+  /** Latest validator score in bps. */
   scoreBps: bigint;
+  /** Last validator address. */
   validator: Address;
+  /** Numeric State enum value. */
   state: number;
+  /** Human-readable state label (None/Funded/Validated/Released/Refunded/Cancelled). */
   label: TaskStateLabel;
 }
 
-/** Full task record read (12-field tuple → named object). */
+/**
+ * Full task record read (12-field tuple → named object).
+ * @param taskId Task id (bytes32).
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @param client Optional injected public client.
+ * @returns Named EscrowTask record.
+ */
 export async function readTask(
   taskId: Hash,
   opts: EscrowOptions = {},
@@ -258,7 +293,14 @@ export async function readTask(
   };
 }
 
-/** Replay-nullifier read: true once the signer's nonce has funded. */
+/**
+ * Replay-nullifier read: true once the signer's nonce has funded.
+ * @param signer Mandate signer address.
+ * @param nonce Per-signer nonce to check.
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @param client Optional injected public client.
+ * @returns True when the nonce is already used.
+ */
 export async function isNonceUsed(
   signer: Address,
   nonce: bigint,
@@ -274,7 +316,12 @@ export async function isNonceUsed(
   })) as boolean;
 }
 
-/** Live global release bar (score >= threshold to release). */
+/**
+ * Live global release bar (score >= threshold to release).
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @param client Optional injected public client.
+ * @returns Threshold in bps.
+ */
 export async function readThresholdBps(opts: EscrowOptions = {}, client?: PublicClient): Promise<bigint> {
   const c = client ?? makeEscrowClient(opts.rpcUrl);
   return (await c.readContract({
@@ -285,6 +332,7 @@ export async function readThresholdBps(opts: EscrowOptions = {}, client?: Public
   })) as bigint;
 }
 
+/** Receipts from fundMandate: approve tx (when needed) plus the fund tx. */
 export interface FundResult {
   /** ERC20 approve tx (null when allowance already covered cap). */
   approveTxHash: Hash | null;
@@ -297,6 +345,13 @@ export interface FundResult {
  * ERC20 approve FIRST: pulls from the SIGNER, so allowance(token, escrow)
  * must cover cap. Sends the approve tx and waits for receipt when needed,
  * then calls fund. The submitter may be anyone; funds come from the signer.
+ * @param mandate Signed mandate struct.
+ * @param signature Payer EIP-712 signature.
+ * @param signer Mandate signer (allowance owner).
+ * @param wallet Caller-supplied wallet client (broadcasts).
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @param client Optional injected public client.
+ * @returns FundResult with approve and fund tx hashes.
  */
 export async function fundMandate(
   mandate: Mandate,
@@ -339,6 +394,11 @@ export async function fundMandate(
  * Submit (or revise) a validation score (WRITER — broadcasts).
  * Allowlisted validators only; last-write-wins pre-settlement.
  * This is a writer, not a read: polling uses taskState/readTask.
+ * @param taskId Task id (bytes32).
+ * @param scoreBps Validation score in bps.
+ * @param wallet Caller-supplied validator wallet client.
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @returns Submit-validation tx hash.
  */
 export async function submitValidation(
   taskId: Hash,
@@ -359,6 +419,10 @@ export async function submitValidation(
  * Release escrowed funds to the merchant (WRITER — broadcasts, permissionless).
  * Succeeds onchain iff: latest score >= threshold AND live
  * RiskGuard.authorize(agent, score, cap) passes AND now <= expiry.
+ * @param taskId Task id (bytes32).
+ * @param wallet Caller-supplied wallet client.
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @returns Release tx hash.
  */
 export async function releaseTask(taskId: Hash, wallet: EscrowWallet, opts: EscrowOptions = {}): Promise<Hash> {
   return wallet.writeContract({
@@ -373,6 +437,10 @@ export async function releaseTask(taskId: Hash, wallet: EscrowWallet, opts: Escr
 /**
  * Refund escrowed funds to the payer (WRITER — broadcasts, permissionless).
  * Strictly after expiry (block.timestamp > expiry).
+ * @param taskId Task id (bytes32).
+ * @param wallet Caller-supplied wallet client.
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @returns Refund tx hash.
  */
 export async function refundTask(taskId: Hash, wallet: EscrowWallet, opts: EscrowOptions = {}): Promise<Hash> {
   return wallet.writeContract({
@@ -387,6 +455,10 @@ export async function refundTask(taskId: Hash, wallet: EscrowWallet, opts: Escro
 /**
  * Cancel pre-validation and return funds to the payer (WRITER — broadcasts).
  * Payer-only, FUNDED state only (any validation kills cancel).
+ * @param taskId Task id (bytes32).
+ * @param wallet Caller-supplied payer wallet client.
+ * @param opts Escrow options (rpcUrl, escrow override).
+ * @returns Cancel tx hash.
  */
 export async function cancelTask(taskId: Hash, wallet: EscrowWallet, opts: EscrowOptions = {}): Promise<Hash> {
   return wallet.writeContract({

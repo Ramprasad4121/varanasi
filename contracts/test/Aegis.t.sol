@@ -5,6 +5,9 @@ import "forge-std/Test.sol";
 import {AegisRegistry} from "../src/AegisRegistry.sol";
 import {RiskGuard} from "../src/RiskGuard.sol";
 
+/// @title AegisTest — unit tests for AegisRegistry + RiskGuard
+/// @author Ramprasad
+/// @notice Covers mint, expiry, revoke, renew and RiskGuard authorization; runs in mock mode offline.
 contract AegisTest is Test {
     AegisRegistry registry;
     RiskGuard guard;

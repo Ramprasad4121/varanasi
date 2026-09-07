@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — Hero header: pitch + authorized counts + Registry/RiskGuard/signal links with scroll to sentinel-1; live deps REGISTRY/RISK_GUARD/SIGNAL_URL via aegis.ts; degrades to "not deployed yet" badge when registry unset.
 import {
   REGISTRY,
   RISK_GUARD,

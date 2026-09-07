@@ -1,5 +1,7 @@
 # varanasi Frontend — Agent Marketplace
 
+Author: Ramprasad
+
 Next.js 14 App Router + TypeScript + plain CSS. Owns `frontend/` only — never touches
 `contracts/`, `agent/`, `service/`.
 

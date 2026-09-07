@@ -1,5 +1,8 @@
 /**
- * HashScan link builders + paid-request receipt shape.
+ * @author Ramprasad
+ * @module hashscan — HashScan link builders + paid-request receipt shape.
+ *
+ * Env deps: none (pure URL builders; network scope passed in as an argument).
  *
  * Every paid response carries a `receipt` so agents (and the demo video) can
  * prove settlement: receiver account link always, transaction link whenever
@@ -8,6 +11,11 @@
 
 export type HashscanScope = 'testnet' | 'mainnet';
 
+/**
+ * Map an x402 Hedera network id to the HashScan URL scope.
+ * @param network 'hedera:testnet' or 'hedera:mainnet'.
+ * @returns 'testnet' or 'mainnet' scope for hashscan.io URLs.
+ */
 export function hashscanScope(network: 'hedera:testnet' | 'hedera:mainnet'): HashscanScope {
   return network === 'hedera:mainnet' ? 'mainnet' : 'testnet';
 }
@@ -22,11 +30,20 @@ const BASE = 'https://hashscan.io';
  */
 const HEDERA_TXID_RE = /^0\.0\.\d+(?:@\d+\.\d+|-\d+-\d+)$/;
 
+/**
+ * Type-guard for canonical Hedera txIds (`0.0.x@sec.nanos` or `0.0.x-sec-nanos`).
+ * @param txId Candidate value (e.g. from a settle-response header).
+ * @returns True only when txId is an allowlisted canonical Hedera txId string.
+ */
 export function isValidHederaTxId(txId: unknown): txId is string {
   return typeof txId === 'string' && HEDERA_TXID_RE.test(txId);
 }
 
-/** Link to an account page, e.g. the service receiver account. */
+/** Link to an account page, e.g. the service receiver account.
+ * @param accountId Hedera account id (e.g. "0.0.12345").
+ * @param scope HashScan scope ("testnet" or "mainnet").
+ * @returns HashScan account page URL.
+ */
 export function hashscanAccountUrl(accountId: string, scope: HashscanScope): string {
   return `${BASE}/${scope}/account/${encodeURIComponent(accountId)}`;
 }
@@ -60,6 +77,11 @@ export interface PaymentReceipt {
   servedAt: string;
 }
 
+/**
+ * Build the paid-request receipt carried on every paid response.
+ * @param args Route, network, payTo receiver, facilitator URL, optional txId/servedAt.
+ * @returns PaymentReceipt with HashScan account/tx links (tx link null when no valid txId).
+ */
 export function buildReceipt(args: {
   route: string;
   network: 'hedera:testnet' | 'hedera:mainnet';

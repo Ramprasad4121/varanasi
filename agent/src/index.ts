@@ -1,4 +1,7 @@
-/** varanasi agent public surface. */
+/**
+ * @author Ramprasad — varanasi agent public surface (re-exports graph, mcp, ens, reason, pay, mandate, escrow; no env reads).
+ * varanasi agent public surface.
+ */
 export {
   GraphClient,
   KNOWN_SUBGRAPHS,

@@ -4,10 +4,13 @@ pragma solidity ^0.8.26;
 import "forge-std/Script.sol";
 import {MockERC20} from "../src/MockERC20.sol";
 
+/// @title DeployMockToken — demo ERC20 deployment + mint script
+/// @author Ramprasad
 /// @notice Deploy one MockERC20 (demo USD) + mint to sender.
-/// Env: TOKEN_NAME (default VaranasiUSD), TOKEN_SYMBOL (default vUSD),
+/// @dev Env: TOKEN_NAME (default VaranasiUSD), TOKEN_SYMBOL (default vUSD),
 ///      TOKEN_DECIMALS (default 6), MINT_TO (default sender), MINT_AMOUNT (default 1e9).
 contract DeployMockToken is Script {
+    /// @notice Deploy a MockERC20 with env-configured name/symbol/decimals and mint initial supply.
     function run() external {
         string memory name = vm.envOr("TOKEN_NAME", string("VaranasiUSD"));
         string memory symbol = vm.envOr("TOKEN_SYMBOL", string("vUSD"));

@@ -1,5 +1,7 @@
 # Video script — varanasi 2-min demo (8 × 15s beats)
 
+Author: Ramprasad
+
 Total ~2:00. Each beat: say it → run cmd → show expected output.
 
 ## Beat 1 — Hook (0:00–0:15)

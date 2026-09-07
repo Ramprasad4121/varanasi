@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — /privy route gate: mounts PrivyProvider (email/google/github/wallet, embedded wallets) when NEXT_PUBLIC_PRIVY_APP_ID set; live dep Privy SDK; degrades to SetupNotice without SDK mount when App ID unset.
 import { PrivyProvider } from "@privy-io/react-auth";
 import Treasury from "./treasury";
 

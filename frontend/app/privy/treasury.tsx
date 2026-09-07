@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — Privy treasury dashboard: login + embedded-wallet mint/fund/revoke vs allowance with ops log; live deps Privy SDK, Sepolia RPC/registry (ABI verified vs contracts/src/AegisRegistry.sol); degrades to local-mode ledger + pending when registry/RPC unreachable.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
 import {

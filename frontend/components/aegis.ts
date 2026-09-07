@@ -1,3 +1,4 @@
+// Author: Ramprasad — shared marketplace constants/types/storage (registry, pools, receipts, localStorage helpers); live deps Sepolia + signal + subgraph envs; demo-known values pinned from docs/DEMO.md, live reads degrade gracefully.
 // Shared marketplace constants, types + storage helpers.
 // Demo-known values are pinned from docs/DEMO.md (recorded 2026-09-06) and
 // ALWAYS labelled as such in the UI. Live reads degrade gracefully.

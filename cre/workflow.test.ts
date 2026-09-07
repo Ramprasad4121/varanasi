@@ -1,3 +1,12 @@
+/**
+ * @author Ramprasad
+ * @module workflow.test — bun tests for the varanasi CRE confidential workflow.
+ *
+ * Purpose: cover pure `scorePoolRisk` verdicts (ACT/SKIP/allowlist/weights) and
+ * the `onHttpTrigger` TEE handler via a fake TeeRuntime (auth-header injection,
+ * verdict-only POST body, DON report crossing, fail-fast validation, log hygiene).
+ * Env deps: none (all secrets/config faked in-memory).
+ */
 import { describe, expect } from 'bun:test'
 import type { HTTPPayload, TeeRuntime } from '@chainlink/cre-sdk'
 import { test } from '@chainlink/cre-sdk/test'

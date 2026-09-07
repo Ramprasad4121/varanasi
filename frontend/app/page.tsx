@@ -1,5 +1,6 @@
 "use client";
 
+// Author: Ramprasad — marketplace root: composes Hero + AgentMarket + PoolIntel + SignalPanel + VerdictTimeline; live deps Sepolia RPC/registry, signal service; degrades to localStorage pending + connect hints when unreachable.
 import { useEffect, useMemo, useState } from "react";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";

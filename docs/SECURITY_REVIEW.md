@@ -1,5 +1,7 @@
 # Security review — varanasi contracts (ethskills-driven, 2026-09-06)
 
+Author: Ramprasad
+
 Method: read `ethskills` router + `ship` + `security` + `standards` +
 `building-blocks` + `addresses` BEFORE further Solidity/onchain work.
 Contracts below were deployed before the skill was read; this is the

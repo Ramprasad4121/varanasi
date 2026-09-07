@@ -1,4 +1,5 @@
 /**
+ * @author Ramprasad — x402 payer for the premium alpha signal (payForSignal, hashscanTxUrl; env: SIGNAL_URL, HEDERA_AGENT_ACCOUNT_ID, HEDERA_AGENT_PRIVATE_KEY, HEDERA_NETWORK).
  * pay.ts — x402 payer: buys the premium alpha signal from service//v1/signal.
  *
  * Flow (Hedera testnet, Blocky402 facilitator):
@@ -13,10 +14,13 @@
 import * as x402Fetch from "@x402/fetch";
 import * as hiero from "@hiero-ledger/sdk";
 
+/** Result of a paid signal fetch: payload plus Hedera receipt fields. */
 export interface PayResult {
+  /** Raw signal payload returned by the service. */
   payload: unknown;
   /** Hedera payment transaction id/hash (receipt). */
   txHash: string | null;
+  /** HashScan explorer URL for the payment tx, or null when not a valid tx id. */
   hashscanUrl: string | null;
   /** True when the 402 round-trip actually executed a payment. */
   paid: boolean;
@@ -25,6 +29,12 @@ export interface PayResult {
 /** Allowlisted Hedera tx id: `shard.realm.num@sss.nnnnnnnnn` or dash form. */
 const HEDERA_TXID_RE = /^(\d+\.\d+\.\d+)[@-](\d+)[.-](\d+)$/;
 
+/**
+ * Build a HashScan explorer URL for a Hedera tx id, or null for non-tx ids.
+ * @param txId Hedera tx id (`shard.realm.num@sss.nnnnnnnnn` or dash form).
+ * @param network Hedera network name ("mainnet" or anything else → testnet).
+ * @returns HashScan transaction URL, or null when txId is not an allowlisted tx id.
+ */
 export function hashscanTxUrl(txId: string, network: string): string | null {
   const net = network === "mainnet" ? "mainnet" : "testnet";
   // Canonicalize ONLY the tx separators: `0.0.123@1697836800.123456789` →
@@ -36,10 +46,15 @@ export function hashscanTxUrl(txId: string, network: string): string | null {
   return `https://hashscan.io/${net}/transaction/${m[1]}-${m[2]}-${m[3]}`;
 }
 
+/** Overrides for the x402 payer (defaults come from SIGNAL_URL / HEDERA_* env). */
 export interface PayerOptions {
+  /** Signal service URL (default: env SIGNAL_URL or localhost). */
   signalUrl?: string;
+  /** Hedera account id for the ECDSA signer (env HEDERA_AGENT_ACCOUNT_ID). */
   accountId?: string;
+  /** Hedera ECDSA private key (env HEDERA_AGENT_PRIVATE_KEY). */
   privateKey?: string;
+  /** Hedera network name (default: env HEDERA_NETWORK or testnet). */
   hederaNetwork?: string;
 }
 
@@ -65,6 +80,12 @@ async function buildSchemeClient(accountId: string, privateKey: string, network:
   return { scheme: new Scheme(signer), caip2 };
 }
 
+/**
+ * Pay for the premium alpha signal via the x402 402 round-trip and return payload + receipt.
+ * @param opts Payer overrides (signalUrl, accountId, privateKey, hederaNetwork).
+ * @param body JSON body posted to the signal service.
+ * @returns PayResult with payload, txHash, hashscanUrl, and paid flag.
+ */
 export async function payForSignal(opts: PayerOptions = {}, body: Record<string, unknown> = {}): Promise<PayResult> {
   const signalUrl = opts.signalUrl ?? process.env.SIGNAL_URL ?? "http://localhost:3001/v1/signal";
   const accountId = opts.accountId ?? process.env.HEDERA_AGENT_ACCOUNT_ID ?? "";
