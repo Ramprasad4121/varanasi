@@ -69,13 +69,17 @@ One command runs the whole loop:
   (RiskGuard `Authorized` + 10 vUSD escrow→merchant + `TaskReleased`;
   `taskState` = Released)
 
-## 8. Revoke (human run — evidence slot)
+## 8. Revoke (kill-switch, proven on a throwaway — sentinel-1 stays live)
 
-- Cmd (forge): `SUBLABEL=sentinel-1 AEGIS_REGISTRY=0x0aed80646680eb333e0d2129f6f0fa54503b5381 forge script script/Revoke.s.sol --rpc-url sepolia --broadcast` (repo: `contracts/`)
-- Cmd (agent): `npx tsx src/cli.ts revoke --label sentinel-1` (repo: `agent/`; needs `OWNER_PRIVATE_KEY` = human owner key)
-- Expected: `isAuthorizedBefore: true` → tx mined → `isAuthorizedAfter: false`
-- Revoke tx: TODO (paste Sepolia tx hash + Etherscan link after human run)
-- Post-revoke CLI check: TODO (paste `revoked: true, authorized: false` output)
+- Minted `revoke-demo` (token #2, 7d, agent = throwaway `0x6c3B…D844D`):
+  [tx](https://sepolia.etherscan.io/tx/0xc893faf79bd5656c742cc5cdbe05798edb1ed92bba81d84f7957c60b6642119d)
+- `isAuthorized(throwaway)` before: `true`
+- Revoked via `revokeAgentByLabel("revoke-demo")`:
+  [tx](https://sepolia.etherscan.io/tx/0xa7085e187947d8c35e4f83763a6668bb27a523db865f02b5cb24e172352c2043)
+  (`AgentRevoked`, status 1)
+- `isAuthorized(throwaway)` after: `false`
+- Note: registry enforces one live identity per wallet, so the demo used a
+  fresh throwaway agent wallet; `sentinel-1` (deployer) is untouched and live.
 
 ## Known quirks (documented for judges)
 
