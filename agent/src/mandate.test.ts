@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { encodeAbiParameters, keccak256, toHex, type Address, type Hex } from "viem";
+import { encodeAbiParameters, getAddress, keccak256, toHex, type Address, type Hex } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import {
   MANDATE_DOMAIN_NAME,
   MANDATE_DOMAIN_VERSION,
@@ -21,10 +22,9 @@ import {
   type Mandate,
 } from "./mandate.js";
 
-/** Throwaway test key (random, never funded) — address cross-checked via ethers. */
-const TEST_KEY =
-  "0x4f0934379393a2331ace1dff3a6ed87409a3488395f192781dcdd78cf08dcd67" as Hex;
-const TEST_PAYER = "0x9d7c2de4d92355e7086fc7c6be86e5e9d021ab10" as Address;
+/** Throwaway test key — generated at runtime, never persisted or funded. */
+const TEST_KEY = generatePrivateKey();
+const TEST_PAYER = privateKeyToAccount(TEST_KEY).address;
 
 const AGENT = "0x1111111111111111111111111111111111111111" as Address;
 const MERCHANT = "0x2222222222222222222222222222222222222222" as Address;
@@ -86,10 +86,10 @@ describe("validateMandate", () => {
 describe("sign/verify roundtrip (offline)", () => {
   it("recovers the payer and verifies against expectedSigner", async () => {
     const signed = await signMandate(goodMandate(), TEST_KEY);
-    expect(signed.signer).toBe(TEST_PAYER);
+    expect(getAddress(signed.signer)).toBe(TEST_PAYER);
     expect(signed.digest).toBe(mandateDigest(goodMandate()));
     await expect(
-      verifyMandate(signed.mandate, signed.signature, { expectedSigner: TEST_PAYER }),
+      verifyMandate(signed.mandate, signed.signature, { expectedSigner: TEST_PAYER }).then(getAddress),
     ).resolves.toBe(TEST_PAYER);
   });
 
