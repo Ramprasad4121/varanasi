@@ -30,7 +30,7 @@ import {
   type PaidRoute,
 } from './pricing.js';
 import { generateSignal, generateScore } from './signal.js';
-import { buildReceipt, type PaymentReceipt } from './hashscan.js';
+import { buildReceipt, isValidHederaTxId, type PaymentReceipt } from './hashscan.js';
 import { logReceipt as logReceiptToHcs } from './hcs.js';
 
 config();
@@ -103,6 +103,33 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '256kb' }));
 
+/**
+ * P2 trust boundary: symbol allowlist. Missing body/symbol keeps the
+ * ETH/USDC default; a provided symbol must match BASE/QUOTE (2-10
+ * uppercase letters each) or the request fails with 400.
+ */
+const SYMBOL_RE = /^[A-Z]{2,10}\/[A-Z]{2,10}$/;
+const DEFAULT_SYMBOL = 'ETH/USDC';
+
+function resolveSymbol(body: unknown): { ok: true; symbol: string } | { ok: false; error: string } {
+  const raw = (body as { symbol?: unknown } | null | undefined)?.symbol;
+  if (raw === undefined || raw === null) return { ok: true, symbol: DEFAULT_SYMBOL };
+  if (typeof raw !== 'string') {
+    return { ok: false, error: 'invalid symbol: expected a string like "ETH/USDC"' };
+  }
+  const symbol = raw.trim().toUpperCase();
+  if (!SYMBOL_RE.test(symbol)) {
+    return { ok: false, error: 'invalid symbol: expected BASE/QUOTE like "ETH/USDC" (2-10 A-Z each)' };
+  }
+  return { ok: true, symbol };
+}
+
+/** P2: pass only allowlisted txIds into receipts — malformed → null. */
+function settleTxId(res: Response): string | null {
+  const raw = extractSettleTxId(res);
+  return isValidHederaTxId(raw) ? raw : null;
+}
+
 // ---- x402 payment gate -------------------------------------------------
 const resourceServer = createResourceServer(NETWORK);
 app.use(
@@ -125,14 +152,18 @@ app.use(
 
 // ---- paid handlers ------------------------------------------------------
 app.post('/v1/signal', (req: Request, res: Response) => {
-  const symbol = typeof req.body?.symbol === 'string' ? req.body.symbol : 'ETH/USDC';
-  const alpha = generateSignal(symbol);
+  const parsed = resolveSymbol(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const alpha = generateSignal(parsed.symbol);
   const receipt = buildReceipt({
     route: '/v1/signal',
     network: NETWORK,
     payTo: SERVICE_ACCOUNT,
     facilitator: FACILITATOR_URL,
-    txId: extractSettleTxId(res),
+    txId: settleTxId(res),
   });
   recordReceipt(receipt);
   res.json({ ...alpha, receipt });
@@ -149,14 +180,18 @@ app.post('/v1/signal', (req: Request, res: Response) => {
 });
 
 app.post('/v1/score', (req: Request, res: Response) => {
-  const symbol = typeof req.body?.symbol === 'string' ? req.body.symbol : 'ETH/USDC';
-  const score = generateScore(symbol);
+  const parsed = resolveSymbol(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const score = generateScore(parsed.symbol);
   const receipt = buildReceipt({
     route: '/v1/score',
     network: NETWORK,
     payTo: SERVICE_ACCOUNT,
     facilitator: FACILITATOR_URL,
-    txId: extractSettleTxId(res),
+    txId: settleTxId(res),
   });
   recordReceipt(receipt);
   res.json({ ...score, receipt });
@@ -210,6 +245,10 @@ app.get('/402-info', (_req: Request, res: Response) => {
       'POST the route without payment to receive HTTP 402 requirements, sign a Hedera ' +
       'TransferTransaction with an ECDSA key, retry with the payment payload ' +
       '(use @x402/fetch + @x402/hedera on the client — see service/README.md).',
+    billingNote:
+      'Known behavior (documented, not a bug): request validation (e.g. symbol) ' +
+      'runs AFTER x402 settlement, so a malformed request still settles the ' +
+      'payment and receives HTTP 400. Send well-formed bodies; validate client-side first.',
   });
 });
 

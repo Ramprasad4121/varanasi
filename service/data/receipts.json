@@ -1,0 +1,12 @@
+[
+  {
+    "route": "/v1/signal",
+    "network": "hedera:testnet",
+    "payTo": "0.0.10384527",
+    "facilitator": "https://api.testnet.blocky402.com",
+    "txId": null,
+    "hashscanTxUrl": null,
+    "hashscanAccountUrl": "https://hashscan.io/testnet/account/0.0.10384527",
+    "servedAt": "2026-09-07T02:16:58.338Z"
+  }
+]

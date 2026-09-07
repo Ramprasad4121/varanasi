@@ -106,6 +106,24 @@ contract AegisTest is Test {
         registry.revokeAgent(id);
     }
 
+    function test_RevokeUnknownLabelReverts() public {
+        vm.prank(human);
+        vm.expectRevert(AegisRegistry.UnknownToken.selector);
+        registry.revokeAgentByLabel("never-minted");
+    }
+
+    function test_DoubleRevokeIdempotent() public {
+        // Second revokeAgentByLabel does NOT revert; revoked flag sticks, still unauthorized.
+        vm.prank(human);
+        uint256 id = registry.mintAgent("agent-1", agent, 30);
+        vm.prank(human);
+        registry.revokeAgentByLabel("agent-1");
+        vm.prank(human);
+        registry.revokeAgentByLabel("agent-1");
+        assertTrue(registry.revoked(id));
+        assertFalse(registry.isAuthorized(agent));
+    }
+
     // ── renew ──
 
     function test_RenewExtendsExpiry() public {

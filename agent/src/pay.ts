@@ -22,11 +22,18 @@ export interface PayResult {
   paid: boolean;
 }
 
-export function hashscanTxUrl(txId: string, network: string): string {
+/** Allowlisted Hedera tx id: `shard.realm.num@sss.nnnnnnnnn` or dash form. */
+const HEDERA_TXID_RE = /^(\d+\.\d+\.\d+)[@-](\d+)[.-](\d+)$/;
+
+export function hashscanTxUrl(txId: string, network: string): string | null {
   const net = network === "mainnet" ? "mainnet" : "testnet";
-  // HashScan wants shard.realm.num-sss-nnnnnnnnn; facilitators emit shard.realm.num@sss.nnnnnnnnn.
-  const dash = txId.replace("@", "-").replace(".", "-");
-  return `https://hashscan.io/${net}/transaction/${dash}`;
+  // Canonicalize ONLY the tx separators: `0.0.123@1697836800.123456789` →
+  // `0.0.123-1697836800-123456789`. Never touch the entity dots (the old
+  // `.replace(".", "-")` broke every link). Reject non-txIds (e.g. raw
+  // base64 PAYMENT-RESPONSE) → null instead of a garbage URL.
+  const m = HEDERA_TXID_RE.exec(txId);
+  if (!m) return null;
+  return `https://hashscan.io/${net}/transaction/${m[1]}-${m[2]}-${m[3]}`;
 }
 
 export interface PayerOptions {

@@ -30,6 +30,21 @@ export interface ReasonOutput {
 export const DEFAULT_THRESHOLD_BPS = Number(process.env.RISK_THRESHOLD_BPS ?? 5000);
 
 /**
+ * P2 trust boundary: paid-signal alpha flows into scoring math, so sanitize.
+ * Accepts only finite numbers; strings (even numeric), NaN, Infinity,
+ * null, and other types fall back to 0 with `invalid: true` so the caller
+ * can flag it. Valid values are clamped to [-1, 1].
+ */
+export function sanitizeAlphaScore(raw: unknown): { value: number; invalid: boolean } {
+  if (raw === undefined) return { value: 0, invalid: false };
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return { value: 0, invalid: true };
+  const clamped = Math.min(1, Math.max(-1, raw));
+  // Out-of-range magnitudes are absorbed AND flagged: a wildly wrong feed
+  // must not silently become "max bullish" without an alpha-invalid factor.
+  return { value: clamped, invalid: clamped !== raw };
+}
+
+/**
  * Heuristic risk model (all terms in bps, higher = riskier):
  *  - thin liquidity:  TVL < $100k → +3500, < $1M → +1500, else +200
  *  - low activity:    vol/TVL ratio < 1% → +1500, < 10% → +500
@@ -69,7 +84,10 @@ export function analyzeRisk(input: ReasonInput, thresholdBps: number = DEFAULT_T
     factors.push({ name: "activity", bps: 0, note: `24h turnover ${(turnover * 100).toFixed(1)}% — healthy flow` });
   }
 
-  const alpha = input.alphaScore ?? 0;
+  const { value: alpha, invalid: alphaInvalid } = sanitizeAlphaScore(input.alphaScore);
+  if (alphaInvalid) {
+    factors.push({ name: "alpha-invalid", bps: 0, note: "paid signal alpha invalid — treated as neutral (0)" });
+  }
   if (alpha < -0.3) {
     const add = Math.round(2000 * Math.abs(alpha));
     score += add;

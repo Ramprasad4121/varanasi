@@ -29,8 +29,8 @@ One command runs the whole loop:
   `https://hashscan.io/testnet/transaction/0.0.7162784-1788675749-710110370`
 - Paid tx `0.0.7162784-1788676249-125024441` — same path, second run. HashScan:
   `https://hashscan.io/testnet/transaction/0.0.7162784-1788676249-125024441`
-- Note: service `/v1/receipts` is in-memory (resets on restart); the mirror
-  node + HashScan links are the durable proof.
+- Note: service `/v1/receipts` is file-backed (`service/data/receipts.json`,
+  last 100); the mirror node + HashScan links are the durable proof.
 
 ## 4. Verdict
 

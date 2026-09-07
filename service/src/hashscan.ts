@@ -14,6 +14,18 @@ export function hashscanScope(network: 'hedera:testnet' | 'hedera:mainnet'): Has
 
 const BASE = 'https://hashscan.io';
 
+/**
+ * P2 trust boundary: Hedera txId allowlist. Accepts only the two canonical
+ * forms — `0.0.123@1697836800.123456789` or `0.0.123-1697836800-123456789`.
+ * Anything else is rejected so a malformed txId is never embedded in
+ * receipts or HashScan URLs.
+ */
+const HEDERA_TXID_RE = /^0\.0\.\d+(?:@\d+\.\d+|-\d+-\d+)$/;
+
+export function isValidHederaTxId(txId: unknown): txId is string {
+  return typeof txId === 'string' && HEDERA_TXID_RE.test(txId);
+}
+
 /** Link to an account page, e.g. the service receiver account. */
 export function hashscanAccountUrl(accountId: string, scope: HashscanScope): string {
   return `${BASE}/${scope}/account/${encodeURIComponent(accountId)}`;
@@ -26,8 +38,11 @@ export function hashscanAccountUrl(accountId: string, scope: HashscanScope): str
  * Returns null when no txId was captured (verify-only flows).
  */
 export function hashscanTxUrl(txId: string | null | undefined, scope: HashscanScope): string | null {
-  if (!txId) return null;
-  const dash = txId.replace('@', '-').replace('.', '-');
+  if (!isValidHederaTxId(txId)) return null;
+  // Canonicalize @-form to dashes without touching the 0.0 shard.realm prefix.
+  const dash = txId.includes('@')
+    ? txId.replace('@', '-').replace(/\.(\d+)$/, '-$1')
+    : txId;
   return `${BASE}/${scope}/transaction/${dash}`;
 }
 
@@ -54,7 +69,8 @@ export function buildReceipt(args: {
   servedAt?: string;
 }): PaymentReceipt {
   const scope = hashscanScope(args.network);
-  const txId = args.txId ?? null;
+  // P2: never persist a raw malformed txId — store null unless allowlisted.
+  const txId = isValidHederaTxId(args.txId) ? args.txId : null;
   return {
     route: args.route,
     network: args.network,

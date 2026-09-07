@@ -43,3 +43,19 @@ Both source-verified via Sourcify (Etherscan forwarding included).
 - New Solidity must pass this checklist + `forge test` + fresh-context QA.
 - Verify source on every deploy (Sourcify, no key needed).
 - Say "onchain", never "on-chain".
+
+## Hackathon-accepted risks (P1s, no fund risk; contracts hold no value)
+
+- P1 `tx.origin` attribution (`AegisHook.sol:165`): `beforeSwap` attributes the
+  swap to `tx.origin` (agent EOA). Phishing / malicious-intermediary contracts
+  could swap in the agent's name while an attestation is live. Status:
+  hackathon-accepted (demo agents are EOAs; PoolManager is the only authorized
+  caller). Hardening plan: pass the agent via signed `hookData` (EIP-712
+  attestation: agent, scoreBps, deadline, poolId) verified onchain instead of
+  `tx.origin`.
+- P1 permissionless mint (`AegisRegistry.sol:113`): `mintAgent` is open
+  self-registration — anyone can mint a subname bound to any wallet address
+  (owner = caller). Squatting / misleading labels possible; `isAuthorized`
+  treats any minted identity as valid. Status: hackathon-accepted (testnet
+  demo; no value at risk). Hardening plan: signature-gated mint (agent wallet
+  must sign the sublabel + human owner) + optional allowlist / mint fee.

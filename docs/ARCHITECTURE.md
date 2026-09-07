@@ -37,9 +37,10 @@ RiskGuard checks: ENS identity valid + not revoked/expired, risk score < thresho
 - `RiskGuard.sol`: `authorize(action, riskScore)` — reverts if identity invalid or score too high.
 
 ## Services
-- `service/`: Express + x402/express resource server, Blocky402 facilitator, `/v1/signal` + `/v1/score`.
-- `agent/`: MCP client, ENS viem resolver, reasoning engine (pluggable LLM), x402/fetch payer, CLI + API.
+- `service/`: Express + x402/express resource server, Blocky402 facilitator, `/v1/signal` + `/v1/score` + `/v1/receipts`. Receipts are file-backed (`service/data/receipts.json`, last 100).
+- `agent/`: MCP client, ENS viem resolver, reasoning engine (pluggable LLM), x402/fetch payer, CLI + API. Revoke CLI: `aegis revoke --label <sublabel>` (human owner key).
 - `frontend/`: Next.js — onboard form, agent list (ENS names), intel cards (Graph data), pay receipts.
+- Demo video script: `docs/VIDEO_SCRIPT.md`.
 
 ## Prize mapping
 - The Graph AI From Scratch: live Subgraph MCP queries + reasoning + SKILL.md/README runnable.

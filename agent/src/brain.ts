@@ -89,6 +89,17 @@ export function isLocalBaseUrl(baseUrl: string): boolean {
   return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(baseUrl);
 }
 
+/**
+ * P2 trust boundary: only https:// remotes or http(s) localhost are allowed.
+ * Plain-http remote URLs are rejected (warn + heuristic fallback in
+ * `reasonWithLLM`) so an LLM key / prompt never goes over cleartext.
+ */
+export function isAllowedLlmBaseUrl(baseUrl: string): boolean {
+  const trimmed = baseUrl.trim();
+  if (isLocalBaseUrl(trimmed)) return true;
+  return /^https:\/\//i.test(trimmed);
+}
+
 /** Shared input mapping so LLM and heuristic paths score the same facts. */
 export function toReasonInput(intel: BrainIntel, alpha: BrainAlpha = {}, identity: BrainIdentity = {}): ReasonInput {
   const identityOk =
@@ -135,7 +146,16 @@ export function parseLlmVerdict(raw: string): ReasonOutput | null {
   for (const f of o.factors) {
     if (typeof f !== "object" || f === null) return null;
     const fo = f as Record<string, unknown>;
-    if (typeof fo.name !== "string" || typeof fo.bps !== "number" || !Number.isFinite(fo.bps) || typeof fo.note !== "string")
+    // P2: each factor bps must be finite AND in 0..10000 — out-of-range or
+    // non-finite values reject the whole verdict → heuristic fallback.
+    if (
+      typeof fo.name !== "string" ||
+      typeof fo.bps !== "number" ||
+      !Number.isFinite(fo.bps) ||
+      fo.bps < 0 ||
+      fo.bps > 10_000 ||
+      typeof fo.note !== "string"
+    )
       return null;
   }
   return {
@@ -177,6 +197,12 @@ export async function reasonWithLLM(
 ): Promise<BrainVerdict> {
   const { baseUrl, apiKey, model, timeoutMs } = resolveLlmConfig(opts);
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
+
+  // P2: reject cleartext remote endpoints — warn and use heuristic fallback.
+  if (!isAllowedLlmBaseUrl(baseUrl)) {
+    console.warn(`[brain] rejecting insecure LLM_BASE_URL "${baseUrl}" — using heuristic fallback`);
+    return fallback(intel, alpha, identity, thresholdBps);
+  }
 
   // No key for a remote endpoint → skip the network entirely, use heuristic.
   if (!apiKey && !isLocalBaseUrl(baseUrl)) return fallback(intel, alpha, identity, thresholdBps);

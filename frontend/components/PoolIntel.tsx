@@ -155,6 +155,8 @@ export default function PoolIntel({
           <button
             key={p.key}
             type="button"
+            role="tab"
+            aria-selected={p.key === poolKey}
             className={p.key === poolKey ? "tab active" : "tab"}
             onClick={() => setPoolKey(p.key)}
           >
