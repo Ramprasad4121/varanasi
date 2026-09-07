@@ -1,112 +1,92 @@
 # varanasi
 
-**The enforcement rail for agentic commerce** — mandates verified at
-settlement, reputation grounded in payment, release gated on proof.
+**The enforcement rail for agentic commerce.** Agents move money on promises —
+signed intents, session keys, API credentials. Varanasi moves the check to
+where the money moves: mandates verified at settlement, reputation grounded
+in payment, release gated on proof.
 
-AI agents move money on promises: signed intents, session keys, API
-credentials. Every post-mortem — Bankr/Grok ($180K, Morse code), AIXBT
-(55.5 ETH), ClawHavoc (341 malicious skills) — ends in the same place:
-the check has to run where the money moves, not in the agent's head.
-x402 disclaims budgets. AP2 punts disputes. ERC-8004 admits Sybil.
-Varanasi is the layer all three leave open: an EIP-712 mandate bound to
-an onchain escrow, released only on allowlisted validation plus a live
-identity-and-threshold re-check, with every step auditable and every
-payment feeding Sybil-resistant reputation.
+Author: Ramprasad · License: MIT · ETHOnline 2026
 
-Author: Ramprasad ([@Ramprasad4121](https://github.com/Ramprasad4121)) —
-ETHOnline 2026. License: MIT.
+## Live onchain
 
-## Live proof (click, don't trust)
+| Mandate escrows released | x402 payments settled | Agent identities live | Forge tests green |
+|---|---|---|---|
+| 1+ | 3+ | 2 | 86/86 |
 
-| What | Where |
-|---|---|
-| `TaskEscrow` (Sourcify-verified) | [Sepolia `0xba038d50d70cf63ced17f3f23f77df4783f188da`](https://sepolia.etherscan.io/address/0xba038d50d70cf63ced17f3f23f77df4783f188da) |
-| Mandate → fund → validate → release | [fund](https://sepolia.etherscan.io/tx/0x1a3765459f57f7b7af607623a5bface64680d771032695f6c9fa34915886f572) · [validate 8000](https://sepolia.etherscan.io/tx/0xfde951571e35eaa1d0206b139322d539697846c00c3e8d508b01b76b13b2c061) · [release](https://sepolia.etherscan.io/tx/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702) |
-| `AegisHook` (Uniswap v4, attested 200bps) | [Sepolia `0xf3710a05cbb61eb8b1a73886eb68a341f69d0080`](https://sepolia.etherscan.io/address/0xf3710a05cbb61eb8b1a73886eb68a341f69d0080) |
-| `AegisRegistry` + `RiskGuard` (verified) | [`0x0aed…5381`](https://sepolia.etherscan.io/address/0x0aed80646680eb333e0d2129f6f0fa54503b5381) · [`0xc358…17ca`](https://sepolia.etherscan.io/address/0xc35861c4dbe63a9c8cfefd32c671998151c217ca) |
-| Paid x402 signal ($0.01 USDC, Blocky) | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788675749-710110370) · [second run](https://hashscan.io/testnet/transaction/0.0.7162784-1788676249-125024441) |
-| HCS payment audit topic | [`0.0.10389504`](https://hashscan.io/testnet/topic/0.0.10389504) |
+Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
+Etherscan / HashScan. Repo: `github.com/Ramprasad4121/varanasi`.
 
-Full evidence: [`docs/DEMO.md`](docs/DEMO.md). Mandate spec: [`docs/MANDATE.md`](docs/MANDATE.md).
+## Start as an agent — one prompt
 
-## How it works
+Paste [`PROMPT.md`](PROMPT.md) into any coding agent (Claude, Codex, Cursor).
+It reads the repo in order and runs the full loop in one command:
 
 ```
-Human (EOA / Privy wallet / World-verified human)
-  │ signs an EIP-712 mandate: agent, merchant, token, cap, window, expiry, nonce
-  ▼
-TaskEscrow (Sepolia) — funds locked, nonce nullified, replay impossible
-  │ allowlisted validator scores the work (last-write-wins, window-checked)
-  ▼
-Release gate (one transaction, all inline):
-  validation score ≥ threshold AND RiskGuard.authorize(agent) live
-  → merchant paid, TaskReleased event, ERC-8004 feedback emitted (payer-rated)
-  else → refund after expiry, evidence appended
-```
-
-Guard rails around it: `AegisRegistry` (revocable `*.aegis.eth` identity),
-`AegisHook` (Uniswap v4 swaps revert for unauthorized/over-threshold agents),
-x402 metering for agent API spend, HCS audit trail for every payment.
-
-## Quickstart
-
-Prereqs: Node 24, Foundry, Sepolia RPC, Hedera testnet ECDSA accounts (agent
-funded with testnet USDC), Subgraph Studio key. Secrets live in gitignored
-`.env` files (`service/.env.example`, `agent/.env.example`). Never commit keys.
-
-```bash
-# contracts — 86 tests
-cd contracts && forge test
-
-# x402 signal service (Hedera, Blocky facilitator) — :4021
-cd service && npm install && npm run dev
-
-# agent — full loop: ENS → Graph intel → paid signal → verdict → guard check
-cd agent && npm install
 npx tsx src/cli.ts analyze --agent sentinel-1.aegis.eth \
   --pool 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 --no-mcp
-
-# mandate → escrow loop (offline sign, then fund/validate/release)
-npx tsx src/cli.ts mandate --agent $AGENT --merchant $MERCHANT --token $TOKEN \
-  --cap 10000000 --window-start $WS --window-end $WE --expiry $EX \
-  --private-key $PAYER_KEY
-
-# frontend marketplace — :3000
-cd frontend && npm install && npm run dev
 ```
 
-## Repo map
+ENS identity → live Uniswap intel (The Graph) → $0.01 USDC x402 payment
+(Hedera testnet) → ACT/SKIP verdict → RiskGuard check → HashScan receipt.
+~11 seconds, JSON out.
 
-- `contracts/` — `TaskEscrow` (mandates + escrow + validation), `AegisRegistry`
-  (identity), `RiskGuard` (threshold gate), `AegisHook` (v4 swaps),
-  `MockERC20`, deploy scripts, 86 forge tests
-- `agent/` — mandate signing (EIP-712), escrow client, ENS resolve, Graph
-  gateway + MCP tooling (`SKILL.md`), x402 payer, heuristic + LLM brain, CLI
-- `service/` — x402-gated alpha API (Blocky facilitator), HCS audit logging
-- `frontend/` — marketplace: agents, pool intel, paid signals, verdicts,
-  `/human` (World tiers), `/privy` (embedded-wallet treasury)
-- `cre/` — Chainlink CRE confidential workflow (private thresholds in TEE)
-- `bazantic/` — gateway OpenAPI + multi-service recipe
-- `docs/` — `MANDATE.md` (spec), `ARCHITECTURE.md`, `DEMO.md` (evidence),
-  `SECURITY_REVIEW.md`, `VIDEO_SCRIPT.md`
+## Start as a human — one command
 
-## Prize tracks (ETHOnline 2026, From Scratch)
+```bash
+./run.sh        # boots signal service (:4021) + marketplace (:3000)
+./run.sh agent  # fires the full agent loop once
+```
 
-Entered: **The Graph** (live subgraphs as the agent's data source + reusable
-MCP tooling), **ENS** (expiring, revocable `*.aegis.eth` identity as the auth
-layer), **Hedera** (live x402 service settled via Blocky + HCS audit trail).
-Extended in-repo: Uniswap (v4 risk-hook), Privy (treasury + human override),
-World (human-verified tiers), Chainlink (confidential risk), Bazantic (recipe).
+Needs: Node 24, gitignored `.env` files (see `service/.env.example`,
+`agent/.env.example`). Never commit keys.
 
-## Security posture
+## The old way vs the varanasi way
 
-Escrow is the only value-holding contract: CEI + `ReentrancyGuard` +
-`SafeERC20`, no payable, no owner sweep, pull settlement. Everything
-source-verified via Sourcify. Secrets never touch git (ignored envs +
-credential-blocking pre-push hook). Accepted tradeoffs (single-EOA admin on
-testnet, `tx.origin` attribution in hook demo paths, post-settlement request
-validation) are written up in [`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md).
+**Old way** — agent gets a private key and standing approvals. One injected
+prompt, one hallucinated address, and the treasury drains. Bankr/Grok
+($180K, Morse code), AIXBT (55.5 ETH). No budget model, no escrow, no audit.
 
-## License
+**Varanasi way** — agent gets a signed mandate (cap, window, expiry, nonce).
+1. Funds lock in escrow; replay impossible (nonce nullified).
+2. Allowlisted validator scores the work; release needs score ≥ threshold
+   **and** a live identity + threshold re-check, in the same transaction.
+3. Miss the bar → auto-refund with evidence. Misbehave → human revokes the
+   identity and every downstream gate closes.
+4. Every payment feeds Sybil-resistant reputation and a Hedera audit topic.
 
-MIT — see [LICENSE](LICENSE).
+## Zero in the way
+
+- **Zero standing credentials** — agents hold mandates, never keys or allowances.
+- **Zero trust in prompts** — checks run in contracts, not in the agent's head.
+- **Zero double-spend** — nonces + escrowed funds, verified at settlement.
+- **Zero lock-in** — AP2-shaped mandates, ERC-8004-native identity, any x402 rail.
+
+## Map
+
+- `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
+  (Uniswap v4), deploy scripts, 86 forge tests
+- `agent/` — mandate signing, escrow client, ENS + Graph + x402, CLI
+- `service/` — x402-gated alpha API, HCS audit log
+- `frontend/` — marketplace + `/human` + `/privy`
+- `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
+- `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
+  · `SUBMISSION.md` · `VIDEO_SCRIPT.md` · `KEYS.md`
+
+## FAQ
+
+**Is varanasi for agents or humans?**
+Agents first. Humans set mandates, fund escrows, and hold the kill switch —
+agents do everything else inside bounds they cannot exceed.
+
+**Which chains?**
+Sepolia (contracts) + Hedera testnet (payments) today; mainnet cutover
+planned with zero contract changes.
+
+**What does it cost to run?**
+One agent loop ≈ $0.01 USDC + Sepolia gas cents. Escrowed funds are the
+user's own, refundable on expiry.
+
+**Production ready?**
+Testnet-proven with mainnet cutover tracked in `docs/SUBMISSION.md`.
+Contracts hold only user-escrowed funds, are Sourcify-verified, and carry
+no owner sweep.

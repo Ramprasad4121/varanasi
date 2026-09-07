@@ -119,6 +119,113 @@
   outline-offset: 2px;
 }
 
+/* x402-style hero additions: code block, live-stats row, old/new, zero-grid. */
+
+.hero-x402 { grid-template-columns: 1.4fr 1fr; }
+.hero-main { min-width: 0; }
+.hero-cta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+
+.hero-code {
+  margin-top: 16px;
+  background: #0d1320;
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.hero-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #232b38;
+  font-size: 12px;
+}
+.copy-btn {
+  min-height: 32px;
+  background: #141b2e;
+  border: 1px solid #2b3450;
+  border-radius: 6px;
+  color: #cdd8ea;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.copy-btn:hover { border-color: #4d7dd1; }
+.hero-code pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.hero-code code { color: #9fd09f; }
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.hero-stat {
+  background: #0d1320;
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hero-stat .stat-num { font-size: 22px; margin: 0; }
+.hero-live { margin: 0; font-size: 12px; }
+.hero-live a { text-decoration: underline; color: #9fd09f; }
+
+.hero-oldnew {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+.hero-col {
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #0d1320;
+}
+.hero-col h2 { margin: 0 0 8px; font-size: 14px; }
+.hero-col-old h2 { color: #e89a9a; }
+.hero-col-new { border-color: #2f4a2f; }
+.hero-col-new h2 { color: #9fd09f; }
+.hero-col ul { margin: 0; padding-left: 18px; font-size: 13px; color: #aeb7c6; }
+.hero-col li { margin: 6px 0; line-height: 1.5; }
+
+.hero-zeros {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.hero-zeros li {
+  border: 1px solid #232b38;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  background: #0d1320;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+}
+@media (max-width: 860px) {
+  .hero-stats { grid-template-columns: 1fr 1fr; }
+  .hero-oldnew { grid-template-columns: 1fr; }
+  .hero-zeros { grid-template-columns: 1fr 1fr; }
+}
 /* Mobile order: Hero → featured → verdict → pools → signals.
    (Hero is outside .market; featured ships inside the first .span.) */
 @media (max-width: 860px) {
