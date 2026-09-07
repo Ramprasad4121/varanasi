@@ -47,7 +47,27 @@ One command runs the whole loop:
 - Gate order per swap: PoolManager-only → registry identity → fresh
   attestation → RiskGuard re-check → `SwapAuthorized` event, zero fee delta
 
-## 6. Revoke (human run — evidence slot)
+## 7. Escrow loop (mandate → fund → validate → release, all live)
+
+- TaskEscrow `0xba038d50d70cf63ced17f3f23f77df4783f188da` (Sourcify-verified),
+  threshold 5000bps, validator = deployer (allowlisted
+  [tx](https://sepolia.etherscan.io/tx/0x9353081df46a8805129b301cac91808ab16f2a74beb83c37d7fb6308d116a01e))
+- Mock token vUSD `0x6169A84cD7430042fb697c2cC131F663212E8b30` (6 decimals,
+  minted 1000 to deployer)
+- Approve escrow 10 vUSD:
+  [tx](https://sepolia.etherscan.io/tx/0x00b7513d35719561dc06fb679c3bcebaf71f2109ca4857f433c7a65f326b25ec)
+- Signed EIP-712 mandate (agent=deployer, merchant=dEaD, cap 10 vUSD,
+  window 1h, expiry 24h) via `npx tsx src/cli.ts mandate …` (repo: `agent/`);
+  taskId `0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc`
+- Fund: [tx](https://sepolia.etherscan.io/tx/0x1a3765459f57f7b7af607623a5bface64680d771032695f6c9fa34915886f572)
+  (`TaskFunded`, status 1)
+- Validate score 8000:
+  [tx](https://sepolia.etherscan.io/tx/0xfde951571e35eaa1d0206b139322d539697846c00c3e8d508b01b76b13b2c061)
+- Release: [tx](https://sepolia.etherscan.io/tx/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702)
+  (RiskGuard `Authorized` + 10 vUSD escrow→merchant + `TaskReleased`;
+  `taskState` = Released)
+
+## 8. Revoke (human run — evidence slot)
 
 - Cmd (forge): `SUBLABEL=sentinel-1 AEGIS_REGISTRY=0x0aed80646680eb333e0d2129f6f0fa54503b5381 forge script script/Revoke.s.sol --rpc-url sepolia --broadcast` (repo: `contracts/`)
 - Cmd (agent): `npx tsx src/cli.ts revoke --label sentinel-1` (repo: `agent/`; needs `OWNER_PRIVATE_KEY` = human owner key)
