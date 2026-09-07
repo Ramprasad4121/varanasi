@@ -104,3 +104,37 @@ degrades to direct Gateway.
 `new GraphClient({ offline: true })` or `--offline` returns a local fixture.
 It must never appear in a judging demo — `analyze` JSON reports
 `"mode": { "graph": "live" | "offline" }` so judges can verify.
+
+## 6. Mandate / escrow lane (Sepolia TaskEscrow)
+
+Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
+(chain `11155111`), threshold `5000` bps,
+`RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
+Spec: `docs/MANDATE.md` (EIP-712 type + domain
+`{ name: "VaranasiTaskEscrow", version: "1", chainId, verifyingContract }`).
+
+```ts
+import { signMandate, verifyMandate, mandateTaskId } from "./src/mandate.js";
+import { fundMandate, taskState, releaseTask } from "./src/escrow.js";
+
+// Payer signs OFFLINE (domain bound to live escrow + Sepolia; nonce mgmt
+// via randomNonce()); anyone submits; funds pull from the SIGNER.
+const signed = await signMandate(mandate, payerPrivateKey);
+await verifyMandate(signed.mandate, signed.signature, { expectedSigner: payer });
+const { txHash } = await fundMandate(signed.mandate, signed.signature, payer, callerWallet);
+// fundMandate approves(token, escrow, cap) FIRST when allowance is short.
+await taskState(signed.taskId); // → { state, label: "Funded" | "Validated" | … }
+await releaseTask(signed.taskId, callerWallet); // anyone; onchain release rule applies
+// refundTask (anyone, strictly past expiry) / cancelTask (payer-only,
+// pre-validation) / submitValidation (allowlisted validator writer).
+```
+
+CLI (offline signer — never broadcasts, key via flag only):
+
+```bash
+npx tsx src/cli.ts mandate --agent 0xAGENT --merchant 0xMERCHANT \
+  --token 0xTOKEN --cap 1000000 --window-start <unix> \
+  --window-end <unix> --expiry <unix> --private-key 0xPAYER_KEY
+# → { mandate, domain, structHash, digest, taskId, signature, signer,
+#     escrow, explorer: { escrowUrl, agentUrl, merchantUrl, tokenUrl } }
+```

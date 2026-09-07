@@ -20,3 +20,47 @@ export { analyzeRisk, llmRationale, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 export type { ReasonInput, ReasonOutput } from "./reason.js";
 export { payForSignal, hashscanTxUrl } from "./pay.js";
 export type { PayResult } from "./pay.js";
+export {
+  TASK_ESCROW_ADDRESS,
+  RISK_GUARD_ADDRESS,
+  LIVE_THRESHOLD_BPS,
+  SEPOLIA_CHAIN_ID,
+  MANDATE_DOMAIN_NAME,
+  MANDATE_DOMAIN_VERSION,
+  MANDATE_TYPE_STRING,
+  MANDATE_TYPEHASH,
+  MANDATE_TYPES,
+  mandateDomain,
+  validateMandate,
+  mandateStructHash,
+  mandateDigest,
+  mandateTaskId,
+  signMandate,
+  verifyMandate,
+  addressFromPrivateKey,
+  addressFromPublicKey,
+  randomNonce,
+  timeNonce,
+  mandateToJson,
+  mandateFromJson,
+  sepoliaAddressUrl,
+  sepoliaTxUrl,
+} from "./mandate.js";
+export type { Mandate, MandateDomainOpts, SignedMandate } from "./mandate.js";
+export {
+  DEFAULT_SEPOLIA_RPC_URL,
+  ERC20_ABI,
+  TASK_ESCROW_ABI,
+  TASK_STATES,
+  makeEscrowClient,
+  taskState,
+  readTask,
+  isNonceUsed,
+  readThresholdBps,
+  fundMandate,
+  submitValidation,
+  releaseTask,
+  refundTask,
+  cancelTask,
+} from "./escrow.js";
+export type { EscrowWallet, EscrowOptions, EscrowTask, FundResult, TaskStateLabel } from "./escrow.js";

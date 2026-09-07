@@ -60,7 +60,9 @@ with `mode.graph: "live" | "offline"` and x402 receipts
 | `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point (opt-in LLM via brain) |
 | `src/brain.ts` | opt-in LLM reasoning `reasonWithLLM` (OpenAI-compatible chat API, heuristic fallback, `{ llm }` flag) |
 | `src/pay.ts` | x402 payer (`@x402/fetch` + Hedera ECDSA signer, HashScan receipts) |
-| `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports |
+| `src/mandate.ts` | EIP-712 mandate sign/verify (domain bound to live escrow + Sepolia, nonce mgmt, offline) |
+| `src/escrow.ts` | TaskEscrow viem client (`fundMandate` with ERC20 approve-first, `taskState` read, release/refund/cancel/submitValidation writers) |
+| `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports (+ `mandate` signer) |
 
 ## LLM reasoning (opt-in, heuristic fallback)
 
@@ -96,6 +98,35 @@ LLM_BASE_URL=https://api.example.com/v1 LLM_API_KEY=<key> LLM_MODEL=<model> \
 and the verdict carries `llm: true|false` so judges can verify which path ran.
 Without `--llm`, no LLM code runs. Without a key for a remote endpoint, no
 network call is attempted — heuristic is used directly.
+
+## Mandate / escrow lane (Sepolia)
+
+Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
+(Sepolia `11155111`), threshold `5000` bps,
+`RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
+Spec: `docs/MANDATE.md`. The `mandate` command is OFFLINE — it creates +
+EIP-712 signs a mandate and prints the digest + explorer-ready fields. It
+never broadcasts, stores keys, or reads secrets (key via `--private-key`
+flag only).
+
+```bash
+# 1. Create + sign a mandate (prints mandate JSON, digest, taskId, signature)
+npx tsx src/cli.ts mandate \
+  --agent 0xAGENT --merchant 0xMERCHANT --token 0xTOKEN --cap 1000000 \
+  --window-start <unix> --window-end <unix> --expiry <unix> \
+  --private-key 0xPAYER_KEY
+
+# 2. Fund (orchestrator, own wallet client — approve-first inside fundMandate):
+#    signer approves(token, escrow, cap); anyone submits fund(mandate, sig).
+#    See agent/src/escrow.ts: fundMandate() → releaseTask() / refundTask() / cancelTask().
+#    Poll: taskState(taskId) → Funded → Validated → Released.
+```
+
+Release rule (onchain, no bypass): latest validator score `>= threshold`
+AND live `RiskGuard.authorize(agent, score, cap)` AND `now <= expiry`.
+Refund is permissionless strictly after expiry; cancel is payer-only
+pre-validation. Replay = `NonceUsed` per-signer nullifier; revocation lands
+at release via the live guard re-check.
 
 ## LLM plug (legacy seam)
 

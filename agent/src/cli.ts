@@ -16,6 +16,16 @@ import { resolveAgentSubname } from "./ens.js";
 import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 import { reasonWithLLM } from "./brain.js";
 import { payForSignal } from "./pay.js";
+import {
+  SEPOLIA_CHAIN_ID,
+  TASK_ESCROW_ADDRESS,
+  mandateDomain,
+  mandateToJson,
+  randomNonce,
+  sepoliaAddressUrl,
+  signMandate,
+  type Mandate,
+} from "./mandate.js";
 
 const RISKGUARD_ABI = [
   {
@@ -257,6 +267,70 @@ program
         args: [agent],
       })) as boolean;
       console.log(JSON.stringify({ isAuthorizedAfter: after, ok: true }, null, 2));
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("mandate")
+  .description("Create + EIP-712 sign a TaskEscrow mandate (offline — prints digest + explorer-ready fields, never broadcasts)")
+  .requiredOption("--agent <address>", "agent wallet (identity re-checked live via RiskGuard at release)")
+  .requiredOption("--merchant <address>", "payee on release (single-merchant scope)")
+  .requiredOption("--token <address>", "ERC20 token (USDC-first; no ETH path exists)")
+  .requiredOption("--cap <base-units>", "max escrowed amount, token base units")
+  .requiredOption("--window-start <unix>", "validation window open (block.timestamp clock)")
+  .requiredOption("--window-end <unix>", "validation window close (inclusive)")
+  .requiredOption("--expiry <unix>", "refund gate: refund iff block.timestamp > expiry")
+  .requiredOption("--private-key <hex>", "payer signing key (used once in memory, never stored or logged)")
+  .option("--nonce <uint>", "per-signer replay nullifier (default: fresh random uint256)")
+  .option("--chain-id <id>", "EIP-712 + mandate chain id", String(SEPOLIA_CHAIN_ID))
+  .option("--escrow <address>", "TaskEscrow deployment (domain verifyingContract)", TASK_ESCROW_ADDRESS)
+  .action(async (opts) => {
+    try {
+      const escrow = String(opts.escrow) as Address;
+      const chainId = Number(opts.chainId);
+      const mandate: Mandate = {
+        agent: String(opts.agent) as Address,
+        merchant: String(opts.merchant) as Address,
+        token: String(opts.token) as Address,
+        cap: BigInt(String(opts.cap)),
+        windowStart: BigInt(String(opts.windowStart)),
+        windowEnd: BigInt(String(opts.windowEnd)),
+        expiry: BigInt(String(opts.expiry)),
+        nonce: opts.nonce !== undefined ? BigInt(String(opts.nonce)) : randomNonce(),
+        chainId: BigInt(chainId),
+      };
+      const signed = await signMandate(mandate, String(opts.privateKey) as `0x${string}`, {
+        verifyingContract: escrow,
+        chainId,
+      });
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            broadcast: false,
+            mandate: mandateToJson(signed.mandate),
+            domain: { ...mandateDomain({ verifyingContract: escrow, chainId }), chainId },
+            structHash: signed.structHash,
+            digest: signed.digest,
+            taskId: signed.taskId,
+            signature: signed.signature,
+            signer: signed.signer,
+            escrow,
+            explorer: {
+              escrowUrl: sepoliaAddressUrl(escrow),
+              agentUrl: sepoliaAddressUrl(signed.mandate.agent),
+              merchantUrl: sepoliaAddressUrl(signed.mandate.merchant),
+              tokenUrl: sepoliaAddressUrl(signed.mandate.token),
+              note: "fund with escrow.fund(mandate, sig) from ANY submitter after the SIGNER approves(token, escrow, cap); track by taskId on the escrow contract page.",
+            },
+          },
+          null,
+          2,
+        ),
+      );
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;
