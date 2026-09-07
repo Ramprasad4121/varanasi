@@ -37,7 +37,17 @@ One command runs the whole loop:
 - `riskScoreBps: 200, decision: ACT` with factor breakdown
   (liquidity/activity/alpha), threshold 5000bps.
 
-## 5. Revoke (human run — evidence slot)
+## 5. Enforcement (Uniswap v4 hook, Sepolia)
+
+- AegisHook `0xf3710a05cbb61eb8b1a73886eb68a341f69d0080` (Sourcify-verified,
+  `beforeSwap`-only bits `...0080`, deployed via canonical CREATE2, salt `0x135d`)
+- Wired: PoolManager `0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`,
+  RiskGuard `0xc358…17ca`, default cap 5000bps, owner = deployer
+- Attested: deployer agent score 200bps, 30d TTL (`agentRisk` onchain)
+- Gate order per swap: PoolManager-only → registry identity → fresh
+  attestation → RiskGuard re-check → `SwapAuthorized` event, zero fee delta
+
+## 6. Revoke (human run — evidence slot)
 
 - Cmd (forge): `SUBLABEL=sentinel-1 AEGIS_REGISTRY=0x0aed80646680eb333e0d2129f6f0fa54503b5381 forge script script/Revoke.s.sol --rpc-url sepolia --broadcast` (repo: `contracts/`)
 - Cmd (agent): `npx tsx src/cli.ts revoke --label sentinel-1` (repo: `agent/`; needs `OWNER_PRIVATE_KEY` = human owner key)

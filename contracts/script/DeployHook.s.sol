@@ -55,7 +55,18 @@ contract DeployHook is Script {
             type(AegisHook).creationCode,
             abi.encode(IPoolManager(poolManager), RiskGuard(riskGuard), defaultMaxBps, owner)
         );
-        (bytes32 salt, address expected) = _mineSalt(initcode);
+        // HOOK_SALT: pre-mined offchain (python) to skip the 500k-iteration
+        // EVM mining loop, which exceeds script timeouts. Unset => mine here.
+        bytes32 saltEnv = vm.envOr("HOOK_SALT", bytes32(0));
+        bytes32 salt;
+        address expected;
+        if (saltEnv == bytes32(0)) {
+            (salt, expected) = _mineSalt(initcode);
+        } else {
+            salt = saltEnv;
+            expected = _addrFor(initcode, salt);
+            require(uint160(expected) & Hooks.ALL_HOOK_MASK == Hooks.BEFORE_SWAP_FLAG, "bad HOOK_SALT bits");
+        }
         console.log("Mined hook address:", expected);
         console.log("Salt:");
         console.logBytes32(salt);
@@ -87,6 +98,17 @@ contract DeployHook is Script {
         console.log("RiskGuard:      ", riskGuard);
         console.log("Default cap bps:", defaultMaxBps);
         console.log("Owner:          ", hook.owner());
+    }
+
+    /// @notice CREATE2 address for (initcode, salt) via the canonical deployer.
+    function _addrFor(bytes memory initcode, bytes32 salt) internal pure returns (address) {
+        return address(
+            uint160(
+                uint256(
+                    keccak256(abi.encodePacked(bytes1(0xff), CANONICAL_CREATE2_DEPLOYER, salt, keccak256(initcode)))
+                )
+            )
+        );
     }
 
     /// @notice HookMiner-style brute force: find a salt so the canonical

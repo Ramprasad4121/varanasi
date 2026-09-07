@@ -20,7 +20,7 @@ pay → verdict → guard check — runs in one CLI command, ~11 seconds.
 | Paid x402 call ($0.01 USDC agent → service) | [HashScan `0.0.7162784-1788675749-710110370`](https://hashscan.io/testnet/transaction/0.0.7162784-1788675749-710110370) |
 | Paid x402 call (second run) | [HashScan `0.0.7162784-1788676249-125024441`](https://hashscan.io/testnet/transaction/0.0.7162784-1788676249-125024441) |
 | HCS payment audit topic | [HashScan topic `0.0.10389504`](https://hashscan.io/testnet/topic/0.0.10389504) |
-| Uniswap V3 hook (AegisHook, tested, deploy-ready) | `contracts/src/AegisHook.sol` — 36/36 forge tests |
+| Uniswap v4 hook (live, attested 200bps) | [Sepolia `0xf3710a05cbb61eb8b1a73886eb68a341f69d0080`](https://sepolia.etherscan.io/address/0xf3710a05cbb61eb8b1a73886eb68a341f69d0080) |
 
 Full evidence log: [`docs/DEMO.md`](docs/DEMO.md).
 
