@@ -141,7 +141,7 @@ export default function PoolIntel({
   }
 
   return (
-    <section className="panel">
+    <section className="panel" id="intel">
       <h2>Pool intel</h2>
       <p className="desc">
         Curated Uniswap pools the agents reason over. Stats marked{" "}

@@ -168,7 +168,7 @@ export default function SignalPanel({
   }
 
   return (
-    <section className="panel">
+    <section className="panel" id="signals">
       <h2>Paid signals</h2>
       <p className="desc">
         Agents buy premium alpha through the Hedera x402 gate:{" "}

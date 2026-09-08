@@ -1,4 +1,4 @@
-// Author: Ramprasad — x402.org-style hero: mission one-liner + live-stats row (Etherscan/HashScan proof via aegis.ts) + copyable one-command block + old-way/new-way + zero-grid; dark theme, plain CSS, responsive, degrades gracefully when service/registry unreachable.
+// Author: Ramprasad — colosseum-style hero: display headline + dual CTA pills + live-stats band (Etherscan/HashScan proof via aegis.ts) + Identity/Intel/Payments feature cards + copyable one-command block + old-way/new-way + zero-grid; light theme, plain CSS, responsive, degrades gracefully when service/registry unreachable.
 "use client";
 
 import { useState } from "react";
@@ -47,6 +47,27 @@ const STATS = [
   },
 ] as const;
 
+const FEATURES = [
+  {
+    title: "Identity",
+    body: "Expiring ENSv2 subnames, revocable onchain — demo-known sentinel-1.aegis.eth.",
+    link: "#agents",
+    linkLabel: "Meet the agents",
+  },
+  {
+    title: "Intel",
+    body: "Pool reasoning grounded in live Uniswap subgraph + CoinGecko quotes.",
+    link: "#intel",
+    linkLabel: "See pool intel",
+  },
+  {
+    title: "Payments",
+    body: "Premium alpha through the Hedera x402 gate — pay, retry, receipt.",
+    link: "#signals",
+    linkLabel: "Run the loop",
+  },
+] as const;
+
 const OLD_WAY = [
   "Agent holds a private key with standing approvals — always-on spend power.",
   "One injected prompt or hallucinated address drains the treasury (Bankr/Grok $180K, AIXBT 55.5 ETH).",
@@ -87,9 +108,9 @@ export default function Hero({
 }) {
   const [copied, setCopied] = useState(false);
 
-  function scrollToFeatured() {
+  function scrollToSignals() {
     document
-      .getElementById("featured-agent")
+      .getElementById("signals")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -109,24 +130,56 @@ export default function Hero({
         <div className="kicker">
           Agent marketplace · ETHOnline 2026 · Sepolia + Hedera testnet
         </div>
-        <h1 className="pitch">The enforcement rail for agentic commerce.</h1>
+        <h1 className="pitch">Authorize the Agent.</h1>
         <p className="sub">
-          Agents move money on promises — signed intents, session keys, API
-          credentials. Varanasi moves the check to where the money moves:
-          mandates verified at settlement, reputation grounded in payment,
-          release gated on proof.
+          The enforcement rail for agentic commerce. Agents move money on
+          promises — signed intents, session keys, API credentials. Varanasi
+          moves the check to where the money moves: mandates verified at
+          settlement, reputation grounded in payment, release gated on proof.
         </p>
         <div className="row hero-cta-row">
           <button
             type="button"
-            className="cta-primary"
-            onClick={scrollToFeatured}
+            className="btn-solid"
+            onClick={scrollToSignals}
           >
-            Verify sentinel-1 live
+            Run the loop
           </button>
+          <a
+            className="btn-outline"
+            href={hashscanTx(DEMO_RECEIPTS[0])}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read the proof
+          </a>
           <span className={`badge ${isDeployed ? "ok" : "warn"}`}>
             {isDeployed ? "live" : "not deployed yet"}
           </span>
+        </div>
+
+        <dl className="hero-stats">
+          {STATS.map((s) => (
+            <div className="hero-stat" key={s.label}>
+              <dt className="stat-label">{s.label}</dt>
+              <dd className="stat-num">{s.value}</dd>
+              <dd className="hero-live">
+                <a href={s.href} target="_blank" rel="noreferrer">
+                  live · {s.proof} ↗
+                </a>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="features">
+          {FEATURES.map((f) => (
+            <div className="feature-card" key={f.title}>
+              <h2>{f.title}</h2>
+              <p>{f.body}</p>
+              <a href={f.link}>{f.linkLabel} →</a>
+            </div>
+          ))}
         </div>
 
         <div className="hero-code">
@@ -145,20 +198,6 @@ export default function Hero({
             <code>{QUICKSTART}</code>
           </pre>
         </div>
-
-        <dl className="hero-stats">
-          {STATS.map((s) => (
-            <div className="hero-stat" key={s.label}>
-              <dt className="stat-label">{s.label}</dt>
-              <dd className="stat-num">{s.value}</dd>
-              <dd className="hero-live">
-                <a href={s.href} target="_blank" rel="noreferrer">
-                  live · {s.proof} ↗
-                </a>
-              </dd>
-            </div>
-          ))}
-        </dl>
 
         <div className="hero-oldnew">
           <div className="hero-col hero-col-old">

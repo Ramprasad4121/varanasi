@@ -166,7 +166,7 @@ export default function AgentMarket({
   }
 
   return (
-    <section className="panel">
+    <section className="panel" id="agents">
       <h2>Agents for hire</h2>
       <p className="desc">
         Each listing is an ENSv2 subname with an expiring, revocable
