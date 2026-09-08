@@ -4,7 +4,7 @@
  *
  * After a paid `/v1/signal` or `/v1/score` request is served, the service
  * fire-and-forgets a JSON receipt
- * `{route, payTo, txId, amount, asset, servedAt}` to an HCS topic via
+ * `{route, payTo, txId, amount, asset, servedAt, network, prevSequence}` to an HCS topic via
  * `TopicMessageSubmitTransaction`. Anyone can then verify the payment trail
  * on HashScan at `https://hashscan.io/<testnet|mainnet>/topic/<TOPIC_ID>`.
  *
@@ -45,6 +45,8 @@ export type HcsLogResult = { topicId: string; sequenceNumber: string } | { skipp
 
 /** In-memory topic cache — survives for the process lifetime. */
 let cachedTopicId: string | null = null;
+/** Last successfully logged HCS sequence number — used as `prevSequence` linkage. */
+let lastSequenceNumber: string | null = null;
 /** In-flight creation guard so concurrent paid requests create at most one topic. */
 let pendingTopic: Promise<string | null> | null = null;
 
@@ -169,6 +171,7 @@ export async function logReceipt(input: HcsReceiptInput): Promise<HcsLogResult> 
         asset: input.asset ?? null,
         servedAt: input.servedAt ?? new Date().toISOString(),
         network: isMainnet() ? 'hedera:mainnet' : 'hedera:testnet',
+        prevSequence: lastSequenceNumber,
       });
       const txResponse = await new TopicMessageSubmitTransaction()
         .setTopicId(topicId)
@@ -181,6 +184,7 @@ export async function logReceipt(input: HcsReceiptInput): Promise<HcsLogResult> 
           ? String((seqRaw as { toString(): string }).toString())
           : String(seqRaw ?? '');
       console.log(`[hcs] receipt logged: topic=${topicId} seq=${sequenceNumber} route=${input.route}`);
+      lastSequenceNumber = sequenceNumber;
       return { topicId, sequenceNumber };
     } finally {
       await closeQuietly(op.client);

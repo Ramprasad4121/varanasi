@@ -97,21 +97,52 @@ After a paid call, the receipt is also listed at `GET /v1/receipts`, and every
 paid response embeds `receipt: {payTo, facilitator, txId?, hashscanTxUrl?,
 hashscanAccountUrl}`.
 
-## 4. Facilitators
+## 4. Facilitators (pinned — no fallback)
 
-| Network | Default facilitator | Override |
+| Network | Pinned facilitator | Override |
 |---|---|---|
 | `hedera:testnet` | `https://x402.org/facilitator` (x402 Foundation) | `X402_FACILITATOR_URL` (or `X402_TESTNET_FACILITATOR_URL`) |
 | `hedera:mainnet` | `https://api.blocky402.com` (BlockyDevs) | `X402_FACILITATOR_URL` (or `X402_MAINNET_FACILITATOR_URL`) |
 
 BlockyDevs also runs a testnet endpoint, `https://api.testnet.blocky402.com` —
 point `X402_FACILITATOR_URL` at it if you need an asset the default testnet
-facilitator doesn't serve (e.g. testnet HBAR). Liveness checks:
+facilitator doesn't serve (e.g. testnet HBAR).
+
+**Single facilitator, no fallback.** The service pins exactly one
+facilitator URL per network (env override or the built-in default above);
+comma-separated primary+fallback is explicitly out of scope. The active
+pin is echoed at runtime in `GET /402-info` as `facilitatorPinned`
+(plus `facilitator`, `supported`, `verify`).
+
+**Verify the pin** (liveness + supported assets/networks):
 
 ```bash
 curl -s https://x402.org/facilitator/supported | head -c 300; echo
 curl -s https://api.blocky402.com/supported | head -c 300; echo
+# or against the live pin:
+PIN=$(curl -s localhost:4021/402-info | python3 -c 'import json,sys; print(json.load(sys.stdin)["facilitatorPinned"])')
+curl -s "$PIN/supported" | head -c 300; echo
 ```
+
+**Rotation runbook:** 1) set `X402_FACILITATOR_URL` (or the per-network
+`X402_{TESTNET,MAINNET}_FACILITATOR_URL`) to the new URL, 2) restart the
+service, 3) confirm `GET /402-info` shows the new `facilitatorPinned` and
+`GET <pin>/supported` lists the network/asset you need, 4) run the §3
+smoke tests (unpaid call → 402) before announcing.
+
+## 4a. CORS
+
+Set `CORS_ORIGIN` (comma-separated allowlist, see `service/.env.example`).
+When unset, the service allows open `*` **only** when
+`NODE_ENV!=production` (with a startup warning); in production it serves
+same-origin only. Paid routes are unaffected by this setting.
+
+## 4b. Free-route rate limits
+
+`GET /health`, `GET /402-info`, and `GET /v1/receipts` share a minimal
+in-memory limiter: **120 req/min/IP**; over-limit returns **429** with a
+`Retry-After` (seconds) header. Paid routes (`POST /v1/signal`,
+`POST /v1/score`) are untouched.
 
 ## 5. What judges see in the video (≤5 min segment)
 
@@ -124,11 +155,11 @@ curl -s https://api.blocky402.com/supported | head -c 300; echo
    behind a real x402 settlement. Swap `signal.ts` for the Graph-fed model
    without touching agent or frontend."*
 
-## 6. HCS payment audit trail (Hedera track)
+## 6. HCS payment audit trail (Hedera track) — best-effort, gaps possible
 
 Every served paid request is mirrored, best-effort, to Hedera Consensus
 Service as a verifiable timestamped receipt
-`{route, payTo, txId, amount, asset, servedAt}` (`src/hcs.ts`).
+`{route, payTo, txId, amount, asset, servedAt, network, prevSequence}` (`src/hcs.ts`).
 
 - **Automatic** — no topic setup needed: on the first paid request the
   service creates one HCS topic with the operator key, caches the id in
@@ -147,6 +178,18 @@ Service as a verifiable timestamped receipt
   Each paid request appears as a sequenced consensus message; match the
   `sequenceNumber` from the service log and the `txId` against the payment
   transfer.
+- **Best-effort semantics + gap risk** — the HCS trail is fire-and-forget
+  AFTER the paid response: any HCS failure (disabled, missing key, network
+  error, restart before flush) skips that receipt without failing or
+  retrying the paid request, so the HCS topic can have gaps and MUST NOT be
+  treated as a complete payment ledger. Each message carries a
+  `prevSequence` pointer to the previously logged sequence (null for the
+  first message in a process lifetime) so gaps are detectable by walking
+  the chain — but backfill/reconciliation is explicitly deferred.
+- **Signed trail = deferred production item** — a cryptographically signed,
+  gap-free receipt trail is a production hardening item and is explicitly
+  out of scope here; the current trail is unsigned JSON with best-effort
+  `prevSequence` linkage only.
 
 ## 7. Files
 

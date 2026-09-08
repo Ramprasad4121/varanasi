@@ -105,7 +105,63 @@ function extractSettleTxId(res: Response): string | null {
 }
 
 const app = express();
-app.use(cors());
+/**
+ * Audit fix: CORS allowlist via CORS_ORIGIN (comma-separated).
+ * - Set CORS_ORIGIN="https://app.example.com,https://admin.example.com" to restrict.
+ * - Unset + NODE_ENV!=production: open `*` (dev convenience) with a startup warning.
+ * - Unset + NODE_ENV=production: same-origin only (no open CORS in prod).
+ */
+{
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const allowlist = (process.env.CORS_ORIGIN ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (allowlist.length > 0) {
+    app.use(cors({ origin: allowlist }));
+  } else if (nodeEnv !== 'production') {
+    console.warn(
+      '[cors] CORS_ORIGIN unset — open `*` (non-production only). Set CORS_ORIGIN to restrict.',
+    );
+    app.use(cors());
+  } else {
+    console.warn('[cors] CORS_ORIGIN unset in production — same-origin only (CORS disabled).');
+    app.use(cors({ origin: false }));
+  }
+}
+
+/**
+ * Audit fix: minimal in-memory rate limiter for FREE routes only
+ * (GET /health, /402-info, /v1/receipts). No new deps.
+ * 120 req/min/IP → 429 + Retry-After. Paid routes untouched.
+ */
+const FREE_ROUTE_LIMIT = 120;
+const FREE_ROUTE_WINDOW_MS = 60_000;
+const freeRouteHits = new Map<string, { count: number; resetAt: number }>();
+function freeRouteLimiter(req: Request, res: Response, next: () => void): void {
+  const now = Date.now();
+  const ip = req.ip ?? req.socket?.remoteAddress ?? 'unknown';
+  const key = `${ip}`;
+  let entry = freeRouteHits.get(key);
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + FREE_ROUTE_WINDOW_MS };
+    freeRouteHits.set(key, entry);
+  }
+  entry.count += 1;
+  // Opportunistic prune so the map can't grow unbounded.
+  if (freeRouteHits.size > 5000) {
+    for (const [k, v] of freeRouteHits) {
+      if (now >= v.resetAt) freeRouteHits.delete(k);
+    }
+  }
+  if (entry.count > FREE_ROUTE_LIMIT) {
+    const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+    res.setHeader('Retry-After', String(retryAfter));
+    res.status(429).json({ error: 'rate limited: 120 req/min/IP on free routes' });
+    return;
+  }
+  next();
+}
 app.use(express.json({ limit: '256kb' }));
 
 /**
@@ -213,7 +269,7 @@ app.post('/v1/score', (req: Request, res: Response) => {
 });
 
 // ---- free routes ----------------------------------------------------------
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', freeRouteLimiter, (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'aegis-signal',
@@ -226,7 +282,7 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/402-info', (_req: Request, res: Response) => {
+app.get('/402-info', freeRouteLimiter, (_req: Request, res: Response) => {
   const routes: Record<PaidRoute, unknown> = {
     '/v1/signal': undefined,
     '/v1/score': undefined,
@@ -243,6 +299,7 @@ app.get('/402-info', (_req: Request, res: Response) => {
   }
   res.json({
     facilitator: FACILITATOR_URL,
+    facilitatorPinned: FACILITATOR_URL,
     supported: `${FACILITATOR_URL.replace(/\/$/, '')}/supported`,
     verify: `${FACILITATOR_URL.replace(/\/$/, '')}/verify`,
     routes,
@@ -257,7 +314,7 @@ app.get('/402-info', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/v1/receipts', (_req: Request, res: Response) => {
+app.get('/v1/receipts', freeRouteLimiter, (_req: Request, res: Response) => {
   res.json({ count: receipts.length, receipts });
 });
 
