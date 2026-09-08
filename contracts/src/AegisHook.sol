@@ -9,6 +9,8 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/types/BeforeSwapDelta.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/types/PoolOperation.sol";
+import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import {AegisRegistry} from "./AegisRegistry.sol";
 import {RiskGuard} from "./RiskGuard.sol";
@@ -36,7 +38,18 @@ import {RiskGuard} from "./RiskGuard.sol";
 ///      — correct when the agent EOA drives the swap tx through a router, but
 ///      a production build should use signed attestations / ERC-8004 identity
 ///      instead of tx.origin. See UNISWAP.md "Production hardening".
-contract AegisHook is IHooks {
+/// @dev Attested path (H1 hardening): `beforeSwap` also accepts an OPTIONAL
+///      EIP-712 validator attestation via hookData — abi.encode(agent,
+///      scoreBps, expiry, validatorSig) where validatorSig signs
+///      (agent, scoreBps, expiry, poolId, chainId, hook). Non-empty hookData is
+///      verified (validator signature + expiry) and the attested agent is used
+///      (no tx.origin); empty hookData keeps the legacy tx.origin path for demo
+///      compat and is NEVER removed. Attestation scores are RISK bps (low =
+///      safe), same convention as setAgentRisk.
+/// @dev Production: validator keys must be a quorum/multisig with key rotation
+///      (single owner/operator signers are a testnet stand-in); enforce a
+///      timelock on policy admin (no timelock code here by design).
+contract AegisHook is IHooks, EIP712 {
     using PoolIdLibrary for PoolKey;
 
     // ── Immutable wiring ──────────────────────────────────────────────
@@ -49,12 +62,24 @@ contract AegisHook is IHooks {
     /// @notice Live RiskGuard — single source of truth for identity + threshold.
     RiskGuard public riskGuard;
     /// @notice Hook admin (deployer). Manages operators, caps, wiring.
+    /// @dev Production: timelock/multisig (no timelock code here by design).
     address public owner;
+    /// @notice Pending owner set by transferOwnership; must call acceptOwnership.
+    /// @dev Author: Ramprasad.
+    address public pendingOwner;
     /// @notice Risk-engine writers allowed to call `setAgentRisk`.
     mapping(address => bool) public operators;
 
     /// @notice Basis-points denominator: scores and caps are 0–10_000.
     uint256 public constant MAX_BPS = 10_000;
+    /// @notice Maximum attestation lifetime enforced in setAgentRisk (30 days).
+    /// @dev Author: Ramprasad.
+    uint256 public constant MAX_ATTESTATION_TTL = 30 days;
+    /// @notice keccak256 of "Attestation(address agent,uint64 scoreBps,uint64 expiry,bytes32 poolId,uint256 chainId,address hook)".
+    /// @dev Author: Ramprasad.
+    bytes32 public constant ATTESTATION_TYPEHASH = keccak256(
+        "Attestation(address agent,uint64 scoreBps,uint64 expiry,bytes32 poolId,uint256 chainId,address hook)"
+    );
     /// @notice Fallback cap for pools with no per-pool cap set.
     uint256 public defaultMaxAllowedBps;
 
@@ -88,6 +113,9 @@ contract AegisHook is IHooks {
     event RiskGuardUpdated(address indexed riskGuard, address indexed setter);
     /// @notice Emitted when hook admin rights are transferred.
     event OwnershipTransferred(address indexed next, address indexed prev);
+    /// @notice Emitted when hook admin transfer is initiated (2-step: must accept).
+    /// @dev Author: Ramprasad.
+    event OwnershipTransferStarted(address indexed next, address indexed prev);
     /// @notice Emitted when a swap passes the identity + risk gate.
     event SwapAuthorized(address indexed agent, PoolId indexed poolId, uint256 scoreBps, uint256 maxAllowedBps);
 
@@ -109,6 +137,15 @@ contract AegisHook is IHooks {
     error BadDeadline(uint64 deadline);
     /// @notice Cap exceeds 10_000 bps.
     error BadCap(uint256 maxAllowedBps);
+    /// @notice hookData attestation signature is invalid or not from a validator.
+    /// @dev Author: Ramprasad.
+    error BadAttestation(address agent, address recovered);
+    /// @notice hookData attestation expired (block.timestamp > expiry).
+    /// @dev Author: Ramprasad.
+    error AttestationExpired(address agent, uint64 expiry);
+    /// @notice Caller is not the pending owner.
+    /// @dev Author: Ramprasad.
+    error NotPendingOwner(address caller);
     /// @notice A non-swap hook entrypoint was called (never happens: bits unset).
     error WrongHookFunction();
 
@@ -131,7 +168,9 @@ contract AegisHook is IHooks {
     ///        the factory contract, owned by no one).
     /// @dev Reverts `Hooks.HookAddressNotValid` unless the deployment address
     ///      carries exactly the beforeSwap permission bit (mine the CREATE2 salt).
-    constructor(IPoolManager _poolManager, RiskGuard _riskGuard, uint256 _defaultMaxAllowedBps, address _owner) {
+    constructor(IPoolManager _poolManager, RiskGuard _riskGuard, uint256 _defaultMaxAllowedBps, address _owner)
+        EIP712("AegisHook", "1")
+    {
         Hooks.validateHookPermissions(IHooks(address(this)), getHookPermissions());
         if (address(_poolManager) == address(0) || address(_riskGuard) == address(0)) revert ZeroAddress();
         if (_owner == address(0)) revert ZeroAddress();
@@ -170,29 +209,101 @@ contract AegisHook is IHooks {
 
     /// @notice Gate every swap through varanasi identity + attested risk.
     /// @param key Pool key of the swap being gated.
+    /// @param hookData Optional EIP-712 validator attestation:
+    ///        abi.encode(agent, scoreBps, expiry, validatorSig). Empty keeps the
+    ///        legacy tx.origin path (demo compat, never removed).
     /// @return selector beforeSwap selector on success.
     /// @return delta Zero delta (hook takes no fees).
     /// @return fee Zero fee override.
-    /// @dev Attribute the swap to `tx.origin` (the agent EOA driving the tx).
-    ///      Reverts `RiskGuard.UnauthorizedAgent` (no live `*.aegis.eth`
-    ///      identity), `StaleAttestation` (no fresh score), or
-    ///      `RiskGuard.RiskTooHigh` (score over pool/default cap).
-    function beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata)
+    /// @dev Attested path: verifies the validator signature over
+    ///      (agent, scoreBps, expiry, poolId, chainId, hook) + attestation
+    ///      expiry, then uses the attested agent (no tx.origin). Legacy path:
+    ///      attributes the swap to `tx.origin` + stored setAgentRisk score.
+    ///      Both paths re-check live identity and the pool/default cap via
+    ///      RiskGuard.authorize. Reverts `RiskGuard.UnauthorizedAgent` (no live
+    ///      `*.aegis.eth` identity), `StaleAttestation` (no fresh stored score),
+    ///      `BadAttestation` / `AttestationExpired` (bad hookData attestation),
+    ///      or `RiskGuard.RiskTooHigh` (score over pool/default cap).
+    /// @dev Author: Ramprasad.
+    function beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata hookData)
         external
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         if (msg.sender != address(poolManager)) revert NotPoolManager(msg.sender);
-        address agent = tx.origin;
+        PoolId poolId = key.toId();
+        uint256 cap = poolCapSet[poolId] ? poolMaxAllowedBps[poolId] : defaultMaxAllowedBps;
+        (address agent, uint256 scoreBps) = hookData.length == 0
+            ? _legacyAttribution()
+            : _attestedAttribution(hookData, poolId);
+        // Single source of truth: live RiskGuard re-checks identity + threshold.
+        riskGuard.authorize(agent, scoreBps, cap);
+        emit SwapAuthorized(agent, poolId, scoreBps, cap);
+        return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+    }
+
+    /// @dev Legacy demo path: tx.origin attribution + stored setAgentRisk score.
+    /// @dev Author: Ramprasad.
+    function _legacyAttribution() internal view returns (address agent, uint256 scoreBps) {
+        agent = tx.origin;
         if (!riskGuard.registry().isAuthorized(agent)) revert RiskGuard.UnauthorizedAgent(agent);
         Attestation memory a = agentRisk[agent];
         if (a.deadline == 0 || block.timestamp > a.deadline) revert StaleAttestation(agent);
-        PoolId poolId = key.toId();
-        uint256 cap = poolCapSet[poolId] ? poolMaxAllowedBps[poolId] : defaultMaxAllowedBps;
-        // Single source of truth: live RiskGuard re-checks identity + threshold.
-        riskGuard.authorize(agent, a.scoreBps, cap);
-        emit SwapAuthorized(agent, poolId, a.scoreBps, cap);
-        return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        scoreBps = a.scoreBps;
+    }
+
+    /// @dev Attested path: verify validator EIP-712 signature over
+    ///      (agent, scoreBps, expiry, poolId, chainId, hook) + expiry, then use
+    ///      the attested agent (no tx.origin). Reverts BadAttestation /
+    ///      AttestationExpired / UnauthorizedAgent.
+    /// @dev Author: Ramprasad.
+    function _attestedAttribution(bytes calldata hookData, PoolId poolId)
+        internal
+        view
+        returns (address agent, uint256 scoreBps)
+    {
+        (address attestedAgent, uint64 attestedScore, uint64 expiry, bytes memory sig) =
+            abi.decode(hookData, (address, uint64, uint64, bytes));
+        if (block.timestamp > expiry) revert AttestationExpired(attestedAgent, expiry);
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(
+                abi.encode(
+                    ATTESTATION_TYPEHASH, attestedAgent, attestedScore, expiry, PoolId.unwrap(poolId), block.chainid, address(this)
+                )
+            )
+        );
+        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(digest, sig);
+        if (err != ECDSA.RecoverError.NoError || !_isValidator(signer)) {
+            revert BadAttestation(attestedAgent, signer);
+        }
+        if (!riskGuard.registry().isAuthorized(attestedAgent)) revert RiskGuard.UnauthorizedAgent(attestedAgent);
+        return (attestedAgent, attestedScore);
+    }
+
+    /// @notice EIP-712 digest for a hook attestation (sign this offchain).
+    /// @param agent Attested agent wallet.
+    /// @param scoreBps Risk score in bps (low = safe, setAgentRisk convention).
+    /// @param expiry Attestation expiry timestamp.
+    /// @param poolId Pool the attestation is bound to.
+    /// @return digest Signable digest for a validator's EIP-712 signature.
+    /// @dev Author: Ramprasad.
+    function attestationDigest(address agent, uint64 scoreBps, uint64 expiry, PoolId poolId)
+        public
+        view
+        returns (bytes32)
+    {
+        return _hashTypedDataV4(
+            keccak256(
+                abi.encode(ATTESTATION_TYPEHASH, agent, scoreBps, expiry, PoolId.unwrap(poolId), block.chainid, address(this))
+            )
+        );
+    }
+
+    /// @dev Attestation validator = hook owner or an authorized operator.
+    ///      Production: replace with a quorum/multisig verifier + rotation.
+    /// @dev Author: Ramprasad.
+    function _isValidator(address signer) internal view returns (bool) {
+        return signer != address(0) && (signer == owner || operators[signer]);
     }
 
     // ── Risk attestation writes (owner/operator) ──────────────────────
@@ -200,13 +311,15 @@ contract AegisHook is IHooks {
     /// @notice Attest (or refresh) an agent's risk score until `deadline`.
     /// @param agent Agent wallet to attest.
     /// @param scoreBps Risk score in bps (must be <= 10_000).
-    /// @param deadline Expiry timestamp (must be in the future).
+    /// @param deadline Expiry timestamp (must be in the future, <= now + MAX_ATTESTATION_TTL).
     /// @dev Demo stand-in for the offchain reasoning engine. Production:
-    ///      replace with EIP-712 signed attestations verified onchain.
+    ///      replace with EIP-712 signed attestations verified onchain + a
+    ///      quorum/multisig validator set with key rotation.
     function setAgentRisk(address agent, uint256 scoreBps, uint64 deadline) external onlyOperator {
         if (agent == address(0)) revert ZeroAddress();
         if (scoreBps > MAX_BPS) revert BadScore(scoreBps);
         if (deadline <= block.timestamp) revert BadDeadline(deadline);
+        if (deadline > block.timestamp + MAX_ATTESTATION_TTL) revert BadDeadline(deadline);
         agentRisk[agent] = Attestation(uint64(scoreBps), deadline);
         emit AgentRiskSet(agent, uint64(scoreBps), deadline, msg.sender);
     }
@@ -257,13 +370,24 @@ contract AegisHook is IHooks {
         emit OperatorSet(operator, allowed, msg.sender);
     }
 
-    /// @notice Hand admin rights to `next` (e.g. a multisig post-deploy).
-    /// @param next New owner address (must be non-zero).
+    /// @notice Hand admin rights to `next` (e.g. a multisig post-deploy, 2-step).
+    /// @param next New owner address (must be non-zero; must call acceptOwnership).
+    /// @dev Author: Ramprasad.
+    /// @dev Production: front this with a timelock (no timelock code here).
     function transferOwnership(address next) external onlyOwner {
         if (next == address(0)) revert ZeroAddress();
+        pendingOwner = next;
+        emit OwnershipTransferStarted(next, owner);
+    }
+
+    /// @notice Accept pending admin rights (called by the pending owner).
+    /// @dev Author: Ramprasad.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner(msg.sender);
         address prev = owner;
-        owner = next;
-        emit OwnershipTransferred(next, prev);
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(owner, prev);
     }
 
     // ── Views ─────────────────────────────────────────────────────────

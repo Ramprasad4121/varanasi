@@ -23,6 +23,9 @@ contract RiskGuard {
     error UnauthorizedAgent(address agent);
     /// @notice Risk score exceeds the caller-supplied threshold.
     error RiskTooHigh(uint256 scoreBps, uint256 maxAllowedBps);
+    /// @notice Address argument is zero.
+    /// @dev Author: Ramprasad.
+    error ZeroAddress();
 
     modifier onlyOwner() {
         require(msg.sender == owner, "not admin");
@@ -37,8 +40,11 @@ contract RiskGuard {
     }
 
     /// @notice Repoint the guard at a new registry (e.g. after a registry upgrade).
-    /// @param _registry New AegisRegistry address.
+    /// @param _registry New AegisRegistry address (must be non-zero).
+    /// @dev Author: Ramprasad.
+    /// @dev Production: front this with a timelock/multisig (no timelock code here).
     function setRegistry(address _registry) external onlyOwner {
+        if (_registry == address(0)) revert ZeroAddress();
         registry = AegisRegistry(_registry);
         emit RegistryUpdated(_registry);
     }

@@ -87,10 +87,30 @@ contract AegisHookTest is Test {
         internal
         returns (bytes4 selector, BeforeSwapDelta delta, uint24 fee)
     {
+        return _swapAsWithData(origin, "");
+    }
+
+    function _swapAsWithData(address origin, bytes memory hookData)
+        internal
+        returns (bytes4 selector, BeforeSwapDelta delta, uint24 fee)
+    {
         SwapParams memory params =
             SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 4_295_128_739});
         vm.prank(poolManager, origin);
-        return hook.beforeSwap(address(this), key, params, "");
+        return hook.beforeSwap(address(this), key, params, hookData);
+    }
+
+    // Attestation signer (operator EOA): hook owner/operator sigs verify as validators.
+    uint256 internal validatorKey = 0xA11CE1;
+    address internal validatorEOA = vm.addr(0xA11CE1);
+
+    function _attestHookData(address attestedAgent, uint64 score, uint64 expiry)
+        internal
+        returns (bytes memory)
+    {
+        bytes32 digest = hook.attestationDigest(attestedAgent, score, expiry, key.toId());
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(validatorKey, digest);
+        return abi.encode(attestedAgent, score, expiry, abi.encodePacked(r, s, v));
     }
 
     // ── permission bits ──
@@ -177,6 +197,82 @@ contract AegisHookTest is Test {
         hook.beforeSwap(address(this), key, params, "");
     }
 
+    // ── v2 EIP-712 attested path (hookData) ──
+
+    function test_AttestedSwapPassesWithoutTxOrigin() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        bytes memory hookData = _attestHookData(agent, 2_000, expiry);
+        // tx.origin is a stranger with no identity: attested agent must be used.
+        (bytes4 sel,,) = _swapAsWithData(stranger, hookData);
+        assertEq(sel, IHooks.beforeSwap.selector);
+    }
+
+    function test_AttestedSwapExpiredReverts() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        bytes memory hookData = _attestHookData(agent, 2_000, expiry);
+        vm.warp(block.timestamp + 2 days);
+        vm.expectRevert(
+            abi.encodeWithSelector(AegisHook.AttestationExpired.selector, agent, expiry)
+        );
+        _swapAsWithData(stranger, hookData);
+    }
+
+    function test_AttestedSwapBadSigReverts() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        // Signed by an unknown key (not owner/operator).
+        bytes32 digest = hook.attestationDigest(agent, 2_000, expiry, key.toId());
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, digest);
+        bytes memory hookData = abi.encode(agent, uint64(2_000), expiry, abi.encodePacked(r, s, v));
+        vm.expectRevert(
+            abi.encodeWithSelector(AegisHook.BadAttestation.selector, agent, vm.addr(0xBAD))
+        );
+        _swapAsWithData(stranger, hookData);
+    }
+
+    function test_AttestedSwapTamperedScoreReverts() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        bytes memory hookData = _attestHookData(agent, 2_000, expiry);
+        // Tamper the score after signing: digest mismatch → BadAttestation.
+        bytes memory tampered = abi.encode(agent, uint64(100), expiry, _sigOf(hookData));
+        vm.expectRevert(); // BadAttestation with an unpredictable recovered signer
+        _swapAsWithData(stranger, tampered);
+    }
+
+    function _sigOf(bytes memory hookData) internal pure returns (bytes memory sig) {
+        (,,, sig) = abi.decode(hookData, (address, uint64, uint64, bytes));
+    }
+
+    function test_AttestedSwapUnauthorizedAgentReverts() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        bytes memory hookData = _attestHookData(stranger, 100, expiry); // stranger: no identity
+        vm.expectRevert(abi.encodeWithSelector(RiskGuard.UnauthorizedAgent.selector, stranger));
+        _swapAsWithData(stranger, hookData);
+    }
+
+    function test_AttestedSwapHighRiskReverts() public {
+        hook.setOperator(validatorEOA, true);
+        uint64 expiry = uint64(block.timestamp + 1 days);
+        bytes memory hookData = _attestHookData(agent, 8_000, expiry);
+        vm.expectRevert(abi.encodeWithSelector(RiskGuard.RiskTooHigh.selector, 8_000, defaultCap));
+        _swapAsWithData(stranger, hookData);
+    }
+
+    // ── v2 MAX_ATTESTATION_TTL bound ──
+
+    function test_SetAgentRiskEnforcesMaxTTL() public {
+        assertEq(hook.MAX_ATTESTATION_TTL(), 30 days);
+        uint64 tooFar = uint64(block.timestamp + 30 days + 1);
+        vm.expectRevert(abi.encodeWithSelector(AegisHook.BadDeadline.selector, tooFar));
+        hook.setAgentRisk(agent, 100, tooFar);
+        // Boundary passes.
+        hook.setAgentRisk(agent, 100, uint64(block.timestamp + 30 days));
+    }
+
     // ── per-pool caps ──
 
     function test_PoolCapOverridesDefault() public {
@@ -227,12 +323,23 @@ contract AegisHookTest is Test {
         hook.setPoolCap(key, 1_000);
     }
 
-    function test_SetRiskGuardAndTransferOwnership() public {
+    function test_SetRiskGuard() public {
         RiskGuard guard2 = new RiskGuard(address(registry));
         hook.setRiskGuard(guard2);
         assertEq(address(hook.riskGuard()), address(guard2));
+    }
+
+    function test_TwoStepOwnership_Hook() public {
         hook.transferOwnership(human);
+        assertEq(hook.owner(), address(this)); // unchanged until accept
+        assertEq(hook.pendingOwner(), human);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(AegisHook.NotPendingOwner.selector, stranger));
+        hook.acceptOwnership();
+        vm.prank(human);
+        hook.acceptOwnership();
         assertEq(hook.owner(), human);
+        assertEq(hook.pendingOwner(), address(0));
     }
 
     function test_RegistryViewTracksGuard() public view {

@@ -79,9 +79,20 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         Cancelled
     }
 
-    /// @notice Stored task record: embedded mandate fields plus settlement state.
-    /// @dev fundedAmount records tokens RECEIVED (fee-on-transfer safe); scoreBps
-    ///      always holds the LATEST validator score (last-write-wins).
+/// @notice Stored task record: embedded mandate fields plus settlement state.
+/// @dev fundedAmount records tokens RECEIVED (fee-on-transfer safe); scoreBps
+///      always holds the LATEST validator score (last-write-wins).
+///      pinnedThresholdBps + pinnedValidator are frozen at fund/first-validation
+///      time so later global admin changes cannot move a live task's goalposts;
+///      release re-checks isValidator[pinnedValidator] live.
+/// @dev QUALITY→RISK INVERSION (explicit): validator scores are QUALITY bps
+///      (high = good work) while RiskGuard.authorize takes a RISK score
+///      (low = safe). Release therefore calls
+///      authorize(agent, BPS_DENOMINATOR - scoreBps, pinnedThresholdBps):
+///      a task releases iff quality >= pinnedThreshold AND risk
+///      (10_000 - quality) <= pinnedThreshold. For the symmetric 5_000 default
+///      both bars coincide; for asymmetric thresholds the combined gate is
+///      score >= max(pinned, 10_000 - pinned).
     struct Task {
         address payer; // mandate signer, receives refund/cancel
         address agent; // identity checked live via RiskGuard at release
@@ -94,6 +105,8 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         uint64 expiry;
         uint256 scoreBps; // LATEST validator score (last-write-wins)
         address validator; // author of latest score
+        uint256 pinnedThresholdBps; // thresholdBps frozen at fund time
+        address pinnedValidator; // first validator writer (later writes must match)
         State state;
     }
 
@@ -112,7 +125,11 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     /// @notice Live RiskGuard re-checked inline at every release.
     RiskGuard public immutable riskGuard;
     /// @notice Contract admin: manages validators, threshold, ownership.
+    /// @dev Production: timelock/multisig (no timelock code here by design).
     address public owner;
+    /// @notice Pending owner set by transferOwnership; must call acceptOwnership.
+    /// @dev Author: Ramprasad.
+    address public pendingOwner;
     /// @notice Global release bar: release requires latest score >= thresholdBps.
     uint256 public thresholdBps;
 
@@ -150,6 +167,9 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     event ThresholdUpdated(uint256 thresholdBps);
     /// @notice Emitted when contract ownership is transferred.
     event OwnershipTransferred(address indexed next);
+    /// @notice Emitted when contract ownership transfer is initiated (2-step).
+    /// @dev Author: Ramprasad.
+    event OwnershipTransferStarted(address indexed next, address indexed prev);
 
     // ── Distinct errors (no shared/clever reuse; CLI maps revert -> message) ──
 
@@ -207,6 +227,12 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     error NotOwner(address caller);
     /// @notice Threshold exceeds 10_000 bps.
     error BadThreshold(uint256 thresholdBps);
+    /// @notice A different validator tried to overwrite the pinned validator's score.
+    /// @dev Author: Ramprasad.
+    error ValidatorMismatch(bytes32 taskId, address expected, address caller);
+    /// @notice Caller is not the pending owner.
+    /// @dev Author: Ramprasad.
+    error NotPendingOwner(address caller);
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
@@ -243,12 +269,23 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         emit ThresholdUpdated(_thresholdBps);
     }
 
-    /// @notice Transfer contract admin rights to a new owner.
-    /// @param next New owner address (must be non-zero).
+    /// @notice Transfer contract admin rights to a new owner (2-step).
+    /// @param next New owner address (must be non-zero; must call acceptOwnership).
+    /// @dev Author: Ramprasad.
+    /// @dev Production: front this with a timelock (no timelock code here).
     function transferOwnership(address next) external onlyOwner {
         if (next == address(0)) revert ZeroAddress();
-        owner = next;
-        emit OwnershipTransferred(next);
+        pendingOwner = next;
+        emit OwnershipTransferStarted(next, owner);
+    }
+
+    /// @notice Accept pending admin rights (called by the pending owner).
+    /// @dev Author: Ramprasad.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert NotPendingOwner(msg.sender);
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(owner);
     }
 
     // ── EIP-712 helpers (public for clients/tests; domain binds chainId + this) ──
@@ -348,26 +385,35 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         t.windowStart = m.windowStart;
         t.windowEnd = m.windowEnd;
         t.expiry = m.expiry;
+        t.pinnedThresholdBps = thresholdBps; // freeze the bar at fund time
         t.state = State.Funded;
 
-        address token = m.token;
-        uint256 before = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeTransferFrom(signer, address(this), m.cap);
-        uint256 received = IERC20(token).balanceOf(address(this)) - before;
-        t.fundedAmount = received; // amount RECEIVED (fee-on-transfer safe)
+        uint256 before = IERC20(m.token).balanceOf(address(this));
+        IERC20(m.token).safeTransferFrom(signer, address(this), m.cap);
+        t.fundedAmount = IERC20(m.token).balanceOf(address(this)) - before; // RECEIVED (fee-on-transfer safe)
 
-        emit TaskFunded(taskId, signer, m.agent, m.merchant, token, received, m.expiry, m.nonce);
+        emit TaskFunded(taskId, signer, m.agent, m.merchant, m.token, t.fundedAmount, m.expiry, m.nonce);
     }
 
     /// @notice Submit (or revise) a validation score. Allowlisted validators
     ///         only; LAST-WRITE-WINS pre-settlement; post-settlement reverts.
     /// @param taskId Task to validate.
     /// @param scoreBps Numeric score in basis points (0-10_000, no eval/LLM here).
+    /// @dev First validator write PINS pinnedValidator; later writes must come
+    ///      from the SAME validator (kills flip-flop between competing
+    ///      validators). Removing the pinned validator via setValidator blocks
+    ///      release (release re-checks isValidator live).
+    /// @dev Author: Ramprasad.
     function submitValidation(bytes32 taskId, uint256 scoreBps) external {
         Task storage t = tasks[taskId];
         if (t.state != State.Funded && t.state != State.Validated) revert StaleTask(taskId);
         if (!isValidator[msg.sender]) revert NotValidator(msg.sender);
         if (scoreBps > BPS_DENOMINATOR) revert BadScore(scoreBps);
+        if (t.pinnedValidator == address(0)) {
+            t.pinnedValidator = msg.sender; // first write pins
+        } else if (msg.sender != t.pinnedValidator) {
+            revert ValidatorMismatch(taskId, t.pinnedValidator, msg.sender);
+        }
         if (block.timestamp < t.windowStart || block.timestamp > t.windowEnd) {
             revert OutsideWindow(taskId, block.timestamp);
         }
@@ -381,10 +427,13 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
 
     /// @notice Release escrowed funds to the merchant. Permissionless (liveness:
     ///         anyone may settle once conditions hold). Succeeds iff ALL hold
-    ///         AT RELEASE TIME: latest score >= threshold AND live
-    ///         RiskGuard.authorize(agent, score, cap) passes AND
-    ///         block.timestamp <= expiry. No partial release.
+    ///         AT RELEASE TIME: latest score >= PINNED threshold AND live
+    ///         RiskGuard.authorize(agent, BPS - score, pinnedThreshold) passes AND
+    ///         block.timestamp <= expiry AND the pinned validator is still
+    ///         allowlisted. No partial release. Later global threshold changes
+    ///         never move a funded task's bar (pinned at fund time).
     /// @param taskId Task to release.
+    /// @dev Author: Ramprasad.
     function release(bytes32 taskId) external nonReentrant {
         Task storage t = tasks[taskId];
         if (
@@ -393,16 +442,19 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         if (t.state == State.None) revert NotFundedOrValidated(taskId);
         if (t.validator == address(0)) revert NoValidation(taskId);
         if (block.timestamp > t.expiry) revert WindowExpired(taskId, block.timestamp, t.expiry);
-        if (t.scoreBps < thresholdBps) revert ScoreBelowThreshold(taskId, t.scoreBps, thresholdBps);
+        if (!isValidator[t.pinnedValidator]) revert NotValidator(t.pinnedValidator);
+        if (t.scoreBps < t.pinnedThresholdBps) {
+            revert ScoreBelowThreshold(taskId, t.scoreBps, t.pinnedThresholdBps);
+        }
 
         // Live guard re-check (Checks phase): revocation/expiry landing between
         // fund and release is caught HERE, never trusted from stored state or
         // events. Reverts UnauthorizedAgent / RiskTooHigh from RiskGuard.
-        // Locked wiring: authorize(agent, latestScore, cap). NOTE: cap is a
-        // token AMOUNT, not bps; for USDC-scale caps it exceeds 10_000, so the
-        // live UnauthorizedAgent identity check is the binding guard here and
-        // score >= thresholdBps above is the binding bar.
-        riskGuard.authorize(t.agent, t.scoreBps, t.cap);
+        // QUALITY→RISK INVERSION (explicit): validator scores are quality
+        // (high = good) but authorize takes risk (low = safe), so pass
+        // BPS_DENOMINATOR - scoreBps against the PINNED threshold (NOT the
+        // live global, NOT the token cap).
+        riskGuard.authorize(t.agent, BPS_DENOMINATOR - t.scoreBps, t.pinnedThresholdBps);
 
         // Effects before interactions (CEI).
         t.state = State.Released;
@@ -438,8 +490,11 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     }
 
     /// @notice Cancel pre-validation and return funds to the payer.
-    ///         Payer-only, FUNDED state only (any validation kills cancel).
+    ///         Payer-only, FUNDED state only (any validation kills cancel),
+    ///         and only at block.timestamp <= expiry (clean split: after expiry
+    ///         the refund path owns settlement).
     /// @param taskId Task to cancel.
+    /// @dev Author: Ramprasad.
     function cancel(bytes32 taskId) external nonReentrant {
         Task storage t = tasks[taskId];
         if (t.state == State.None) revert UnknownTask(taskId);
@@ -448,6 +503,7 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         ) revert AlreadySettled(taskId);
         if (t.state == State.Validated) revert AlreadyValidated(taskId);
         if (msg.sender != t.payer) revert NotPayer(msg.sender, t.payer);
+        if (block.timestamp > t.expiry) revert WindowExpired(taskId, block.timestamp, t.expiry);
 
         // Effects before interactions (CEI).
         t.state = State.Cancelled;

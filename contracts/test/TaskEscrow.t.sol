@@ -82,6 +82,7 @@ contract TaskEscrowTest is Test {
     address agent = address(0xA6E17);
     address merchant = address(0x4E2C4);
     address validator = address(0x8A11DA702);
+    address validator2 = address(0x8A11DA703);
     address stranger = address(0xDEAD);
 
     uint256 constant CAP = 1_000_000; // 1 USDC (6dp)
@@ -556,6 +557,99 @@ contract TaskEscrowTest is Test {
         assertEq(evil.balanceOf(merchant), merchantBefore + CAP); // exactly once
         assertEq(evil.balanceOf(address(escrow)), 0);
         assertEq(uint8(escrow.taskState(taskId)), uint8(TaskEscrow.State.Released));
+    }
+
+    // ── v2 pinned threshold/validator ──
+
+    function test_PinnedThresholdSurvivesRaise() public {
+        (bytes32 taskId,) = _fund(); // pins THRESHOLD (5_000)
+        escrow.setThreshold(9_000); // later global change must not move the bar
+        vm.prank(validator);
+        escrow.submitValidation(taskId, PASS_SCORE);
+        escrow.release(taskId);
+        assertEq(uint8(escrow.taskState(taskId)), uint8(TaskEscrow.State.Released));
+    }
+
+    function test_PinnedThresholdSurvivesLower() public {
+        (bytes32 taskId,) = _fund(); // pins THRESHOLD (5_000)
+        escrow.setThreshold(1_000); // lowering must not rescue a failing task
+        vm.prank(validator);
+        escrow.submitValidation(taskId, FAIL_SCORE);
+        vm.expectRevert(
+            abi.encodeWithSelector(TaskEscrow.ScoreBelowThreshold.selector, taskId, FAIL_SCORE, THRESHOLD)
+        );
+        escrow.release(taskId);
+    }
+
+    function test_SecondValidatorCannotOverwrite() public {
+        escrow.setValidator(validator2, true);
+        (bytes32 taskId,) = _fund();
+        vm.prank(validator);
+        escrow.submitValidation(taskId, PASS_SCORE); // first write pins validator
+        vm.prank(validator2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TaskEscrow.ValidatorMismatch.selector, taskId, validator, validator2
+            )
+        );
+        escrow.submitValidation(taskId, FAIL_SCORE);
+        // Pinned validator's score still settles.
+        escrow.release(taskId);
+        assertEq(uint8(escrow.taskState(taskId)), uint8(TaskEscrow.State.Released));
+    }
+
+    function test_ReleaseBlockedWhenPinnedValidatorRemoved() public {
+        (bytes32 taskId,) = _fund();
+        vm.prank(validator);
+        escrow.submitValidation(taskId, PASS_SCORE);
+        escrow.setValidator(validator, false);
+        vm.expectRevert(abi.encodeWithSelector(TaskEscrow.NotValidator.selector, validator));
+        escrow.release(taskId);
+    }
+
+    function test_InvertedRiskBindsOnAsymmetricThreshold() public {
+        escrow.setThreshold(2_000);
+        (bytes32 taskId,) = _fund(); // pins 2_000
+        vm.prank(validator);
+        escrow.submitValidation(taskId, 5_000); // quality passes 2_000 bar...
+        // ...but inverted risk (10_000 - 5_000 = 5_000) exceeds pinned 2_000.
+        vm.expectRevert(abi.encodeWithSelector(RiskGuard.RiskTooHigh.selector, 5_000, 2_000));
+        escrow.release(taskId);
+        vm.prank(validator);
+        escrow.submitValidation(taskId, 9_000); // risk 1_000 <= 2_000
+        escrow.release(taskId);
+        assertEq(uint8(escrow.taskState(taskId)), uint8(TaskEscrow.State.Released));
+    }
+
+    // ── v2 cancel/refund split ──
+
+    function test_CancelAfterExpiryRevertsRefundWorks() public {
+        (bytes32 taskId, TaskEscrow.Mandate memory m) = _fund();
+        vm.warp(m.expiry + 1);
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(TaskEscrow.WindowExpired.selector, taskId, block.timestamp, m.expiry)
+        );
+        escrow.cancel(taskId);
+        // Refund path owns post-expiry settlement.
+        uint256 payerBefore = usdc.balanceOf(payer);
+        escrow.refund(taskId);
+        assertEq(usdc.balanceOf(payer), payerBefore + CAP);
+    }
+
+    // ── v2 2-step ownership ──
+
+    function test_TwoStepOwnership_Escrow() public {
+        escrow.transferOwnership(stranger);
+        assertEq(escrow.owner(), address(this)); // unchanged until accept
+        assertEq(escrow.pendingOwner(), stranger);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(TaskEscrow.NotOwner.selector, stranger));
+        escrow.setThreshold(1); // stranger is not owner yet
+        vm.prank(stranger);
+        escrow.acceptOwnership();
+        assertEq(escrow.owner(), stranger);
+        assertEq(escrow.pendingOwner(), address(0));
     }
 
     // ── admin ──
