@@ -14,7 +14,7 @@ import {
 } from "./escrow.js";
 import type { Mandate } from "./mandate.js";
 
-const ESCROW = "0xba038d50d70cf63ced17f3f23f77df4783f188da" as Address;
+const ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24" as Address;
 const SIGNER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as Address;
 const TOKEN = "0x3333333333333333333333333333333333333333" as Address;
 const TASK_ID = ("0x" + "ab".repeat(32)) as Hash;

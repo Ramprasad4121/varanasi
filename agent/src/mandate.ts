@@ -38,11 +38,11 @@ import {
 
 /** Live VaranasiTaskEscrow on Sepolia (informational default). */
 export const TASK_ESCROW_ADDRESS =
-  "0xba038d50d70cf63ced17f3f23f77df4783f188da" as const;
+  "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24" as const;
 
 /** Live RiskGuard on Sepolia (informational default). */
 export const RISK_GUARD_ADDRESS =
-  "0xc35861c4dbe63a9c8cfefd32c671998151c217ca" as const;
+  "0x668c01aE564D51baFF0029D361c20c534d738400" as const;
 
 /** Live release bar in bps (informational default, owner-settable onchain). */
 export const LIVE_THRESHOLD_BPS = 5000;

@@ -69,7 +69,29 @@ One command runs the whole loop:
   (RiskGuard `Authorized` + 10 vUSD escrow→merchant + `TaskReleased`;
   `taskState` = Released)
 
-## 8. Revoke (kill-switch, proven on a throwaway — sentinel-1 stays live)
+## 8. v2 hardened set (audit fixes, redeployed 2026-09-08)
+
+All v2 contracts Sourcify-verified. Audit findings closed: label rules,
+revoke-clears-mappings + unRevoke, 1825-day cap, hook EIP-712 attestations,
+30-day attestation TTL, pinned per-task threshold/validator, allowlist
+re-check at release, cancel/refund split, zero-checks, 2-step ownership.
+
+- AegisRegistry v2 `0x3913f1E6A0Be93180363aBd01Df7968d494033A8`
+- RiskGuard v2 `0x668c01aE564D51baFF0029D361c20c534d738400`
+- AegisHook v2 `0x05043B527D67d7E4e3a2ed411fFBD15b8255c080` (salt `0x511f`,
+  attested deployer 200bps/30d
+  [tx](https://sepolia.etherscan.io/tx/0x679295add40ed0d184047efd0ffbfee1edd9dc3996e1164c270054b56cbbf872))
+- TaskEscrow v2 `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24`
+  (validator allowlisted
+  [tx](https://sepolia.etherscan.io/tx/0x71ebcaa3a8e91b2f646c5a79f9bcfbb2b78d581c0933c49455ef3e7b9f1bdc47))
+- sentinel-1 re-minted on v2 registry (token #1, 90d):
+  [tx](https://sepolia.etherscan.io/tx/0xa31520a82a8ea27c67f3b889d56eeab92944ae19e66645bee2958d3604134b41)
+- Full v2 loop verified: paid `0.0.7162784@1788859852.371306176`,
+  verdict ACT, guard wouldPass true
+- v1 set (superseded, §1/§5/§7) left deployed for history; all clients +
+  frontend now point at v2
+
+## 9. Revoke (kill-switch proven on v1 registry — mechanics unchanged in v2)
 
 - Minted `revoke-demo` (token #2, 7d, agent = throwaway `0x6c3B…D844D`):
   [tx](https://sepolia.etherscan.io/tx/0xc893faf79bd5656c742cc5cdbe05798edb1ed92bba81d84f7957c60b6642119d)

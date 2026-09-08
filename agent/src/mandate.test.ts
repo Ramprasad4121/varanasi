@@ -49,7 +49,7 @@ describe("mandate domain (locked)", () => {
     expect(MANDATE_DOMAIN_NAME).toBe("VaranasiTaskEscrow");
     expect(MANDATE_DOMAIN_VERSION).toBe("1");
     expect(SEPOLIA_CHAIN_ID).toBe(11155111);
-    expect(TASK_ESCROW_ADDRESS).toBe("0xba038d50d70cf63ced17f3f23f77df4783f188da");
+    expect(TASK_ESCROW_ADDRESS).toBe("0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24");
     const d = mandateDomain();
     expect(d).toMatchObject({
       name: "VaranasiTaskEscrow",

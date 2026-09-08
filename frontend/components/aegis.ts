@@ -5,8 +5,8 @@
 
 export const REGISTRY =
   process.env.NEXT_PUBLIC_AEGIS_REGISTRY ??
-  "0x0aed80646680eb333e0d2129f6f0fa54503b5381";
-export const RISK_GUARD = "0xc35861c4dbe63a9c8cfefd32c671998151c217ca";
+  "0x3913f1E6A0Be93180363aBd01Df7968d494033A8";
+export const RISK_GUARD = "0x668c01aE564D51baFF0029D361c20c534d738400";
 export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "";
 export const SIGNAL_URL =
   process.env.NEXT_PUBLIC_SIGNAL_URL ?? "http://localhost:4021";
