@@ -19,6 +19,7 @@ import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 import { reasonWithLLM } from "./brain.js";
 import { payForSignal } from "./pay.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
+import { getAgentProfile, searchAgents, type DiscoverChain } from "./discover.js";
 import {
   SEPOLIA_CHAIN_ID,
   TASK_ESCROW_ADDRESS,
@@ -383,6 +384,48 @@ program
         console.log(formatDoctor(checks));
       }
       if (checks.some((c) => !c.ok)) process.exitCode = 1;
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("discover")
+  .description("Discover ERC-8004 agents via Agent0 subgraphs (live Gateway; Base default, Sepolia opt-in)")
+  .option("--chain <chain>", "base|eth|sepolia (repeatable via comma list)", "base")
+  .option("--capability <cap>", "mcp|x402 filter (default: all)")
+  .option("--first <n>", "page size per chain", "10")
+  .option("--profile <agentId>", "fetch single agent profile by agent id (profile id is chainId:agentId)")
+  .option("--offline", "fixture mode (no network Graph call; tests only)")
+  .action(async (opts) => {
+    try {
+      const chains = String(opts.chain)
+        .split(",")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean) as DiscoverChain[];
+      for (const c of chains) {
+        if (c !== "base" && c !== "eth" && c !== "sepolia") {
+          throw new Error(`Unknown --chain "${c}" (want base|eth|sepolia).`);
+        }
+      }
+      const cap = opts.capability === undefined ? undefined : String(opts.capability).toLowerCase();
+      if (cap !== undefined && cap !== "mcp" && cap !== "x402") {
+        throw new Error(`Unknown --capability "${opts.capability}" (want mcp|x402).`);
+      }
+      const offline = Boolean(opts.offline);
+      if (opts.profile !== undefined) {
+        const agent = await getAgentProfile(chains[0] ?? "base", String(opts.profile), { offline });
+        console.log(JSON.stringify({ ok: true, mode: offline ? "offline" : "live", agent }, null, 2));
+        return;
+      }
+      const agents = await searchAgents({
+        chain: chains.length === 1 ? chains[0] : chains,
+        capability: cap,
+        first: Number(opts.first),
+        offline,
+      });
+      console.log(JSON.stringify({ ok: true, mode: offline ? "offline" : "live", chains, count: agents.length, agents }, null, 2));
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;

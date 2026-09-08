@@ -80,3 +80,15 @@ export {
   cancelTask,
 } from "./escrow.js";
 export type { EscrowWallet, EscrowOptions, EscrowTask, FundResult, TaskStateLabel } from "./escrow.js";
+export {
+  AGENT0_SUBGRAPHS,
+  DEFAULT_DISCOVER_CHAINS,
+  DISCOVER_CHAIN_IDS,
+  AGENT_SEARCH_QUERY,
+  AGENT_PROFILE_QUERY,
+  DISCOVER_OFFLINE_FIXTURE,
+  toDiscoveredAgent,
+  searchAgents,
+  getAgentProfile,
+} from "./discover.js";
+export type { DiscoverChain, DiscoveredAgent, AgentRegistrationRaw, SearchAgentsOptions } from "./discover.js";

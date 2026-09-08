@@ -27,6 +27,25 @@ Curated defaults (`src/graph.ts` → `KNOWN_SUBGRAPHS`, env-overridable):
 Endpoint shape (live, no mocks):
 `https://gateway.thegraph.com/api/<GRAPH_API_KEY>/subgraphs/id/<SUBGRAPH_ID>`
 
+### Agent discovery (ERC-8004 + Agent0)
+
+```ts
+import { searchAgents, getAgentProfile } from "./src/discover.js";
+// Live Gateway; Base default, Sepolia opt-in; same GRAPH_API_KEY as graph.ts.
+const agents = await searchAgents({ chain: "base", capability: "x402", first: 10 });
+const profile = await getAgentProfile("base", agents[0].id); // → { id, chain, name, description, mcpEndpoint, x402Support, trust, feedbackCount }
+```
+
+Agent0 subgraph IDs (`AGENT0_SUBGRAPHS`, env-overridable):
+
+| key | chain id | subgraph id |
+|---|---|---|
+| `base` (default) | `8453` | `43s9hQRurMGjuYnC1r2ZwS6xSQktbFyXMPMqGKUFJojb` |
+| `eth` | `1` | `FV6RR6y13rsnCxBAicKuQEwDp8ioEGiNaWaZUmvr1F8k` |
+| `sepolia` (opt-in) | `11155111` | `6wQRC7geo9XYAhckfmfo8kbMRLeWU8KQd3XsJqFKmZLT` |
+
+CLI: `npx tsx src/cli.ts discover [--chain base|eth|sepolia] [--capability mcp|x402] [--first N] [--profile <agentId>]` prints JSON (`{ ok, mode, chains, count, agents }`); `--offline` fixture mode is tests-only. Full schema: github.com/agent0lab/subgraph/blob/main/schema.graphql.
+
 ## 2. Schema → query (Uniswap-native pattern)
 
 ```ts

@@ -34,6 +34,39 @@ npx tsx src/cli.ts analyze --agent agent-1.aegis.eth --pool <pool-id> --skip-pay
 npx tsx src/cli.ts analyze --agent agent-1.aegis.eth --pool x --offline --skip-pay
 ```
 
+## Agent discovery (ERC-8004 + Agent0 subgraphs)
+
+Agents discover work via live Agent0 ERC-8004 subgraphs (`src/discover.ts` —
+`searchAgents` across Base default (+ Sepolia opt-in), `getAgentProfile` by
+`chainId:agentId`, normalized to `{ id, chain, name, description, mcpEndpoint,
+x402Support, trust, feedbackCount }`). Same Gateway key as `graph.ts`
+(`GRAPH_API_KEY`); `--offline` fixture mode is tests-only.
+
+```bash
+# Live discovery (Base default)
+npx tsx src/cli.ts discover --chain base --first 10
+
+# Filter + other chains
+npx tsx src/cli.ts discover --chain base --capability x402 --first 5
+npx tsx src/cli.ts discover --chain eth --capability mcp --first 5
+npx tsx src/cli.ts discover --chain sepolia --first 5   # opt-in testnet
+
+# Single profile (chainId:agentId under the hood)
+npx tsx src/cli.ts discover --chain base --profile <agentId>
+
+# Fixture mode (no network, never for demos)
+npx tsx src/cli.ts discover --offline
+```
+
+```ts
+import { searchAgents, getAgentProfile } from "./src/discover.js";
+const agents = await searchAgents({ chain: "base", capability: "x402", first: 10 });
+const profile = await getAgentProfile("base", agents[0].id); // feedbackCount included
+```
+
+Output is single JSON: `{ ok, mode: "live" | "offline", chains, count, agents }`
+(or `{ ok, mode, agent }` with `--profile`).
+
 Output is single JSON: `{ agent, intel, alpha, verdict, guard, thresholdBps }`
 with `mode.graph: "live" | "offline"` and x402 receipts
 (`alpha.receipt: { paid, txHash, hashscanUrl }`).
@@ -57,6 +90,7 @@ with `mode.graph: "live" | "offline"` and x402 receipts
 | file | role |
 |---|---|
 | `src/graph.ts` | `GraphClient` — live Gateway, official Uniswap IDs (`KNOWN_SUBGRAPHS`), curated pools (`CURATED_POOLS`), `query()` escape hatch |
+| `src/discover.ts` | ERC-8004 agent discovery — `searchAgents` (Base default, Sepolia opt-in), `getAgentProfile` (chainId:agentId), Agent0 IDs (`AGENT0_SUBGRAPHS`) |
 | `src/mcp.ts` | MCP stdio wrapper (`search_subgraphs/get_schema/run_query`) + Gateway fallback |
 | `src/ens.ts` | viem ENSv2 resolver (`AegisRegistry` + Universal Resolver V2, registry-only fallback) |
 | `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point (opt-in LLM via brain) |
