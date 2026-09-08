@@ -1,7 +1,7 @@
 {
   "recipe": "Risk-gated swap check",
   "version": "0.1.0",
-  "by": "varanasi (ETHOnline 2026) — attribution: <YOUR_BAZANTIC_USERNAME>",
+  "by": "varanasi (ETHOnline 2026) — attribution: ramprasadgoud34@gmail.com",
   "author": "Ramprasad",
   "description": "Decide ACT vs SKIP on a USDC/WETH swap by chaining live Uniswap pool intel (The Graph, sponsor API) with a paid varanasi alpha signal (x402) and a RiskGuard authorization read. The final decision depends on BOTH services: no healthy pool data, no trade; no affordable high-confidence signal, no trade; no RiskGuard authorization, no trade.",
   "tracks": ["Best Recipe ($1k)", "Agentify ($1k)"],

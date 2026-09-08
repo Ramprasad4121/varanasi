@@ -14,7 +14,7 @@ No secrets in this directory. Keys/URLs below are placeholders you fill in on ba
 ## 1. Account setup (human steps, ~20 min)
 
 1. **Create a Bazantic account** at https://bazantic.com and note your username:
-   `Bazantic username: <YOUR_BAZANTIC_USERNAME>` (also fill it into `recipe.json`'s `by` field).
+   `Bazantic username: ramprasadgoud34@gmail.com` (also fill it into `recipe.json`'s `by` field).
 2. **Deploy the varanasi signal service** (or expose it) so it has a public URL:
    `cd service && npm install && HEDERA_SERVICE_ACCOUNT_ID=<receiver> npm run dev`
    (or your hosted URL). Confirm `GET <URL>/health` returns `{"status":"ok",...}`.
@@ -43,12 +43,12 @@ Record in one continuous take, 1080p, mic on:
 
 | # | Time | Show | Say |
 |---|------|------|-----|
-| 0 | 0:00–0:15 | bazantic.com dashboard logged in as `<YOUR_BAZANTIC_USERNAME>`, recipe "Risk-gated swap check" open | "This is our Bazantic Best Recipe entry: a risk-gated swap check chaining two services." |
+| 0 | 0:00–0:15 | bazantic.com dashboard logged in as `ramprasadgoud34@gmail.com`, recipe "Risk-gated swap check" open | "This is our Bazantic Best Recipe entry: a risk-gated swap check chaining two services." |
 | 1 | 0:15–0:50 | Step ① run: The Graph Gateway query on Uniswap V3 pool `0x88e6…5640`, TVL + volume returned | "First, live Uniswap intel from The Graph — real TVL and volume, pinned pool, no mocks." |
 | 2 | 0:50–1:30 | Step ② run: `POST /v1/signal` → 402 → paid 200 via gateway; show signal + confidence + receipt | "Second, the paid varanasi alpha signal over x402 on Hedera testnet — one cent, settled on-chain." |
 | 3 | 1:30–1:50 | Open `receipt.hashscanTxUrl` in a browser tab | "Here is the settlement proof on HashScan." |
 | 4 | 1:50–2:20 | Step ③: RiskGuard `authorize` read → final ACT/SKIP with rationale | "Third, the RiskGuard guardrail. ACT only if pool, signal, and authorization all pass — the result depends on both services." |
-| 5 | 2:20–2:40 | Recipe run URL + MCP server entry (Agentify leg) on screen | "The full run and the MCP server are linked below, by `<YOUR_BAZANTIC_USERNAME>`." |
+| 5 | 2:20–2:40 | Recipe run URL + MCP server entry (Agentify leg) on screen | "The full run and the MCP server are linked below, by `ramprasadgoud34@gmail.com`." |
 
 Export as `bazantic-demo.mp4` (keep it unlisted-upload friendly) and link it in the submission.
 
@@ -60,7 +60,7 @@ Export as `bazantic-demo.mp4` (keep it unlisted-upload friendly) and link it in 
 - [ ] **Result depends on both**: documented in `recipe.json` → `decisionPolicy.dependsOnBoth` (no pool facts → SKIP; no signal edge → SKIP).
 - [ ] Each step has **when/why/how** guidance: `recipe.json` steps all carry when/why/inputs/outputs/gate.
 - [ ] Working demo: recipe run URL + screen recording (§2) showing live (non-mock) calls.
-- [ ] Attribution: `<YOUR_BAZANTIC_USERNAME>` in recipe + video.
+- [x] Attribution: `ramprasadgoud34@gmail.com` in recipe + video.
 
 ### Agentify ($1k)
 - [ ] varanasi service imported into Bazantic as an **x402 gateway** (`openapi-signal.yaml`).
