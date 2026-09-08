@@ -16,18 +16,31 @@ export {
   OFFLINE_FIXTURE,
 } from "./graph.js";
 export type { PoolIntel, UniswapPoolRaw } from "./graph.js";
-export { SubgraphAgent, McpClient, MCP_TOOLS, DEFAULT_SUBGRAPH_MCP } from "./mcp.js";
-export { resolveAgentSubname, splitSubname, DEFAULT_UNIVERSAL_RESOLVER } from "./ens.js";
+export {
+  SubgraphAgent,
+  McpClient,
+  MCP_TOOLS,
+  DEFAULT_SUBGRAPH_MCP,
+  SUBGRAPH_MCP_PACKAGE,
+  SUBGRAPH_MCP_VERSION,
+  MCP_ENV_ALLOWLIST,
+  buildMinimalMcpEnv,
+} from "./mcp.js";
+export { resolveAgentSubname, splitSubname, isIdentityAuthorized, DEFAULT_UNIVERSAL_RESOLVER } from "./ens.js";
 export type { AgentIdentity } from "./ens.js";
 export { analyzeRisk, llmRationale, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 export type { ReasonInput, ReasonOutput } from "./reason.js";
-export { payForSignal, hashscanTxUrl } from "./pay.js";
-export type { PayResult } from "./pay.js";
+export { reasonWithLLM, isAllowedLlmBaseUrl, isLocalBaseUrl, escapeHtml } from "./brain.js";
+export { payForSignal, hashscanTxUrl, derivePaidReceipt, isValidHederaTxId, isAllowedSignalUrl } from "./pay.js";
+export type { PayResult, DerivedReceipt } from "./pay.js";
+export { runDoctor, formatDoctor, SEPOLIA_CHAIN_ID_DEC, SEPOLIA_CHAIN_ID_HEX } from "./doctor.js";
+export type { DoctorCheck, DoctorOptions } from "./doctor.js";
 export {
   TASK_ESCROW_ADDRESS,
   RISK_GUARD_ADDRESS,
   LIVE_THRESHOLD_BPS,
   SEPOLIA_CHAIN_ID,
+  MAX_EXPIRY_WINDOW_SEC,
   MANDATE_DOMAIN_NAME,
   MANDATE_DOMAIN_VERSION,
   MANDATE_TYPE_STRING,
@@ -49,7 +62,7 @@ export {
   sepoliaAddressUrl,
   sepoliaTxUrl,
 } from "./mandate.js";
-export type { Mandate, MandateDomainOpts, SignedMandate } from "./mandate.js";
+export type { Mandate, MandateDomainOpts, MandateSanityOpts, SignedMandate } from "./mandate.js";
 export {
   DEFAULT_SEPOLIA_RPC_URL,
   ERC20_ABI,

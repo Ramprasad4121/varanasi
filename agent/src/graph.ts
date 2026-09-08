@@ -325,21 +325,31 @@ export function toPoolIntel(
   p: UniswapPoolRaw | null,
 ): PoolIntel {
   if (!p) throw new Error("Pool not found on subgraph — check pool id / subgraph id.");
+  // M14 fail-closed: non-finite TVL/volume must never normalize into a
+  // low-risk ACT (NaN previously flowed into reason.ts as ~200bps ACT).
+  // Throw here so callers fail closed (error/SKIP) instead of trusting garbage.
+  const tvlRaw = p.totalValueLockedUSD ?? 0;
+  const cumRaw = p.volumeUSD ?? p.cumulativeVolumeUSD ?? 0;
+  const tvl = Number(tvlRaw);
+  const cumVol = Number(cumRaw);
+  if (!Number.isFinite(tvl)) throw new Error(`BadIntel: non-finite TVL "${String(tvlRaw).slice(0, 64)}" for pool ${p.id} — refusing to score.`);
+  if (!Number.isFinite(cumVol)) throw new Error(`BadIntel: non-finite volume "${String(cumRaw).slice(0, 64)}" for pool ${p.id} — refusing to score.`);
+  const legacyFees = Number(p.cumulativeSupplySideRevenueUSD ?? NaN);
+  if (p.cumulativeSupplySideRevenueUSD != null && !Number.isFinite(legacyFees)) {
+    throw new Error(`BadIntel: non-finite fees for pool ${p.id} — refusing to score.`);
+  }
   const sym0 = p.token0?.symbol ?? p.inputTokens?.[0]?.symbol ?? "?";
   const sym1 = p.token1?.symbol ?? p.inputTokens?.[1]?.symbol ?? "?";
   const feeTier = Number(p.feeTier ?? 0);
-  const feeLabel = feeTier > 0 ? ` ${(feeTier / 1_000_000) * 100}%` : "";
-  const tvl = Number(p.totalValueLockedUSD ?? 0);
+  const feeLabel = feeTier > 0 && Number.isFinite(feeTier) ? ` ${(feeTier / 1_000_000) * 100}%` : "";
   // volumeUSD is lifetime cumulative on Uniswap-native subgraphs; derive a
   // rough daily flow as cumVol / 365 as a last resort — callers that need
   // exact 24h figures should query poolDayDatas. Legacy Messari rows use
-  // cumulativeVolumeUSD the same way.
-  const cumVol = Number(p.volumeUSD ?? p.cumulativeVolumeUSD ?? 0);
+  // cumulativeVolumeUSD the same way. (tvl/cumVol/legacyFees validated above.)
   const volume24h = cumVol > 0 ? cumVol / 365 : 0;
   // V3 has no per-pool revenue field in this query; estimate LP fees from the
   // fee tier (feeTier is in millionths, e.g. 500 = 0.05%). Legacy Messari
   // rows carry cumulativeSupplySideRevenueUSD instead.
-  const legacyFees = Number(p.cumulativeSupplySideRevenueUSD ?? NaN);
   const fees24h = Number.isFinite(legacyFees)
     ? legacyFees / 365
     : feeTier > 0

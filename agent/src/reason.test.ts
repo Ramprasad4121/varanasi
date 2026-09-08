@@ -26,4 +26,17 @@ describe("analyzeRisk", () => {
     expect(out.decision).toBe("ACT");
     expect(out.factors.length).toBeGreaterThan(0);
   });
+
+  it("fail-closed SKIP on non-finite intel (M14: never NaN→200bps ACT)", () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      const tvlOut = analyzeRisk({ tvlUsd: bad, volume24hUsd: 1000 }, 5000);
+      expect(tvlOut.decision).toBe("SKIP");
+      expect(tvlOut.riskScoreBps).toBe(10_000);
+      const volOut = analyzeRisk({ tvlUsd: 5_000_000, volume24hUsd: bad }, 5000);
+      expect(volOut.decision).toBe("SKIP");
+      expect(volOut.riskScoreBps).toBe(10_000);
+    }
+    const feesOut = analyzeRisk({ tvlUsd: 5_000_000, volume24hUsd: 1_000_000, fees24hUsd: NaN }, 5000);
+    expect(feesOut.decision).toBe("SKIP");
+  });
 });

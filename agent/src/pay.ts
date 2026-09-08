@@ -30,6 +30,40 @@ export interface PayResult {
 const HEDERA_TXID_RE = /^(\d+\.\d+\.\d+)[@-](\d+)[.-](\d+)$/;
 
 /**
+ * Allowlist check for a Hedera transaction id (H7: only allowlisted ids
+ * can ever mark a payment as paid).
+ * @param txId Candidate transaction id string.
+ * @returns True when txId matches the shard.realm.num@seconds.nanos shape.
+ */
+export function isValidHederaTxId(txId: unknown): txId is string {
+  return typeof txId === "string" && HEDERA_TXID_RE.test(txId.trim());
+}
+
+/**
+ * M14 trust boundary for the signal URL: only https:// remotes or
+ * http(s) localhost (localhost / 127.0.0.1) are allowed. Plain-http
+ * remotes — including intranet hosts (192.168.x, 10.x, ::1, …) — are
+ * refused so payment signing never goes over cleartext to a third party.
+ * (Mirrors brain.ts isAllowedLlmBaseUrl.)
+ * @param url Signal service URL to vet.
+ * @returns True when the URL is https:// or localhost-http(s).
+ */
+export function isAllowedSignalUrl(url: string): boolean {
+  const trimmed = url.trim();
+  // Fast path for the common configs (avoids URL-parse overhead).
+  if (/^https:\/\//i.test(trimmed)) return true;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol === "https:") return true;
+    if (u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase().replace(/\.$/, "");
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build a HashScan explorer URL for a Hedera tx id, or null for non-tx ids.
  * @param txId Hedera tx id (`shard.realm.num@sss.nnnnnnnnn` or dash form).
  * @param network Hedera network name ("mainnet" or anything else → testnet).
@@ -115,6 +149,13 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
   client.register(caip2, scheme);
   const paidFetch = wrap(fetch, client) as typeof fetch;
 
+  if (!isAllowedSignalUrl(signalUrl)) {
+    throw new Error(
+      `Refusing insecure SIGNAL_URL "${signalUrl}" — use https:// or http://localhost. ` +
+        `Fix: export SIGNAL_URL=https://<host>/v1/signal`,
+    );
+  }
+
   const res = await paidFetch(signalUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -126,27 +167,71 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
   }
   const payload = (await res.json().catch(async () => ({ raw: await res.text() }))) as any;
 
-  // Receipt extraction: decode the base64 PAYMENT-RESPONSE header into the
-  // settlement tx id (authoritative), else fall back to payload fields.
-  let txHash: string | null =
-    payload?.txId ?? payload?.txHash ?? payload?.receipt?.txId ?? null;
-  const payRespHeader = res.headers.get("payment-response") as string | null;
-  if (payRespHeader) {
+  // H7: `paid` derives ONLY from the decoded `payment-response` header
+  // containing an allowlisted Hedera tx id. Payload txId fields are
+  // display-only hints (attacker-influenced) and can never set paid=true.
+  const receipt = derivePaidReceipt(payload, (n) => res.headers.get(n), network);
+  return { payload, txHash: receipt.txHash, hashscanUrl: receipt.hashscanUrl, paid: receipt.paid };
+}
+
+/** Paid-receipt fields derived from the payment-response header (H7). */
+export interface DerivedReceipt {
+  /** Allowlisted Hedera tx id from the header, or null. */
+  txHash: string | null;
+  /** HashScan explorer URL for the header tx, or null. */
+  hashscanUrl: string | null;
+  /** True ONLY when the header decoded to an allowlisted tx id. */
+  paid: boolean;
+  /** Display-only hint from payload txId fields (never sets paid). */
+  payloadHint: string | null;
+}
+
+/**
+ * Derive the paid receipt from a signal response (H7, pure — unit-testable).
+ *
+ * Rules:
+ *  - `paid=true` requires the `payment-response` header to decode (via
+ *    @x402/fetch, else the raw header value) to an allowlisted Hedera tx id.
+ *  - Payload `txId`/`txHash`/`receipt.txId` fields are returned as
+ *    `payloadHint` for display only and NEVER set paid=true (paid-spoof
+ *    rejection: a malicious service claiming a txId in-band stays unpaid).
+ *  - Missing/undecodable/invalid header → paid:false, txHash:null.
+ * @param payload Parsed signal payload (untrusted for receipt purposes).
+ * @param getHeader Header accessor (e.g. `(n) => res.headers.get(n)`).
+ * @param network Hedera network name for the HashScan link.
+ * @returns DerivedReceipt with header-derived txHash/paid plus payloadHint.
+ */
+export function derivePaidReceipt(
+  payload: unknown,
+  getHeader: (name: string) => string | null,
+  network: string,
+): DerivedReceipt {
+  const p = payload as any;
+  const rawHint = p?.txId ?? p?.txHash ?? p?.receipt?.txId ?? null;
+  const payloadHint = typeof rawHint === "string" ? rawHint : null;
+
+  let candidate: unknown = null;
+  const payRespHeader = getHeader("payment-response");
+  const decode = (x402Fetch as any).decodePaymentResponseHeader;
+  if (payRespHeader && typeof decode === "function") {
     try {
-      const decode = (x402Fetch as any).decodePaymentResponseHeader;
-      if (typeof decode === "function") {
-        const decoded = decode(payRespHeader) as any;
-        txHash = decoded?.transaction ?? decoded?.txHash ?? decoded?.txId ?? txHash;
-      }
+      const decoded = decode(payRespHeader) as any;
+      candidate = decoded?.transaction ?? decoded?.txHash ?? decoded?.txId ?? null;
     } catch {
-      // fall through to header-as-id fallback below
+      candidate = null; // undecodable header → unpaid, no raw fallback
     }
-    if (!txHash) txHash = payRespHeader;
+  } else if (payRespHeader) {
+    // No decoder in this @x402 version: accept the raw header ONLY if it
+    // itself is an allowlisted tx id (still validated below).
+    candidate = payRespHeader;
   }
+  const txHash = isValidHederaTxId(typeof candidate === "string" ? candidate.trim() : candidate)
+    ? (candidate as string).trim()
+    : null;
   return {
-    payload,
     txHash,
     hashscanUrl: txHash ? hashscanTxUrl(txHash, network) : null,
-    paid: txHash != null || res.headers.has("payment-response"),
+    paid: txHash != null,
+    payloadHint,
   };
 }

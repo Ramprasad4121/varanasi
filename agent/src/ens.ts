@@ -109,6 +109,22 @@ export interface EnsResolverOptions {
 }
 
 /**
+ * M14: ENS mismatch FAILS authorization (not report-only). The registry is
+ * the source of truth for the binding, but when the ENS wildcard leg ran
+ * and disagrees (ensMatchesRegistry === false), the identity is treated as
+ * unauthorized — a hijacked/stale ENS record must never ride on a registry
+ * approval. `null` (ENS leg skipped/unset) defers to the registry alone.
+ * @param identity Registry binding plus ENS agreement flags.
+ * @returns Effective authorization: registry-authorized AND no ENS mismatch.
+ */
+export function isIdentityAuthorized(identity: {
+  authorized: boolean;
+  ensMatchesRegistry: boolean | null;
+}): boolean {
+  return identity.authorized === true && identity.ensMatchesRegistry !== false;
+}
+
+/**
  * Split a subname into its label and parent (lowercased, trimmed).
  * @param name Full subname, e.g. "agent-1.aegis.eth".
  * @returns Sublabel and parent domain.

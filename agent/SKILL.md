@@ -131,12 +131,19 @@ await releaseTask(signed.taskId, callerWallet); // anyone; onchain release rule 
 // pre-validation) / submitValidation (allowlisted validator writer).
 ```
 
-CLI (offline signer — never broadcasts, key via flag only):
+CLI (offline signer — never broadcasts; keys ONLY via env or stdin pipe,
+never flags — there is no `--private-key` flag):
 
 ```bash
+export MANDATE_PRIVATE_KEY=0xPAYER_KEY   # fallback: OWNER_PRIVATE_KEY / AEGIS_OWNER_KEY
 npx tsx src/cli.ts mandate --agent 0xAGENT --merchant 0xMERCHANT \
   --token 0xTOKEN --cap 1000000 --window-start <unix> \
-  --window-end <unix> --expiry <unix> --private-key 0xPAYER_KEY
+  --window-end <unix> --expiry <unix>
+# pipe form: printf '%s' "$MANDATE_PRIVATE_KEY" | … mandate … --key-stdin
 # → { mandate, domain, structHash, digest, taskId, signature, signer,
 #     escrow, explorer: { escrowUrl, agentUrl, merchantUrl, tokenUrl } }
 ```
+
+Preflight before any live run: `npx tsx src/cli.ts doctor` prints
+PASS/FAIL per dependency (env lengths only, Sepolia chainId, registry/escrow
+code, Graph key, service /health, HCS topic) with an exact fix per failure.

@@ -108,15 +108,26 @@ Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
 `RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
 Spec: `docs/MANDATE.md`. The `mandate` command is OFFLINE — it creates +
 EIP-712 signs a mandate and prints the digest + explorer-ready fields. It
-never broadcasts, stores keys, or reads secrets (key via `--private-key`
-flag only).
+never broadcasts, stores keys, or logs secrets. Keys NEVER travel via CLI
+flags (no `--private-key` flag exists on any subcommand): the payer key
+comes from `MANDATE_PRIVATE_KEY` env (fallback `OWNER_PRIVATE_KEY` /
+`AEGIS_OWNER_KEY`) or a stdin pipe (`--key-stdin`). Expiry is sanity-checked
+at signing (`windowStart<=windowEnd<=expiry`, future-bounded ≤366d).
 
 ```bash
+# 0. Preflight first (guided PASS/FAIL per dependency + exact fix per failure)
+npx tsx src/cli.ts doctor
+
 # 1. Create + sign a mandate (prints mandate JSON, digest, taskId, signature)
+export MANDATE_PRIVATE_KEY=0xPAYER_KEY   # or pipe it (see --key-stdin below)
 npx tsx src/cli.ts mandate \
   --agent 0xAGENT --merchant 0xMERCHANT --token 0xTOKEN --cap 1000000 \
-  --window-start <unix> --window-end <unix> --expiry <unix> \
-  --private-key 0xPAYER_KEY
+  --window-start <unix> --window-end <unix> --expiry <unix>
+
+# Pipe form (key never in env or history):
+printf '%s' "$MANDATE_PRIVATE_KEY" | npx tsx src/cli.ts mandate \
+  --agent 0xAGENT --merchant 0xMERCHANT --token 0xTOKEN --cap 1000000 \
+  --window-start <unix> --window-end <unix> --expiry <unix> --key-stdin
 
 # 2. Fund (orchestrator, own wallet client — approve-first inside fundMandate):
 #    signer approves(token, escrow, cap); anyone submits fund(mandate, sig).

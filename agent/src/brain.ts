@@ -111,25 +111,55 @@ export function resolveLlmConfig(opts: LlmReasonOptions = {}): ResolvedLlmConfig
 }
 
 /**
+ * Escape HTML special chars so LLM-controlled rationale text can never
+ * break out into markup in any HTML consumer (frontend verdict cards,
+ * reports, innerHTML renders). Applied at verdict construction in
+ * parseLlmVerdict — escape at the boundary, not at every render site.
+ * @param s Raw string (possibly LLM-controlled).
+ * @returns HTML-escaped string (&<>"' escaped).
+ */
+export function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/**
  * Local LM Studio-style URLs never need a key; remote ones do.
  * @param baseUrl LLM base URL to classify.
  * @returns True for localhost/127.0.0.1 http(s) URLs.
  */
 export function isLocalBaseUrl(baseUrl: string): boolean {
-  return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(baseUrl);
+  try {
+    const u = new URL(baseUrl.includes("://") ? baseUrl : `http://${baseUrl}`);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname.toLowerCase().replace(/\.$/, "");
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 /**
- * P2 trust boundary: only https:// remotes or http(s) localhost are allowed.
- * Plain-http remote URLs are rejected (warn + heuristic fallback in
+ * Trust boundary: only https:// remotes or http(s) localhost are allowed.
+ * ALL other plain-http — including intranet hosts (10/8, 192.168/16,
+ * 172.16/12, link-local, ::1, .local, DNS-rebinding-style suffixes like
+ * `localhost.evil.com`) — is rejected (warn + heuristic fallback in
  * `reasonWithLLM`) so an LLM key / prompt never goes over cleartext.
+ * Hostname matching is exact (URL-parsed, trailing-dot tolerant); there is
+ * intentionally no suffix/prefix matching.
  * @param baseUrl LLM base URL to vet.
- * @returns True when the URL is localhost or https://.
+ * @returns True when the URL is https:// or localhost-http(s).
  */
 export function isAllowedLlmBaseUrl(baseUrl: string): boolean {
   const trimmed = baseUrl.trim();
-  if (isLocalBaseUrl(trimmed)) return true;
-  return /^https:\/\//i.test(trimmed);
+  if (/^https:\/\//i.test(trimmed)) return true;
+  try {
+    const u = new URL(trimmed.includes("://") ? trimmed : `http://${trimmed}`);
+    if (u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase().replace(/\.$/, "");
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -207,14 +237,16 @@ export function parseLlmVerdict(raw: string): ReasonOutput | null {
     )
       return null;
   }
+  // Escape at construction: rationale/factor text is LLM-controlled and may
+  // reach HTML consumers — escaped once here, safe everywhere downstream.
   return {
     riskScoreBps: o.riskScoreBps,
     decision: o.decision,
-    rationale: o.rationale,
+    rationale: escapeHtml(o.rationale),
     factors: (o.factors as { name: string; bps: number; note: string }[]).map((f) => ({
-      name: f.name,
+      name: escapeHtml(f.name),
       bps: Math.round(f.bps),
-      note: f.note,
+      note: escapeHtml(f.note),
     })),
   };
 }

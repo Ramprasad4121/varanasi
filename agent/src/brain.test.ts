@@ -149,4 +149,61 @@ describe("parseLlmVerdict", () => {
       parseLlmVerdict(JSON.stringify({ riskScoreBps: 100, decision: "MAYBE", rationale: "x", factors: [] })),
     ).toBeNull();
   });
+
+  it("escapes HTML in LLM-controlled rationale/factors at construction", () => {
+    const raw = JSON.stringify({
+      riskScoreBps: 1200,
+      decision: "ACT",
+      rationale: 'Deep pool <img src=x onerror=alert(1)> "quoted"',
+      factors: [{ name: "a<b", bps: 200, note: "n'est <pas>" }],
+    });
+    const v = parseLlmVerdict(raw)!;
+    expect(v.rationale).toContain("&lt;img");
+    expect(v.rationale).toContain("&quot;");
+    expect(v.rationale).not.toContain("<img");
+    expect(v.factors[0].name).toBe("a&lt;b");
+    expect(v.factors[0].note).toContain("&#39;");
+  });
+});
+
+describe("isAllowedLlmBaseUrl (blocks ALL http except localhost)", () => {
+  it("allows https remotes and localhost http(s)", async () => {
+    const { isAllowedLlmBaseUrl } = await import("./brain.js");
+    expect(isAllowedLlmBaseUrl("https://api.example.com/v1")).toBe(true);
+    expect(isAllowedLlmBaseUrl("http://localhost:1234/v1")).toBe(true);
+    expect(isAllowedLlmBaseUrl("http://127.0.0.1:1234/v1")).toBe(true);
+  });
+
+  it("rejects plain-http remotes, intranet hosts, and rebinding suffixes", async () => {
+    const { isAllowedLlmBaseUrl } = await import("./brain.js");
+    expect(isAllowedLlmBaseUrl("http://api.example.com/v1")).toBe(false);
+    expect(isAllowedLlmBaseUrl("http://192.168.1.5:1234/v1")).toBe(false);
+    expect(isAllowedLlmBaseUrl("http://10.0.0.5/v1")).toBe(false);
+    expect(isAllowedLlmBaseUrl("http://localhost.evil.com/v1")).toBe(false);
+    expect(isAllowedLlmBaseUrl("http://127.0.0.1.evil.com/v1")).toBe(false);
+    expect(isAllowedLlmBaseUrl("http://[::1]:1234/v1")).toBe(false);
+  });
+
+  it("rejects insecure URLs in reasonWithLLM without touching the network", async () => {
+    let called = false;
+    const fetchImpl = (async () => {
+      called = true;
+      throw new Error("must not be called");
+    }) as unknown as typeof fetch;
+    const out = await reasonWithLLM(INTEL, ALPHA, IDENTITY, 5000, {
+      baseUrl: "http://192.168.1.5:1234/v1",
+      apiKey: "k",
+      fetchImpl,
+    });
+    expect(called).toBe(false);
+    expect(out.llm).toBe(false);
+  });
+});
+
+describe("escapeHtml", () => {
+  it("escapes &<>\"'", async () => {
+    const { escapeHtml } = await import("./brain.js");
+    expect(escapeHtml(`<a href="x">&'y'</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;y&#39;&lt;/a&gt;");
+    expect(escapeHtml("plain")).toBe("plain");
+  });
 });

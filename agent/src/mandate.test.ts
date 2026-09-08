@@ -81,6 +81,43 @@ describe("validateMandate", () => {
     expect(() => validateMandate({ ...goodMandate(), windowStart: 5n, windowEnd: 4n })).toThrow("BadWindow");
     expect(() => validateMandate({ ...goodMandate(), chainId: 1n })).toThrow("ChainIdMismatch");
   });
+
+  it("rejects windowEnd > expiry (want windowStart<=windowEnd<=expiry)", () => {
+    expect(() => validateMandate({ ...goodMandate(), windowEnd: 1_700_172_801n })).toThrow("BadExpiry");
+  });
+
+  it("enforces future-bounded expiry only when a clock is provided", () => {
+    const now = 1_700_000_000;
+    // Fixture expiry (1_700_172_800) is after now and within 366d → passes.
+    expect(() => validateMandate(goodMandate(), BigInt(SEPOLIA_CHAIN_ID), { nowSec: now })).not.toThrow();
+    // Already-expired mandate → Expired.
+    expect(() =>
+      validateMandate({ ...goodMandate(), windowStart: 1n, windowEnd: 2n, expiry: 3n }, BigInt(SEPOLIA_CHAIN_ID), { nowSec: now }),
+    ).toThrow("Expired");
+    // Unbounded lockup → ExpiryTooLong.
+    expect(() =>
+      validateMandate(
+        { ...goodMandate(), windowEnd: 9_999_999_999n, expiry: 9_999_999_999n },
+        BigInt(SEPOLIA_CHAIN_ID),
+        { nowSec: now },
+      ),
+    ).toThrow("ExpiryTooLong");
+    // No clock → historical vectors still validate (offline compat).
+    expect(() => validateMandate({ ...goodMandate(), windowStart: 1n, windowEnd: 2n, expiry: 3n })).not.toThrow();
+  });
+
+  it("rejects uint64 overflow on window/expiry", () => {
+    const huge = 2n ** 64n;
+    expect(() => validateMandate({ ...goodMandate(), expiry: huge, windowEnd: huge })).toThrow("BadExpiry");
+  });
+
+  it("signMandate enforces the same sanity when nowSec is passed", async () => {
+    const now = 1_700_000_000;
+    await expect(signMandate(goodMandate(), TEST_KEY, { nowSec: now })).resolves.toBeTruthy();
+    await expect(
+      signMandate({ ...goodMandate(), windowEnd: 1_700_172_801n }, TEST_KEY, { nowSec: now }),
+    ).rejects.toThrow("BadExpiry");
+  });
 });
 
 describe("sign/verify roundtrip (offline)", () => {

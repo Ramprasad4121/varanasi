@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @author Ramprasad — `aegis analyze|revoke|mandate` orchestration (ENS → Graph → x402 → reason → RiskGuard; env: GRAPH_API_KEY, SEPOLIA_RPC_URL, AEGIS_REGISTRY, RISK_GUARD, HEDERA_*, SIGNAL_URL).
+ * @author Ramprasad — `aegis analyze|revoke|mandate|doctor` orchestration (ENS → Graph → x402 → reason → RiskGuard; env: GRAPH_API_KEY, SEPOLIA_RPC_URL, AEGIS_REGISTRY, RISK_GUARD, HEDERA_*, SIGNAL_URL).
  * CLI: `aegis analyze --agent <subname> --pool <id> [--vault] [--offline] [--skip-pay]`
  *
  * Orchestrates: ENS resolve → Graph intel → pay x402 → reason → RiskGuard
@@ -11,12 +11,14 @@ import "dotenv/config";
 import { createPublicClient, createWalletClient, http, keccak256, toHex, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
+import { readFileSync } from "node:fs";
 import { GraphClient } from "./graph.js";
 import { SubgraphAgent } from "./mcp.js";
-import { resolveAgentSubname } from "./ens.js";
+import { isIdentityAuthorized, resolveAgentSubname } from "./ens.js";
 import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 import { reasonWithLLM } from "./brain.js";
 import { payForSignal } from "./pay.js";
+import { formatDoctor, runDoctor } from "./doctor.js";
 import {
   SEPOLIA_CHAIN_ID,
   TASK_ESCROW_ADDRESS,
@@ -64,8 +66,9 @@ program
     const useMcp = opts.mcp !== false;
     const offline = Boolean(opts.offline);
     try {
-      // 1. ENS identity
+      // 1. ENS identity (M14: ENS mismatch FAILS authorization, not report-only)
       const identity = await resolveAgentSubname(opts.agent);
+      const authorized = isIdentityAuthorized(identity);
 
       // 2. Graph intel (MCP-first, Gateway fallback; live unless --offline)
       const graph = new GraphClient({ offline });
@@ -107,7 +110,7 @@ program
         ? await reasonWithLLM(
             { tvlUsd: intel.tvlUsd, volume24hUsd: intel.volume24hUsd, fees24hUsd: intel.fees24hUsd },
             { score: alpha.score, direction: alpha.direction },
-            { authorized: identity.authorized },
+            { authorized },
             thresholdBps,
           )
         : analyzeRisk(
@@ -117,7 +120,7 @@ program
               fees24hUsd: intel.fees24hUsd,
               alphaScore: alpha.score,
               alphaDirection: alpha.direction,
-              identityOk: identity.authorized,
+              identityOk: authorized,
             },
             thresholdBps,
           );
@@ -157,7 +160,8 @@ program
             agent: {
               name: identity.name,
               wallet: identity.agentWallet,
-              authorized: identity.authorized,
+              authorized,
+              registryAuthorized: identity.authorized,
               revoked: identity.revoked,
               expiry: identity.expiry.toString(),
               ens: identity.mode,
@@ -274,6 +278,32 @@ program
     }
   });
 
+/**
+ * H6: payer keys NEVER travel via CLI flags (no --private-key on any
+ * subcommand — flags leak into shell history / process tables). Keys come
+ * ONLY from env (MANDATE_PRIVATE_KEY, fallback OWNER_PRIVATE_KEY /
+ * AEGIS_OWNER_KEY) or a stdin pipe (--key-stdin).
+ */
+async function resolveMandateKey(fromStdin: boolean): Promise<`0x${string}`> {
+  if (fromStdin) {
+    if (process.stdin.isTTY) {
+      throw new Error("Refusing --key-stdin on a TTY (no pipe detected). Fix: printf '%s' \"$MANDATE_PRIVATE_KEY\" | aegis mandate … --key-stdin");
+    }
+    const raw = readFileSync(0, "utf8").trim();
+    if (!raw) throw new Error("Empty key on stdin. Fix: printf '%s' \"$MANDATE_PRIVATE_KEY\" | aegis mandate … --key-stdin");
+    return raw as `0x${string}`;
+  }
+  const key =
+    process.env.MANDATE_PRIVATE_KEY ?? process.env.OWNER_PRIVATE_KEY ?? process.env.AEGIS_OWNER_KEY ?? "";
+  if (!key) {
+    throw new Error(
+      "MANDATE_PRIVATE_KEY is not set (human payer key). " +
+        'Fix: export MANDATE_PRIVATE_KEY=0x… OR pipe it: printf \'%s\' "$MANDATE_PRIVATE_KEY" | aegis mandate … --key-stdin',
+    );
+  }
+  return key.trim() as `0x${string}`;
+}
+
 program
   .command("mandate")
   .description("Create + EIP-712 sign a TaskEscrow mandate (offline — prints digest + explorer-ready fields, never broadcasts)")
@@ -284,14 +314,15 @@ program
   .requiredOption("--window-start <unix>", "validation window open (block.timestamp clock)")
   .requiredOption("--window-end <unix>", "validation window close (inclusive)")
   .requiredOption("--expiry <unix>", "refund gate: refund iff block.timestamp > expiry")
-  .requiredOption("--private-key <hex>", "payer signing key (used once in memory, never stored or logged)")
-  .option("--nonce <uint>", "per-signer replay nullifier (default: fresh random uint256)")
+  .option("--key-stdin", "read payer key from stdin pipe (default: MANDATE_PRIVATE_KEY env; flags never accept keys)")
+  .option("--nonce <uint>", "per-signer replay nullifier (default: fresh CSPRNG random uint256)")
   .option("--chain-id <id>", "EIP-712 + mandate chain id", String(SEPOLIA_CHAIN_ID))
   .option("--escrow <address>", "TaskEscrow deployment (domain verifyingContract)", TASK_ESCROW_ADDRESS)
   .action(async (opts) => {
     try {
       const escrow = String(opts.escrow) as Address;
       const chainId = Number(opts.chainId);
+      const privateKey = await resolveMandateKey(Boolean(opts.keyStdin));
       const mandate: Mandate = {
         agent: String(opts.agent) as Address,
         merchant: String(opts.merchant) as Address,
@@ -303,9 +334,10 @@ program
         nonce: opts.nonce !== undefined ? BigInt(String(opts.nonce)) : randomNonce(),
         chainId: BigInt(chainId),
       };
-      const signed = await signMandate(mandate, String(opts.privateKey) as `0x${string}`, {
+      const signed = await signMandate(mandate, privateKey, {
         verifyingContract: escrow,
         chainId,
+        nowSec: Math.floor(Date.now() / 1000),
       });
       console.log(
         JSON.stringify(
@@ -332,6 +364,25 @@ program
           2,
         ),
       );
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("doctor")
+  .description("Guided preflight: env presence (lengths only) + Sepolia RPC + registry/escrow code + Graph key + service /health + HCS topic")
+  .option("--json", "machine-readable JSON output instead of guided lines")
+  .action(async (opts) => {
+    try {
+      const checks = await runDoctor();
+      if (opts.json) {
+        console.log(JSON.stringify({ ok: checks.every((c) => c.ok), checks }, null, 2));
+      } else {
+        console.log(formatDoctor(checks));
+      }
+      if (checks.some((c) => !c.ok)) process.exitCode = 1;
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;

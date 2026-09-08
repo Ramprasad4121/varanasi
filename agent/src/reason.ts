@@ -72,6 +72,16 @@ export function analyzeRisk(input: ReasonInput, thresholdBps: number = DEFAULT_T
   const factors: ReasonOutput["factors"] = [];
   let score = 0;
 
+  // M14 fail-closed: non-finite TVL/volume/fees must never score as a
+  // low-risk ~200bps ACT (NaN previously slipped through Math.max/comparisons
+  // into the "deep + healthy" branch). Refuse to score → SKIP @ 10000.
+  for (const [k, v] of [["tvlUsd", input.tvlUsd], ["volume24hUsd", input.volume24hUsd], ["fees24hUsd", input.fees24hUsd ?? 0]] as const) {
+    if (typeof v !== "number" || !Number.isFinite(v)) {
+      factors.push({ name: "bad-intel", bps: 10_000, note: `non-finite ${k} — refusing to score (fail-closed SKIP)` });
+      return finish(10_000, factors, thresholdBps);
+    }
+  }
+
   if (input.identityOk === false) {
     factors.push({ name: "identity", bps: 10_000, note: "agent identity revoked/expired — hard block" });
     return finish(10_000, factors, thresholdBps);

@@ -28,10 +28,44 @@ export interface McpConfig {
   env?: Record<string, string>;
 }
 
-/** Default MCP server launch (npx @thegraph/subgraph-mcp with env GRAPH_API_KEY). */
+/** MCP server package (unpinned `npx -y <pkg>` would float to latest — never do that). */
+export const SUBGRAPH_MCP_PACKAGE = "@thegraph/subgraph-mcp" as const;
+/**
+ * Pinned MCP server version (reproducible spawn; bump deliberately with a
+ * Gateway-fallback regression check). NOTE: this package name does not
+ * currently resolve on the public npm registry — the Gateway fallback in
+ * SubgraphAgent keeps `analyze` working regardless.
+ */
+export const SUBGRAPH_MCP_VERSION = "0.1.0" as const;
+
+/**
+ * Explicit env allowlist forwarded to the MCP child (minimal-env spawn:
+ * PATH plus only what the server needs — never the full parent env, which
+ * would leak Hedera/owner keys, LLM keys, and RPC URLs to the child).
+ */
+export const MCP_ENV_ALLOWLIST = ["PATH", "HOME", "GRAPH_API_KEY", "NO_COLOR"] as const;
+
+/**
+ * Build the minimal child env: PATH (+ os essentials) plus the explicit
+ * allowlist — everything else from the parent is dropped.
+ * @param extra Per-launch overrides (e.g. GRAPH_API_KEY).
+ * @returns Minimal env record for spawn().
+ */
+export function buildMinimalMcpEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of MCP_ENV_ALLOWLIST) {
+    const v = extra[k] ?? process.env[k];
+    if (v !== undefined && v !== "") env[k] = v;
+  }
+  // npx without a PATH is a guaranteed ENOENT — fail loudly, not silently.
+  if (!env.PATH) throw new Error("Refusing MCP spawn: PATH is unset (minimal-env guard).");
+  return env;
+}
+
+/** Default MCP server launch (pinned npx package + minimal env with GRAPH_API_KEY). */
 export const DEFAULT_SUBGRAPH_MCP: McpConfig = {
   command: "npx",
-  args: ["-y", "@thegraph/subgraph-mcp"],
+  args: ["-y", `${SUBGRAPH_MCP_PACKAGE}@${SUBGRAPH_MCP_VERSION}`],
   env: { GRAPH_API_KEY: process.env.GRAPH_API_KEY ?? "" },
 };
 
@@ -79,8 +113,10 @@ export class McpClient {
     if (this.proc) return;
     const cmd = this.config.command ?? DEFAULT_SUBGRAPH_MCP.command!;
     const args = this.config.args ?? DEFAULT_SUBGRAPH_MCP.args!;
+    // Minimal-env spawn: PATH + allowlist only — parent secrets never leak
+    // to the child. Per-launch config.env overrides act as `extra`.
     this.proc = spawn(cmd, args, {
-      env: { ...process.env, ...(this.config.env ?? {}) },
+      env: buildMinimalMcpEnv(this.config.env ?? {}),
       stdio: ["pipe", "pipe", "inherit"],
     });
     this.proc.stdout?.on("data", (d: Buffer) => this.onData(d.toString()));

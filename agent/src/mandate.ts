@@ -144,21 +144,60 @@ function isZeroAddress(a: string): boolean {
   return a.toLowerCase() === ZERO_ADDRESS;
 }
 
+/** Liveness/expiry sanity options for validateMandate (opt-in clock). */
+export interface MandateSanityOpts {
+  /**
+   * Unix seconds used as "now" for expiry liveness checks. OMITTED by
+   * default so offline fixtures/historical vectors still validate — pass
+   * `Math.floor(Date.now() / 1000)` (as the CLI does) to enforce
+   * future-bounded expiry at signing time.
+   */
+  nowSec?: number;
+  /** Max expiry horizon in seconds from now (default: 366 days). */
+  maxExpiryWindowSec?: number;
+}
+
+/** Default max expiry horizon: 366 days (just over one year). */
+export const MAX_EXPIRY_WINDOW_SEC = 366 * 24 * 60 * 60;
+
+/** Max uint64 value (window/expiry fields are uint64 onchain). */
+const MAX_UINT64 = 2n ** 64n - 1n;
+
 /**
  * Static mandate checks mirroring TaskEscrow._checkMandate (minus the
  * block.timestamp / block.chainid liveness checks, which only the chain
- * can enforce at fund time). Throws on the first violation.
+ * can enforce at fund time), PLUS expiry sanity:
+ * windowStart<=windowEnd<=expiry, uint64 bounds, and — when `opts.nowSec`
+ * is provided — expiry strictly in the future and future-bounded
+ * (<= now + maxExpiryWindowSec). Throws on the first violation.
  * @param m Mandate to validate.
  * @param expectedChainId Chain id the mandate must bind to.
+ * @param opts Optional liveness clock (nowSec, maxExpiryWindowSec).
  * @returns void — throws on violation, otherwise returns normally.
  */
-export function validateMandate(m: Mandate, expectedChainId: bigint = BigInt(SEPOLIA_CHAIN_ID)): void {
+export function validateMandate(
+  m: Mandate,
+  expectedChainId: bigint = BigInt(SEPOLIA_CHAIN_ID),
+  opts: MandateSanityOpts = {},
+): void {
   if (isZeroAddress(m.agent)) throw new Error("ZeroAgent: mandate.agent is zero");
   if (isZeroAddress(m.merchant)) throw new Error("ZeroMerchant: mandate.merchant is zero");
   if (isZeroAddress(m.token)) throw new Error("ZeroToken: mandate.token is zero");
   if (m.cap <= 0n) throw new Error("ZeroCap: mandate.cap is zero");
   if (m.chainId !== expectedChainId) throw new Error(`ChainIdMismatch: mandate ${m.chainId} != ${expectedChainId}`);
   if (m.windowStart > m.windowEnd) throw new Error(`BadWindow: windowStart ${m.windowStart} > windowEnd ${m.windowEnd}`);
+  if (m.windowEnd > m.expiry)
+    throw new Error(`BadExpiry: windowEnd ${m.windowEnd} > expiry ${m.expiry} (want windowStart<=windowEnd<=expiry)`);
+  for (const [k, v] of [["windowStart", m.windowStart], ["windowEnd", m.windowEnd], ["expiry", m.expiry]] as const) {
+    if (v < 0n || v > MAX_UINT64) throw new Error(`BadExpiry: mandate.${k} ${v} out of uint64 range`);
+  }
+  if (opts.nowSec !== undefined) {
+    const now = BigInt(Math.floor(opts.nowSec));
+    const horizon = BigInt(opts.maxExpiryWindowSec ?? MAX_EXPIRY_WINDOW_SEC);
+    if (m.expiry <= now) throw new Error(`Expired: mandate.expiry ${m.expiry} <= now ${now} (refund gate already open)`);
+    if (m.expiry > now + horizon)
+      throw new Error(`ExpiryTooLong: mandate.expiry ${m.expiry} > now ${now} + ${horizon}s (unbounded lockup)`);
+  }
 }
 
 /**
@@ -280,12 +319,13 @@ export function addressFromPrivateKey(privateKey: Hex): Address {
 export async function signMandate(
   m: Mandate,
   privateKey: Hex,
-  opts: MandateDomainOpts = {},
+  opts: MandateDomainOpts & MandateSanityOpts = {},
 ): Promise<SignedMandate> {
-  validateMandate(m, BigInt(opts.chainId ?? SEPOLIA_CHAIN_ID));
+  const { nowSec, maxExpiryWindowSec, ...domainOpts } = opts;
+  validateMandate(m, BigInt(domainOpts.chainId ?? SEPOLIA_CHAIN_ID), { nowSec, maxExpiryWindowSec });
   const keyBytes = keyBytesFromPrivateKey(privateKey);
   const signer = addressFromPublicKey(secp256k1.getPublicKey(keyBytes, false));
-  const digest = mandateDigest(m, opts);
+  const digest = mandateDigest(m, domainOpts);
   // `prehash: false` — digest is already the EIP-712 hash; `recovered`
   // format prefixes the recovery bit (rec || r || s).
   const raw = secp256k1.sign(hexToBytes(digest), keyBytes, { prehash: false, format: "recovered" });
@@ -299,7 +339,7 @@ export async function signMandate(
     signer,
     digest,
     structHash: mandateStructHash(m),
-    taskId: mandateTaskId(m, opts),
+    taskId: mandateTaskId(m, domainOpts),
   };
 }
 
@@ -340,7 +380,8 @@ export async function verifyMandate(
 // uint256 works; the chain burns usedNonce[signer][nonce] at fund.
 
 /**
- * Fresh random uint256 nonce (collision-safe, no RPC needed).
+ * Fresh random uint256 nonce from a CSPRNG (default nonce generator —
+ * collision-safe, no RPC needed, unpredictable).
  * @returns Random uint256 nonce.
  */
 export function randomNonce(): bigint {
@@ -348,7 +389,11 @@ export function randomNonce(): bigint {
 }
 
 /**
- * Nonce from unix-ms entropy (human-readable fallback; prefer randomNonce).
+ * Nonce from unix-ms entropy — EXPLICIT OPT-IN ONLY, PREDICTABLE.
+ * The high 64 bits are wall-clock milliseconds, so anyone observing the
+ * signing time can narrow the nonce space; it exists solely for
+ * human-debuggable vectors. All production paths (CLI included) default to
+ * CSPRNG randomNonce(); pass `--nonce` explicitly to override.
  * @param nowMs Unix time in ms (default: Date.now()).
  * @returns Time-scoped uint256 nonce.
  */
