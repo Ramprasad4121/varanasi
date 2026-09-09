@@ -58,7 +58,11 @@ export default function RootLayout({
               <Diamond />
               <a href="/#how-it-works">How it works</a>
               <Diamond />
-              <a href="/#proof">Proof</a>
+              <a href="/proof">Proof</a>
+              <Diamond />
+              <a href="/mandate">Mandate</a>
+              <Diamond />
+              <a href="/about">About</a>
               <Diamond />
               <a href="/account">Vault</a>
             </nav>
@@ -80,6 +84,9 @@ export default function RootLayout({
                 <h3>Product</h3>
                 <a href="/#agents">Browse agents</a>
                 <a href="/#how-it-works">How it works</a>
+                <a href="/mandate">The mandate</a>
+                <a href="/proof">Proof</a>
+                <a href="/about">About</a>
                 <a href="/account">Your vault</a>
                 <a href="/privy">Treasury</a>
               </div>

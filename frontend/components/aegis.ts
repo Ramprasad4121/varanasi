@@ -7,6 +7,7 @@ export const REGISTRY =
   process.env.NEXT_PUBLIC_AEGIS_REGISTRY ??
   "0x3913f1E6A0Be93180363aBd01Df7968d494033A8";
 export const RISK_GUARD = "0x668c01aE564D51baFF0029D361c20c534d738400";
+export const AEGIS_HOOK = "0x05043B527D67d7E4e3a2ed411fFBD15b8255c080";
 // Sepolia TaskEscrow + mock vUSD (6dp) — the hire flow's settlement pair.
 export const TASK_ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24";
 export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
