@@ -209,6 +209,33 @@ img { max-width: 100%; display: block; }
   .navlinks { display: none; }
 }
 
+/* Mobile menu: native <details>, no JS. Desktop never sees it. */
+.mnav { display: none; }
+@media (max-width: 720px) {
+  .mnav { display: block; position: relative; }
+  .mnav summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 8px;
+  }
+  .mnav summary::-webkit-details-marker { display: none; }
+  .mnav nav {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 180px;
+    padding: 8px;
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    z-index: 50;
+  }
+  .mnav nav a { padding: 8px 10px; }
+}
+
 .wrap {
   max-width: 1200px;
   margin: 0 auto;
