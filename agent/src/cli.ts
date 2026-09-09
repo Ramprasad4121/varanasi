@@ -19,6 +19,9 @@ import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 import { reasonWithLLM } from "./brain.js";
 import { payForSignal } from "./pay.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
+import { runScout } from "./workers/scout.js";
+import { runAnalyst } from "./workers/analyst.js";
+import { runFreelancer } from "./workers/freelancer.js";
 import { getAgentProfile, searchAgents, type DiscoverChain } from "./discover.js";
 import {
   SEPOLIA_CHAIN_ID,
@@ -426,6 +429,79 @@ program
         offline,
       });
       console.log(JSON.stringify({ ok: true, mode: offline ? "offline" : "live", chains, count: agents.length, agents }, null, 2));
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+/**
+ * H6: freelancer keys NEVER travel via CLI flags (no --private-key on any
+ * subcommand). Keys come ONLY from env (FREELANCER_PRIVATE_KEY, fallback
+ * OWNER_PRIVATE_KEY / AEGIS_OWNER_KEY) or a stdin pipe (--key-stdin).
+ */
+async function resolveFreelancerKey(fromStdin: boolean): Promise<`0x${string}`> {
+  if (fromStdin) {
+    if (process.stdin.isTTY) {
+      throw new Error("Refusing --key-stdin on a TTY (no pipe detected). Fix: printf '%s' \"$FREELANCER_PRIVATE_KEY\" | aegis hire … --key-stdin");
+    }
+    const raw = readFileSync(0, "utf8").trim();
+    if (!raw) throw new Error("Empty key on stdin. Fix: printf '%s' \"$FREELANCER_PRIVATE_KEY\" | aegis hire … --key-stdin");
+    return raw as `0x${string}`;
+  }
+  const key =
+    process.env.FREELANCER_PRIVATE_KEY ?? process.env.OWNER_PRIVATE_KEY ?? process.env.AEGIS_OWNER_KEY ?? "";
+  if (!key) {
+    throw new Error(
+      "FREELANCER_PRIVATE_KEY is not set (caller wallet key). " +
+        'Fix: export FREELANCER_PRIVATE_KEY=0x… OR pipe it: printf \'%s\' "$FREELANCER_PRIVATE_KEY" | aegis hire … --key-stdin',
+    );
+  }
+  return key.trim() as `0x${string}`;
+}
+
+program
+  .command("hire")
+  .description("Hire a demo worker end-to-end: scout|analyst|freelancer (prints machine-readable JSON)")
+  .requiredOption("--agent <worker>", "worker to hire: scout|analyst|freelancer")
+  .option("--pool <id>", "pool id (scout pin / analyst intel)")
+  .option("--task <taskId>", "escrow task id (freelancer, bytes32)")
+  .option("--key-stdin", "read freelancer caller key from stdin pipe (default: FREELANCER_PRIVATE_KEY env; flags never accept keys)")
+  .option("--offline", "fixture mode (no network Graph call; tests only)")
+  .option("--llm", "opt-in LLM reasoning for analyst (default: heuristic)")
+  .option("--threshold <bps>", "analyst ACT/SKIP cutoff in bps", String(DEFAULT_THRESHOLD_BPS))
+  .option("--json", "machine-readable JSON output")
+  .action(async (opts) => {
+    try {
+      const worker = String(opts.agent).toLowerCase();
+      const offline = Boolean(opts.offline);
+      if (worker === "scout") {
+        const result = await runScout({ poolId: opts.pool, offline });
+        console.log(JSON.stringify({ ok: true, worker, ...result }, null, 2));
+        return;
+      }
+      if (worker === "analyst") {
+        if (!opts.pool) throw new Error('hire analyst requires --pool <id> (pool intel to score).');
+        const result = await runAnalyst(
+          { poolId: String(opts.pool) },
+          { thresholdBps: Number(opts.threshold), llm: Boolean(opts.llm), offline },
+        );
+        console.log(
+          JSON.stringify({ ok: true, worker, pool: String(opts.pool), verdict: result.verdict, brief: result.brief }, null, 2),
+        );
+        return;
+      }
+      if (worker === "freelancer") {
+        if (!opts.task) throw new Error('hire freelancer requires --task <taskId> (escrow task to settle).');
+        const privateKey = await resolveFreelancerKey(Boolean(opts.keyStdin));
+        const account = privateKeyToAccount(privateKey);
+        const rpc = process.env.SEPOLIA_RPC_URL ?? "https://rpc.sepolia.org";
+        const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
+        const result = await runFreelancer(String(opts.task) as `0x${string}`, wallet);
+        console.log(JSON.stringify({ ok: true, worker, ...result }, null, 2));
+        return;
+      }
+      throw new Error(`Unknown --agent "${opts.agent}" (want scout|analyst|freelancer).`);
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;

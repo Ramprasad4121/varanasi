@@ -92,3 +92,9 @@ export {
   getAgentProfile,
 } from "./discover.js";
 export type { DiscoverChain, DiscoveredAgent, AgentRegistrationRaw, SearchAgentsOptions } from "./discover.js";
+export { SCOUT_MIN_TURNOVER, turnoverOf, pickScoutTarget, normalizeSignal, runScout } from "./workers/scout.js";
+export type { ScoutGraph, ScoutPayFn, ScoutOptions, ScoutResult } from "./workers/scout.js";
+export { buildAnalystBrief, analyzePool, runAnalyst } from "./workers/analyst.js";
+export type { AnalystAlpha, AnalystOptions, AnalystResult } from "./workers/analyst.js";
+export { decideFreelancerAction, runFreelancer } from "./workers/freelancer.js";
+export type { FreelancerAction, FreelancerResult, FreelancerOptions, FreelancerDeps } from "./workers/freelancer.js";

@@ -98,7 +98,42 @@ with `mode.graph: "live" | "offline"` and x402 receipts
 | `src/pay.ts` | x402 payer (`@x402/fetch` + Hedera ECDSA signer, HashScan receipts) |
 | `src/mandate.ts` | EIP-712 mandate sign/verify (domain bound to live escrow + Sepolia, nonce mgmt, offline) |
 | `src/escrow.ts` | TaskEscrow viem client (`fundMandate` with ERC20 approve-first, `taskState` read, release/refund/cancel/submitValidation writers) |
-| `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports (+ `mandate` signer) |
+| `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports (+ `mandate` signer, `hire` workers) |
+| `src/workers/scout.ts` | SignalScout — `topPools` discovery (sane-filtered) + `payForSignal` on healthy turnover → `{ pool, intel, signal, confidence, receipt }` |
+| `src/workers/analyst.ts` | PoolAnalyst — pool intel + alpha → `analyzeRisk` verdict + human brief (LLM opt-in passthrough) |
+| `src/workers/freelancer.ts` | EscrowFreelancer — signed mandate + taskId → `taskState` monitor → `releaseTask` on Validated / `refundTask` past expiry (caller-supplied wallet, never holds keys) |
+
+## Demo workers (hire agents → find work → earn into escrow)
+
+Clients hire a worker end-to-end via `hire` (machine-readable JSON, exit 0
+on success, error JSON + non-zero on failure). Keys NEVER travel via flags:
+the freelancer caller key comes from `FREELANCER_PRIVATE_KEY` env (fallback
+`OWNER_PRIVATE_KEY` / `AEGIS_OWNER_KEY`) or a stdin pipe (`--key-stdin`).
+
+```bash
+# SignalScout: discover via topPools (or pin --pool), buy x402 signal on healthy turnover
+npx tsx src/cli.ts hire --agent scout --pool 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 --json
+
+# PoolAnalyst: score pool intel (heuristic default, --llm opts into brain.ts)
+npx tsx src/cli.ts hire --agent analyst --pool 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640 --json
+
+# EscrowFreelancer: settle a task (release on Validated, refund past expiry)
+export FREELANCER_PRIVATE_KEY=0xCALLER_KEY   # or pipe it (see --key-stdin)
+npx tsx src/cli.ts hire --agent freelancer --task 0xTASKID --json
+```
+
+```ts
+import { runScout } from "./src/workers/scout.js";
+import { runAnalyst } from "./src/workers/analyst.js";
+import { runFreelancer } from "./src/workers/freelancer.js";
+
+const scout = await runScout({ poolId: "0x88e6…" }); // { pool, intel, signal, confidence, receipt }
+const opinion = await runAnalyst({ intel: scout.intel }, {}); // { verdict, brief }
+const settled = await runFreelancer(taskId, callerWallet); // { taskId, state, label, action, txHash }
+```
+
+Each worker has a pure core plus a live wrapper with injectable clients, so
+tests run offline with no network and no keys (`src/workers/*.test.ts`).
 
 ## LLM reasoning (opt-in, heuristic fallback)
 

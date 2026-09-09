@@ -166,3 +166,27 @@ npx tsx src/cli.ts mandate --agent 0xAGENT --merchant 0xMERCHANT \
 Preflight before any live run: `npx tsx src/cli.ts doctor` prints
 PASS/FAIL per dependency (env lengths only, Sepolia chainId, registry/escrow
 code, Graph key, service /health, HCS topic) with an exact fix per failure.
+
+## 7. Demo workers (hire → find work → earn into escrow)
+
+Clients hire workers that reuse the clients above — no new infra deps.
+Each worker is a pure core + live wrapper with injectable clients (offline
+tests, no network, no keys). Keys NEVER travel via flags (env/stdin only).
+
+```ts
+import { runScout } from "./src/workers/scout.js";
+import { runAnalyst } from "./src/workers/analyst.js";
+import { runFreelancer } from "./src/workers/freelancer.js";
+
+// SignalScout: topPools (sane-filtered) → turnover gate → payForSignal
+const scout = await runScout({ poolId: "0x88e6…" }); // { pool, intel, signal, confidence, receipt }
+// PoolAnalyst: intel + alpha → analyzeRisk verdict + brief (--llm opts into brain.ts)
+const opinion = await runAnalyst({ intel: scout.intel }, {}); // { verdict, brief }
+// EscrowFreelancer: mandate + taskId → release on Validated / refund past expiry
+const settled = await runFreelancer(taskId, callerWallet); // { taskId, state, label, action, txHash }
+```
+
+CLI: `npx tsx src/cli.ts hire --agent scout|analyst|freelancer --pool <id> [--task <taskId>] [--json]`
+prints machine-readable JSON (exit 0 with receipt/verdict, non-zero with
+error JSON). Freelancer caller key via `FREELANCER_PRIVATE_KEY` env (fallback
+`OWNER_PRIVATE_KEY` / `AEGIS_OWNER_KEY`) or `--key-stdin` pipe.
