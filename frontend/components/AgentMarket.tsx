@@ -6,6 +6,8 @@ import {
   createWalletClient,
   custom,
   isAddress,
+  keccak256,
+  stringToBytes,
   type Address,
 } from "viem";
 import { sepolia } from "viem/chains";
@@ -56,21 +58,41 @@ export default function AgentMarket({
   }
 
   // Live onchain check of the featured agent (never crashes when offline).
+  // Reads go through tokenByLabelHash → expiry/revoked: the contract has
+  // no agentOf(string), and mint takes expiry days (see aegis.ts).
   async function checkSentinel() {
     if (!isDeployed) {
       setLiveCheck("Registry not deployed yet — showing local records.");
       return;
     }
     try {
-      const [wallet, expiry, revoked] = await publicClient.readContract({
+      const tokenId = (await publicClient.readContract({
         address: REGISTRY as Address,
         abi: REGISTRY_ABI,
-        functionName: "agentOf",
-        args: ["sentinel-1"],
-      });
+        functionName: "tokenByLabelHash",
+        args: [keccak256(stringToBytes("sentinel-1"))],
+      })) as bigint;
+      if (tokenId === BigInt(0)) {
+        setLiveCheck("Live: sentinel-1 is not minted onchain yet.");
+        return;
+      }
+      const [expiry, revoked] = (await Promise.all([
+        publicClient.readContract({
+          address: REGISTRY as Address,
+          abi: REGISTRY_ABI,
+          functionName: "expiry",
+          args: [tokenId],
+        }),
+        publicClient.readContract({
+          address: REGISTRY as Address,
+          abi: REGISTRY_ABI,
+          functionName: "revoked",
+          args: [tokenId],
+        }),
+      ])) as [bigint, boolean];
       const ok = !revoked && Number(expiry) * 1000 > Date.now();
       setLiveCheck(
-        `Live: sentinel-1 → ${wallet}, ${
+        `Live: sentinel-1 token #${tokenId.toString()} → ${
           ok ? "AUTHORIZED" : "not authorized"
         } (expiry ${new Date(Number(expiry) * 1000).toLocaleDateString()}).`
       );
@@ -105,7 +127,7 @@ export default function AgentMarket({
         account,
         address: REGISTRY as Address,
         abi: REGISTRY_ABI,
-        functionName: "revokeAgent",
+        functionName: "revokeAgentByLabel",
         args: [a.sublabel],
         chain: sepolia,
       });
@@ -222,8 +244,9 @@ function OnboardForm({ onMinted }: { onMinted: (a: AgentRecord) => void }) {
       setStatus("Agent wallet is not a valid 0x address.");
       return;
     }
+    const expiryDays = Math.max(1, Number(days) || 90);
     const expiry =
-      Math.floor(Date.now() / 1000) + Math.max(1, Number(days) || 90) * 86400;
+      Math.floor(Date.now() / 1000) + expiryDays * 86400;
 
     if (!isDeployed) {
       onMinted({ sublabel: label, wallet, expiry, pending: true });
@@ -250,7 +273,8 @@ function OnboardForm({ onMinted }: { onMinted: (a: AgentRecord) => void }) {
         address: REGISTRY as Address,
         abi: REGISTRY_ABI,
         functionName: "mintAgent",
-        args: [label, wallet as Address, BigInt(expiry)],
+        // Contract takes expiry DAYS (not a timestamp) — see aegis.ts.
+        args: [label, wallet as Address, BigInt(expiryDays)],
         chain: sepolia,
       });
       onMinted({ sublabel: label, wallet, expiry, txHash: hash });
