@@ -1,6 +1,6 @@
 "use client";
 
-// Author: Ramprasad — homepage: colosseum.com structure — hero, stats, features, agents.
+// Author: Ramprasad — homepage: colosseum.com paper theme — arena hero, engraving plates, stats, agents.
 import { useEffect, useMemo, useState } from "react";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
@@ -28,30 +28,43 @@ import {
 
 const FEATURES = [
   {
+    n: "I",
     title: "Identity",
     body: "Expiring ENSv2 subnames, revocable onchain. One click kills the agent everywhere.",
     link: "#agents",
     linkLabel: "Meet the agents",
+    image: "/images/figure-builder.jpg",
   },
   {
+    n: "II",
     title: "Intel",
     body: "Pool reasoning grounded in live subgraph data and verified price feeds.",
     link: "#intel",
     linkLabel: "See pool intel",
+    image: "/images/scales.jpg",
   },
   {
+    n: "III",
     title: "Payments",
     body: "x402-settled micropayments through Hedera — pay, retry, receipt.",
     link: "#signals",
     linkLabel: "Run the loop",
+    image: "/images/mandate-scroll.jpg",
   },
+] as const;
+
+const GALLERY = [
+  { src: "/images/gallery-workshop.jpg", alt: "The workshop" },
+  { src: "/images/gallery-courtyard.jpg", alt: "The courtyard" },
+  { src: "/images/gallery-dinner.jpg", alt: "The hall" },
+  { src: "/images/gate.jpg", alt: "The gate" },
 ] as const;
 
 function DiamondSep() {
   return (
     <div className="diamond-sep" aria-hidden="true" style={{ margin: "56px auto" }}>
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-        <path d="M5 0 L10 5 L5 10 L0 5 Z" />
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor">
+        <path d="M5 0.7 L9.3 5 L5 9.3 L0.7 5 Z" />
       </svg>
     </div>
   );
@@ -110,14 +123,27 @@ export default function Page() {
 
       <DiamondSep />
 
-      {/* How it works */}
       <section id="how-it-works">
+        <div className="section-intro">
+          <p className="hero-kicker">The contest</p>
+          <h2>
+            <span className="drop-cap" aria-hidden="true">
+              T
+            </span>
+            hree steps. Then the money moves.
+          </h2>
+          <p>Varanasi puts the check where settlement happens — not in a prompt, not in a session key.</p>
+        </div>
         <div className="features">
           {FEATURES.map((f) => (
             <div className="feature-card" key={f.title}>
-              <h2>{f.title}</h2>
-              <p>{f.body}</p>
-              <a href={f.link}>{f.linkLabel} →</a>
+              <img src={f.image} alt="" />
+              <div className="feature-body">
+                <p className="feature-kicker">{f.n}</p>
+                <h2>{f.title}</h2>
+                <p>{f.body}</p>
+                <a href={f.link}>{f.linkLabel} →</a>
+              </div>
             </div>
           ))}
         </div>
@@ -125,8 +151,29 @@ export default function Page() {
 
       <DiamondSep />
 
-      {/* Agents */}
-      <section id="agents">
+      <section>
+        <div className="section-intro">
+          <p className="hero-kicker">Plates from the arena</p>
+          <h2>
+            <span className="drop-cap" aria-hidden="true">
+              D
+            </span>
+            rawn like the contests of old
+          </h2>
+          <p>Identity, mandate, and settlement — illustrated as the architectural plates of a Roman arena.</p>
+        </div>
+        <div className="gallery">
+          {GALLERY.map((plate) => (
+            <figure key={plate.src}>
+              <img src={plate.src} alt={plate.alt} />
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <DiamondSep />
+
+      <section id="agents" className="wrap">
         <AgentMarket
           agents={agents}
           publicClient={publicClient as unknown as PublicClientLike}
@@ -141,8 +188,7 @@ export default function Page() {
 
       <DiamondSep />
 
-      {/* Intel, signals, verdicts */}
-      <div className="market">
+      <div className="market" id="proof">
         <PoolIntel intel={intel} onIntel={setIntel} />
         <SignalPanel receipts={receipts} onReceipts={setReceipts} />
         <div className="span">
@@ -154,7 +200,7 @@ export default function Page() {
         </div>
       </div>
 
-      <p className="envline" style={{ marginTop: 32 }}>
+      <p className="envline wrap" style={{ marginTop: 32 }}>
         Sepolia + Hedera testnet
       </p>
     </>

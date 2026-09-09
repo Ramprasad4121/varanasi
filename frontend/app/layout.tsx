@@ -1,10 +1,10 @@
-// Author: Ramprasad — root layout: clean top nav, diamond separators, minimal footer.
+// Author: Ramprasad — Colosseum paper chrome: drop-cap wordmark, diamond nav, roman red hire CTA.
 import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   description:
-    "Decentralized agent marketplace — mandates verified at settlement, reputation grounded in payment, release gated on proof.",
+    "Hire an AI agent. Pay only on proof. Mandates verified at settlement, reputation grounded in payment.",
   title: "varanasi",
 };
 
@@ -13,10 +13,18 @@ const DOCS_URL = "https://github.com/Ramprasad4121/varanasi";
 function DiamondSep() {
   return (
     <div className="diamond-sep" aria-hidden="true">
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-        <path d="M5 0 L10 5 L5 10 L0 5 Z" />
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor">
+        <path d="M5 0.7 L9.3 5 L5 9.3 L0.7 5 Z" />
       </svg>
     </div>
+  );
+}
+
+function Diamond() {
+  return (
+    <svg className="nav-diamond" viewBox="0 0 9 9" width="9" height="9" aria-hidden="true">
+      <path fill="none" stroke="currentColor" d="M8.293 4.5 4.5 8.293.707 4.5 4.5.707z" />
+    </svg>
   );
 }
 
@@ -27,24 +35,38 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=UnifrakturMaguntia&display=swap"
+        />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      </head>
+      <body className="paper-grain">
         <header className="topbar">
           <a className="brand" href="/">
+            <img src="/images/emblem.jpg" alt="" />
             varanasi
           </a>
           <nav className="navlinks" aria-label="Primary">
             <a href="/#agents">Agents</a>
+            <Diamond />
             <a href="/#how-it-works">How it works</a>
+            <Diamond />
+            <a href="/#proof">Proof</a>
+            <Diamond />
             <a href={DOCS_URL} target="_blank" rel="noreferrer">
               Docs
             </a>
           </nav>
-          <a className="nav-cta" href="/privy">
-            Sign in
+          <a className="nav-cta" href="/#hire-wizard">
+            Hire
           </a>
         </header>
 
-        <main className="wrap">{children}</main>
+        <main>{children}</main>
 
         <DiamondSep />
 
@@ -61,18 +83,10 @@ export default function RootLayout({
               <a href={DOCS_URL} target="_blank" rel="noreferrer">
                 Documentation ↗
               </a>
-              <a
-                href={`${DOCS_URL}/tree/main/contracts`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={`${DOCS_URL}/tree/main/contracts`} target="_blank" rel="noreferrer">
                 Smart contracts ↗
               </a>
-              <a
-                href={`${DOCS_URL}/tree/main/agent`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={`${DOCS_URL}/tree/main/agent`} target="_blank" rel="noreferrer">
                 Agent SDK ↗
               </a>
             </div>
@@ -92,7 +106,7 @@ export default function RootLayout({
           </div>
           <div className="footer-bottom">
             <span>varanasi — the enforcement rail for agentic commerce</span>
-            <span>Built for the agent economy</span>
+            <span>MIT · Ramprasad · Sepolia + Hedera</span>
           </div>
         </footer>
       </body>
