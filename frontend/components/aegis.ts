@@ -1,12 +1,16 @@
-// Author: Ramprasad — shared marketplace constants/types/storage (registry, pools, receipts, localStorage helpers); live deps Sepolia + signal + subgraph envs; demo-known values pinned from docs/DEMO.md, live reads degrade gracefully.
+// Author: Ramprasad — shared marketplace constants/types/storage (registry, pools, receipts, localStorage helpers); live deps Sepolia + signal + subgraph envs; pinned values from docs/DEMO.md, live reads degrade gracefully.
 // Shared marketplace constants, types + storage helpers.
-// Demo-known values are pinned from docs/DEMO.md (recorded 2026-09-06) and
-// ALWAYS labelled as such in the UI. Live reads degrade gracefully.
+// Pinned values come from docs/DEMO.md (recorded 2026-09-06).
+// Live reads degrade gracefully.
 
 export const REGISTRY =
   process.env.NEXT_PUBLIC_AEGIS_REGISTRY ??
   "0x3913f1E6A0Be93180363aBd01Df7968d494033A8";
 export const RISK_GUARD = "0x668c01aE564D51baFF0029D361c20c534d738400";
+// Sepolia TaskEscrow + mock vUSD (6dp) — the hire flow's settlement pair.
+export const TASK_ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24";
+export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
+export const SEPOLIA_CHAIN_ID = 11155111;
 export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "";
 export const SIGNAL_URL =
   process.env.NEXT_PUBLIC_SIGNAL_URL ?? "http://localhost:4021";
@@ -48,7 +52,7 @@ export const REGISTRY_ABI = [
   },
 ] as const;
 
-// --- Curated pools (agent/SKILL.md CURATED_POOLS; demo-known stats DEMO.md) ---
+// --- Curated pools (agent/SKILL.md CURATED_POOLS; pinned stats DEMO.md) ---
 export type CuratedPool = {
   key: string;
   label: string;
@@ -137,7 +141,7 @@ export type Verdict = {
   score: string; // display string, e.g. "200 bps" or "38 / 100"
   decision: "ACT" | "SKIP";
   rationale: string;
-  source: "demo-known" | "local";
+  source: "example" | "local";
 };
 
 export const LS_AGENTS = "aegis.agents";
@@ -174,7 +178,7 @@ export function seedVerdicts(): Verdict[] {
       decision: "ACT",
       rationale:
         "Demo-known verdict: liquidity/activity/alpha factors green, RiskGuard authorize(wallet, 200, 5000) → wouldPass true.",
-      source: "demo-known",
+      source: "example",
     },
   ];
 }
