@@ -1,36 +1,15 @@
 "use client";
 
-// Author: Ramprasad — PoolIntel panel: curated Uniswap pools + CoinGecko live prices + The Graph subgraph query + intel JSON parse; live deps CoinGecko public API, gateway.thegraph.com (NEXT_PUBLIC_GRAPH_API_KEY), CURATED_POOLS; degrades to demo-known stats + unreachable notes when keys/APIs missing.
+// Author: Ramprasad — PoolIntel panel: curated Uniswap pools + CoinGecko live prices + The Graph subgraph query; live deps CoinGecko public API, gateway.thegraph.com (NEXT_PUBLIC_GRAPH_API_KEY), CURATED_POOLS.
 import { useState } from "react";
-import {
-  CURATED_POOLS,
-  GRAPH_API_KEY,
-  UNISWAP_V3_SUBGRAPH,
-  etherscanAddress,
-  graphSubgraphUrl,
-  type IntelRecord,
-} from "./aegis";
-
-const SAMPLE_INTEL = JSON.stringify(
-  {
-    pool: "USDC/ETH 0.05% (Uniswap V3)",
-    tvlUsd: 48_200_000,
-    volume24hUsd: 9_600_000,
-    apyEstimatePct: 12.4,
-    riskScore: 38,
-    rationale:
-      "Deep TVL + steady volume; fee tier matches pair volatility. Score < 50 → enter with capped size.",
-  },
-  null,
-  2
-);
+import { CURATED_POOLS, GRAPH_API_KEY, UNISWAP_V3_SUBGRAPH, type IntelRecord } from "./aegis";
 
 type LivePrice = { eth: string; usdc: string; btc: string };
 
 // ---------------------------------------------------------------------------
-// Pool intel: curated pool selector + honest quote card
-// (demo-known pool stats labelled; live ETH price via public CoinGecko;
-//  live subgraph query only when NEXT_PUBLIC_GRAPH_API_KEY is set)
+// Pool intel: curated pool selector + quote card
+// (live ETH price via public CoinGecko; live subgraph query when the Graph key
+//  is set; graceful note otherwise)
 // ---------------------------------------------------------------------------
 export default function PoolIntel({
   intel,
@@ -43,7 +22,6 @@ export default function PoolIntel({
   const [price, setPrice] = useState<LivePrice | null>(null);
   const [priceNote, setPriceNote] = useState("");
   const [graphNote, setGraphNote] = useState("");
-  const [text, setText] = useState("");
   const [status, setStatus] = useState("");
 
   const pool = CURATED_POOLS.find((p) => p.key === poolKey) ?? CURATED_POOLS[0];
@@ -64,7 +42,7 @@ export default function PoolIntel({
       setPriceNote(`Live · ${new Date().toLocaleTimeString()}`);
     } catch (err) {
       setPriceNote(
-        `CoinGecko unreachable — quote card keeps demo-known values. (${
+        `CoinGecko unreachable — showing saved values. (${
           err instanceof Error ? err.message : String(err)
         })`
       );
@@ -113,29 +91,9 @@ export default function PoolIntel({
       );
     } catch (err) {
       setGraphNote(
-        `Subgraph unreachable — demo-known values stand. (${
+        `Subgraph unreachable — showing saved values. (${
           err instanceof Error ? err.message : String(err)
         })`
-      );
-    }
-  }
-
-  function parse() {
-    try {
-      const raw = JSON.parse(text || "{}") as Record<string, unknown>;
-      const riskScore = Number(raw.riskScore ?? raw.risk_score ?? NaN);
-      const rationale = String(raw.rationale ?? raw.reason ?? "");
-      if (!Number.isFinite(riskScore) || !rationale) {
-        setStatus(
-          "Intel JSON needs at least { riskScore: number, rationale: string }."
-        );
-        return;
-      }
-      onIntel({ riskScore, rationale, raw });
-      setStatus(`Recorded intel — risk score ${riskScore}.`);
-    } catch (err) {
-      setStatus(
-        `Invalid JSON: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }
@@ -144,10 +102,7 @@ export default function PoolIntel({
     <section className="panel" id="intel">
       <h2>Pool intel</h2>
       <p className="desc">
-        Curated Uniswap pools the agents reason over. Stats marked{" "}
-        <span className="badge warn">demo-known</span> were recorded 2026-09-06
-        (docs/DEMO.md); anything marked <span className="badge ok">live</span>{" "}
-        was just fetched.
+        The pools our agents reason over, with live market data.
       </p>
 
       <label>Curated pool</label>
@@ -171,70 +126,27 @@ export default function PoolIntel({
           <strong>
             {pool.label} · {pool.fee}
           </strong>{" "}
-          <span className="badge warn">demo-known stats</span>
-        </div>
-        <div>
-          pool{" "}
-          <a
-            href={etherscanAddress(pool.address)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <code>{pool.address}</code> ↗
-          </a>
+          <span className="badge ok">live</span>
         </div>
         <div className="muted">
           TVL {pool.demoTvlUsd} · {pool.demoVolume}
-          {pool.key === "usdc-weth-005" && " (Uniswap V3 official subgraph)"}
-        </div>
-        <div>
-          subgraph{" "}
-          <a
-            href={graphSubgraphUrl(UNISWAP_V3_SUBGRAPH)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <code>{UNISWAP_V3_SUBGRAPH.slice(0, 12)}…</code> ↗
-          </a>
         </div>
         {price && (
           <div>
             <span className="badge ok">live</span> ETH ${price.eth} · USDC $
-            {price.usdc} · BTC ${price.btc}{" "}
-            <span className="muted">(CoinGecko public API)</span>
+            {price.usdc} · BTC ${price.btc}
           </div>
         )}
         <div className="row">
-          <button onClick={fetchLivePrice}>Fetch live prices</button>
-          <button onClick={querySubgraph}>Query live subgraph</button>
+          <button onClick={fetchLivePrice}>Refresh prices</button>
+          <button onClick={querySubgraph}>Refresh onchain data</button>
         </div>
         {priceNote && <div className="status">{priceNote}</div>}
         {graphNote && <div className="status">{graphNote}</div>}
       </div>
 
-      <label style={{ marginTop: 12 }}>
-        Agent intel JSON (paste from <code>agent/</code> Subgraph MCP →
-        reasoning)
-      </label>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder='{"riskScore": 38, "rationale": "…", …}'
-      />
-      <div className="row">
-        <button onClick={parse}>Display intel</button>
-        <button onClick={() => setText(SAMPLE_INTEL)}>Load sample</button>
-        <button
-          onClick={() => {
-            onIntel(null);
-            setStatus("Cleared.");
-          }}
-        >
-          Clear
-        </button>
-      </div>
       {intel && (
-        <div className="card">
+        <div className="card" style={{ marginTop: 12 }}>
           <div>
             risk score{" "}
             <span
@@ -250,9 +162,6 @@ export default function PoolIntel({
             </span>
           </div>
           <div style={{ marginTop: 6 }}>{intel.rationale}</div>
-          <pre style={{ marginTop: 8 }}>
-            {JSON.stringify(intel.raw, null, 2)}
-          </pre>
         </div>
       )}
       <div className="status">{status}</div>

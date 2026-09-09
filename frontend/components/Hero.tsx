@@ -35,7 +35,7 @@ const STATS = [
     proof: "Etherscan",
   },
   {
-    value: "121/121",
+    value: "132/132",
     label: "Tests green",
     href: sepoliaAddress(REGISTRY),
     proof: "Etherscan",

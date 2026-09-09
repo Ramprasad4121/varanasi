@@ -15,10 +15,7 @@ import {
   LS_INTEL,
   LS_RECEIPTS,
   LS_VERDICTS,
-  REGISTRY,
   SEPOLIA_RPC,
-  SIGNAL_URL,
-  isDeployed,
   load,
   save,
   seedVerdicts,
@@ -109,16 +106,6 @@ export default function Page() {
 
   return (
     <>
-      {!isDeployed && (
-        <div className="panel" style={{ marginBottom: 32 }}>
-          <span className="badge warn">not deployed yet</span>{" "}
-          <span className="envline">
-            Set <code>NEXT_PUBLIC_AEGIS_REGISTRY</code> (Sepolia) in{" "}
-            <code>.env.local</code> after deploying <code>contracts/</code>.
-          </span>
-        </div>
-      )}
-
       <Hero agentCount={agents.length + 1} authorizedCount={authorizedCount} />
 
       <DiamondSep />
@@ -168,9 +155,7 @@ export default function Page() {
       </div>
 
       <p className="envline" style={{ marginTop: 32 }}>
-        Registry: <code>{REGISTRY || "(unset)"}</code> · RPC:{" "}
-        <code>{SEPOLIA_RPC ? "configured" : "(unset)"}</code> · Signal:{" "}
-        <code>{SIGNAL_URL || "(unset)"}</code>
+        Sepolia + Hedera testnet
       </p>
     </>
   );

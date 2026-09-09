@@ -1,7 +1,7 @@
 "use client";
 
-// Author: Ramprasad — AgentMarket listings: featured sentinel-1 + onboard/mint via AegisRegistry.mintAgent, refresh via agentOf, revoke; live deps Sepolia RPC/registry via viem + window.ethereum; degrades to local pending records + status hints when undeployed/offline/no wallet.
-import { useCallback, useState, type FormEvent } from "react";
+// Author: Ramprasad — AgentMarket listings: featured sentinel-1 + onboard/mint via AegisRegistry.mintAgent, revoke; live deps Sepolia RPC/registry via viem + window.ethereum; degrades to local pending records + status hints when undeployed/offline/no wallet.
+import { useState, type FormEvent } from "react";
 import {
   createWalletClient,
   custom,
@@ -14,45 +14,19 @@ import {
   REGISTRY,
   REGISTRY_ABI,
   isDeployed,
-  sepoliaAddress,
   sepoliaTx,
   type AgentRecord,
   type PublicClientLike,
 } from "./aegis";
 import HireWizard, { type HireClient } from "./HireWizard";
 
-// Sepolia chain id for Sourcify repo links.
-const SEPOLIA_CHAIN_ID = 11155111;
-const sourcifyContract = (a: string) =>
-  `https://repo.sourcify.dev/contracts/full_match/${SEPOLIA_CHAIN_ID}/${a}`;
-
-// Uniform per-card evidence row: Etherscan tx + address + Sourcify links.
+// Per-card: one clean Etherscan link.
 function VerifyLine({ txHash }: { txHash?: string }) {
+  if (!txHash) return null;
   return (
     <div className="verify-line">
-      <a
-        href={sepoliaAddress(REGISTRY)}
-        target="_blank"
-        rel="noreferrer"
-        className="verify-primary"
-      >
-        Verify live onchain
-      </a>{" "}
-      ·{" "}
-      {txHash ? (
-        <a href={sepoliaTx(txHash)} target="_blank" rel="noreferrer">
-          Etherscan tx ↗
-        </a>
-      ) : (
-        <span className="muted">tx pending</span>
-      )}{" "}
-      ·{" "}
-      <a href={sepoliaAddress(REGISTRY)} target="_blank" rel="noreferrer">
-        Etherscan address ↗
-      </a>{" "}
-      ·{" "}
-      <a href={sourcifyContract(REGISTRY)} target="_blank" rel="noreferrer">
-        Sourcify contract ↗
+      <a href={sepoliaTx(txHash)} target="_blank" rel="noreferrer" className="verify-primary">
+        Verified on Etherscan ↗
       </a>
     </div>
   );
@@ -81,42 +55,10 @@ export default function AgentMarket({
     );
   }
 
-  const refresh = useCallback(
-    async (a: AgentRecord) => {
-      if (!isDeployed) {
-        setStatus("Registry not deployed yet — showing local records only.");
-        return;
-      }
-      try {
-        const [wallet, expiry, revoked] = await publicClient.readContract({
-          address: REGISTRY as Address,
-          abi: REGISTRY_ABI,
-          functionName: "agentOf",
-          args: [a.sublabel],
-        });
-        onUpdate({
-          ...a,
-          wallet,
-          expiry: Number(expiry),
-          revoked,
-          pending: false,
-        });
-        setStatus(`Refreshed ${a.sublabel}.aegis.eth from registry.`);
-      } catch (err) {
-        setStatus(
-          `Onchain read failed (RPC unreachable?): ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
-      }
-    },
-    [publicClient, onUpdate]
-  );
-
-  // Live onchain check of the demo-known agent (never crashes when offline).
+  // Live onchain check of the featured agent (never crashes when offline).
   async function checkSentinel() {
     if (!isDeployed) {
-      setLiveCheck("Registry not deployed yet — demo-known values below.");
+      setLiveCheck("Registry not deployed yet — showing local records.");
       return;
     }
     try {
@@ -134,7 +76,7 @@ export default function AgentMarket({
       );
     } catch (err) {
       setLiveCheck(
-        `Live check failed — showing demo-known values. (${
+        `Live check failed — showing saved values. (${
           err instanceof Error ? err.message : String(err)
         })`
       );
@@ -180,25 +122,22 @@ export default function AgentMarket({
     <section className="panel" id="agents">
       <h2>Agents for hire</h2>
       <p className="desc">
-        Each listing is an ENSv2 subname with an expiring, revocable
-        authorization. Refresh re-reads <code>agentOf</code> onchain via viem.
+        Each agent is an ENSv2 subname with an expiring, revocable onchain
+        authorization.
       </p>
 
-      {/* Featured demo-known listing */}
+      {/* Featured agent */}
       <div className="card featured" id="featured-agent">
         <div>
           <strong>sentinel-1.aegis.eth</strong>{" "}
-          <span className="badge ok">authorized</span>{" "}
-          <span className="badge warn">demo-known</span>
+          <span className="badge ok">authorized</span>
         </div>
         <div className="muted">
-          Minted 2026-09-06 (90d expiry) ·{" "}
-          <code>isAuthorized(deployer) → true</code> · RiskGuard{" "}
-          <code>authorize(wallet, 200, 5000) → wouldPass</code>
+          Minted Sep 6, 2026 · 90-day expiry · RiskGuard verified
         </div>
         <VerifyLine txHash={DEMO_MINT_TX} />
         <div className="row">
-          <button onClick={checkSentinel}>Verify live onchain</button>
+          <button onClick={checkSentinel}>Verify onchain</button>
           <button
             onClick={() =>
               hire({
@@ -217,8 +156,8 @@ export default function AgentMarket({
       <OnboardForm onMinted={onMinted} />
 
       {agents.length === 0 && (
-        <div className="status">
-          No local listings yet — mint one above to add it to the marketplace.
+        <div className="status muted" style={{ marginTop: 12 }}>
+          No additional agents listed yet.
         </div>
       )}
       <div className="cards">
@@ -233,34 +172,22 @@ export default function AgentMarket({
                 ) : expired ? (
                   <span className="badge bad">expired</span>
                 ) : a.pending || !isDeployed ? (
-                  <span className="badge warn">pending/local</span>
+                  <span className="badge warn">pending</span>
                 ) : (
                   <span className="badge ok">authorized</span>
                 )}
               </div>
-              <div>
-                wallet <code>{a.wallet}</code>
+              <div className="muted">
+                Expires {new Date(a.expiry * 1000).toLocaleDateString()}
               </div>
-              <div>
-                expiry {new Date(a.expiry * 1000).toLocaleString()}
-              </div>
-              {a.txHash && (
-                <div>
-                  tx{" "}
-                  <a
-                    href={sepoliaTx(a.txHash)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <code>{a.txHash.slice(0, 18)}…</code> ↗
-                  </a>
-                </div>
-              )}
               <VerifyLine txHash={a.txHash} />
               <div className="row">
-                <button onClick={() => refresh(a)}>Refresh onchain</button>
-                {!a.revoked && <button onClick={() => revoke(a)}>Revoke</button>}
-                <button onClick={() => hire(a)}>Hire</button>
+                {!a.revoked && (
+                  <>
+                    <button onClick={() => hire(a)}>Hire</button>
+                    <button onClick={() => revoke(a)}>Revoke</button>
+                  </>
+                )}
               </div>
             </div>
           );
@@ -276,6 +203,7 @@ export default function AgentMarket({
 }
 
 function OnboardForm({ onMinted }: { onMinted: (a: AgentRecord) => void }) {
+  const [open, setOpen] = useState(false);
   const [sublabel, setSublabel] = useState("");
   const [wallet, setWallet] = useState("");
   const [days, setDays] = useState("90");
@@ -338,34 +266,50 @@ function OnboardForm({ onMinted }: { onMinted: (a: AgentRecord) => void }) {
   }
 
   return (
-    <form onSubmit={mint} className="card">
-      <strong>List a new agent</strong>
-      <div className="muted">
-        Mints <code>sublabel.aegis.eth</code> via{" "}
-        <code>AegisRegistry.mintAgent</code> (Sepolia, window.ethereum).
-      </div>
-      <label>Sublabel (→ *.aegis.eth)</label>
-      <input
-        value={sublabel}
-        onChange={(e) => setSublabel(e.target.value)}
-        placeholder="sentinel-2"
-      />
-      <label>Agent wallet (0x…)</label>
-      <input
-        value={wallet}
-        onChange={(e) => setWallet(e.target.value)}
-        placeholder="0x…"
-      />
-      <label>Authorization expiry (days)</label>
-      <input
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-        inputMode="numeric"
-      />
-      <button type="submit" disabled={busy}>
-        {busy ? "Minting…" : isDeployed ? "Mint + list agent" : "List locally (no registry)"}
+    <div style={{ marginTop: 12 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          background: "none",
+          border: "none",
+          color: "var(--muted)",
+          fontSize: 13,
+          cursor: "pointer",
+          padding: 0,
+          marginTop: 0,
+          textDecoration: "underline",
+          textUnderlineOffset: "3px",
+        }}
+      >
+        {open ? "Hide" : "List a new agent"}
       </button>
-      <div className="status">{status}</div>
-    </form>
+      {open && (
+        <form onSubmit={mint} className="card" style={{ marginTop: 8 }}>
+          <label>Agent name</label>
+          <input
+            value={sublabel}
+            onChange={(e) => setSublabel(e.target.value)}
+            placeholder="sentinel-2"
+          />
+          <label>Agent wallet</label>
+          <input
+            value={wallet}
+            onChange={(e) => setWallet(e.target.value)}
+            placeholder="0x…"
+          />
+          <label>Expiry (days)</label>
+          <input
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            inputMode="numeric"
+          />
+          <button type="submit" disabled={busy}>
+            {busy ? "Minting…" : isDeployed ? "Mint agent" : "List locally"}
+          </button>
+          <div className="status">{status}</div>
+        </form>
+      )}
+    </div>
   );
 }

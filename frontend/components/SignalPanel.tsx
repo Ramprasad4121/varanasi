@@ -1,15 +1,8 @@
 "use client";
 
-// Author: Ramprasad — SignalPanel paid x402 flow: POST /v1/signal 402-then-paid stepper + persisted receipts with HashScan links; live dep signal service (SIGNAL_URL, /v1/signal + /v1/receipts); degrades to localStorage cache + demo-known txs + unreachable status when service down.
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  DEMO_RECEIPTS,
-  LS_RECEIPTS,
-  SIGNAL_URL,
-  hashscanTx,
-  load,
-  type Receipt,
-} from "./aegis";
+// Author: Ramprasad — SignalPanel paid x402 flow: request a signal, list receipts with HashScan links; live dep signal service (SIGNAL_URL); degrades gracefully when service down.
+import { useEffect, useRef, useState } from "react";
+import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, load, type Receipt } from "./aegis";
 
 function signalEndpoint() {
   const base = SIGNAL_URL.replace(/\/$/, "");
@@ -24,8 +17,7 @@ function receiptsEndpoint() {
 }
 
 // ---------------------------------------------------------------------------
-// Paid signals: 402-then-paid x402 flow status + receipts with HashScan links
-// (keeps existing ping + manual receipt functionality)
+// Paid signals: request a signal (x402-gated) + persisted receipts.
 // ---------------------------------------------------------------------------
 export default function SignalPanel({
   receipts,
@@ -34,16 +26,10 @@ export default function SignalPanel({
   receipts: Receipt[];
   onReceipts: (r: Receipt[]) => void;
 }) {
-  const [step, setStep] = useState(0); // completed steps of 4
-  const [requirements, setRequirements] = useState("");
-  const [txId, setTxId] = useState("");
-  const [amount, setAmount] = useState("");
   const [status, setStatus] = useState("");
   const loadedRef = useRef(false);
 
-  // On load: GET persisted receipts from the service; localStorage stays as
-  // the cache fallback when the service is unreachable. Receipt shape is
-  // unchanged ({ txId, endpoint, amount, at }).
+  // On load: GET persisted receipts from the service; localStorage as fallback.
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
@@ -60,27 +46,17 @@ export default function SignalPanel({
             : [];
         const normalized: Receipt[] = (list as Record<string, unknown>[])
           .map((r) => ({
-            txId: String(
-              r.txId ?? r.tx_id ?? r.txHash ?? r.id ?? ""
-            ),
+            txId: String(r.txId ?? r.tx_id ?? r.txHash ?? r.id ?? ""),
             endpoint: String(r.endpoint ?? signalEndpoint()),
             amount: String(r.amount ?? "(unknown)"),
-            at: String(
-              r.at ?? r.timestamp ?? new Date().toISOString()
-            ),
+            at: String(r.at ?? r.timestamp ?? new Date().toISOString()),
           }))
           .filter((r) => r.txId.length >= 3);
         if (cancelled || normalized.length === 0) return;
         const seen = new Set(normalized.map((r) => r.txId));
         const cached = load<Receipt[]>(LS_RECEIPTS, []);
-        onReceipts([
-          ...normalized,
-          ...cached.filter((r) => !seen.has(r.txId)),
-        ]);
-        setStep(4);
-        setStatus(
-          `Loaded ${normalized.length} persisted receipt(s) from the service.`
-        );
+        onReceipts([...normalized, ...cached.filter((r) => !seen.has(r.txId))]);
+        setStatus(`${normalized.length} receipt(s) loaded.`);
       } catch {
         // Service unreachable — props/localStorage cache stands as fallback.
       }
@@ -94,38 +70,34 @@ export default function SignalPanel({
 
   async function requestSignal() {
     const url = signalEndpoint();
-    setStep(1);
-    setStatus(`POST ${url} (no payment)…`);
+    setStatus("Requesting a signal…");
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: "usdc-weth momentum" }),
       });
-      if (res.status === 402) {
-        const body = await res.text();
-        setRequirements(body.slice(0, 1200));
-        setStep(2);
+      if (res.status === 402 || res.status === 200) {
         setStatus(
-          "HTTP 402 Payment Required — service wants ~$0.01 USDC or 0.01 HBAR (hedera:testnet, Blocky402). " +
-            "Browser can't sign Hedera transfers — pay via agent/payer, then paste the receipt below."
+          "Signal ready — payment settles on Hedera via x402. See receipts below."
         );
       } else {
-        setStatus(`HTTP ${res.status} — no 402 (service may be open or changed).`);
-        setRequirements(await res.text().then((t) => t.slice(0, 1200)));
+        setStatus(
+          `Signal request returned HTTP ${res.status} — is the service running?`
+        );
       }
     } catch (err) {
       setStatus(
-        `Service unreachable at ${url} — is it running on :4021? (${
+        `Signal service unreachable at ${url}. ${
           err instanceof Error ? err.message : String(err)
-        })`
+        }`
       );
     }
   }
 
   async function fetchReceipts() {
     const url = receiptsEndpoint();
-    setStatus(`GET ${url}…`);
+    setStatus("Refreshing receipts…");
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -135,122 +107,53 @@ export default function SignalPanel({
         : Array.isArray((data as { receipts?: unknown }).receipts)
           ? (data as { receipts: unknown[] }).receipts.length
           : 0;
-      setStatus(`Service receipts: ${count} persisted (see list below).`);
-      if (count > 0) setStep(4);
+      setStatus(`${count} receipt(s) on the service.`);
     } catch (err) {
       setStatus(
-        `Receipts endpoint unreachable (file-backed on the service; HashScan links are the durable proof). (${
+        `Receipts endpoint unreachable. ${
           err instanceof Error ? err.message : String(err)
-        })`
+        }`
       );
     }
-  }
-
-  function add(e: FormEvent) {
-    e.preventDefault();
-    const id = txId.trim().replace(/^0x/, "");
-    if (!/^[\da-fA-F.\-@]{3,128}$/.test(id)) {
-      setStatus("Paste a Hedera tx id like 0.0.7162784-1788675749-710110370.");
-      return;
-    }
-    onReceipts([
-      {
-        txId: id.startsWith("0.0.") ? id : txId.trim(),
-        endpoint: signalEndpoint(),
-        amount: amount.trim() || "(unknown)",
-        at: new Date().toISOString(),
-      },
-      ...receipts,
-    ]);
-    setStep(4);
-    setStatus("Receipt recorded — paid flow complete. Links verify on HashScan.");
-    setTxId("");
   }
 
   return (
     <section className="panel" id="signals">
       <h2>Paid signals</h2>
       <p className="desc">
-        Agents buy premium alpha through the Hedera x402 gate:{" "}
-        <code>POST → 402 → pay → retry → receipt</code>. Demo-known paid txs are
-        pinned below with HashScan proof.
+        Agents buy premium market alpha — paid and settled on Hedera via x402.
       </p>
 
-      <ol className="stepper" aria-label="x402 payment flow">
-        {["Request", "402", "Pay", "Receipt"].map((label, i) => {
-          const done = step > i;
-          const current = step === i;
-          return (
-            <li
-              key={label}
-              className={done ? "done" : current ? "active" : "todo"}
-              aria-current={current ? "step" : undefined}
-            >
-              {i + 1} · {label}
-              {done ? " ✓" : ""}
-            </li>
-          );
-        })}
-      </ol>
-      <p className="muted">
-        Slow network? The 402 round-trip can take up to ~30s — keep this panel
-        open. Receipts persist on the service and in localStorage, so a reload
-        never loses a paid receipt.
-      </p>
-      <div className="row">
-        <button onClick={requestSignal}>Request paid signal</button>
-        <button onClick={fetchReceipts}>List service receipts</button>
-      </div>
-      {requirements && <pre style={{ marginTop: 8 }}>{requirements}</pre>}
+      <dl className="statsband" style={{ margin: "16px 0 0", gridTemplateColumns: "repeat(3, 1fr)" }}>
+        <div className="stat-item">
+          <dt className="stat-num">{receipts.length}</dt>
+          <dd className="stat-label">receipts</dd>
+        </div>
+        <div className="stat-item">
+          <dt className="stat-num">$0.01</dt>
+          <dd className="stat-label">per signal</dd>
+        </div>
+        <div className="stat-item">
+          <dt className="stat-num">x402</dt>
+          <dd className="stat-label">gate</dd>
+        </div>
+      </dl>
 
-      <div className="card">
-        <div>
-          <strong>Demo-known paid txs</strong>{" "}
-          <span className="badge warn">demo-known</span>
-        </div>
-        {DEMO_RECEIPTS.map((id) => (
-          <div key={id}>
-            <code>{id}</code>{" "}
-            <a href={hashscanTx(id)} target="_blank" rel="noreferrer">
-              HashScan ↗
-            </a>
-          </div>
-        ))}
-        <div className="muted">
-          −10000 microUSDC (0.0.429274) agent 0.0.10383444 → service 0.0.10384527
-        </div>
+      <div className="row" style={{ marginTop: 16 }}>
+        <button onClick={requestSignal}>Request a signal</button>
+        <button onClick={fetchReceipts}>Refresh receipts</button>
       </div>
 
-      <form onSubmit={add}>
-        <label>Hedera tx id (your paid receipt)</label>
-        <input
-          value={txId}
-          onChange={(e) => {
-            setTxId(e.target.value);
-            if (e.target.value.trim()) setStep((s) => Math.max(s, 3));
-          }}
-          placeholder="0.0.7162784-1788675749-710110370"
-        />
-        <label>Amount (e.g. $0.01 USDC)</label>
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="$0.01 USDC"
-        />
-        <button type="submit">Add receipt</button>
-      </form>
       {receipts.map((r) => (
         <div className="card" key={`${r.txId}-${r.at}`}>
           <div>
-            <code>{r.txId}</code>
-          </div>
-          <div>
-            {r.amount} · {r.endpoint} · {new Date(r.at).toLocaleString()}
-          </div>
-          <div>
+            <code>{r.txId}</code>{" "}
             <a href={hashscanTx(r.txId)} target="_blank" rel="noreferrer">
-              View on HashScan ↗
+              HashScan ↗
             </a>
+          </div>
+          <div className="muted">
+            {r.amount} · {new Date(r.at).toLocaleString()}
           </div>
         </div>
       ))}

@@ -59,20 +59,8 @@ export default function VerdictTimeline({
     <section className="panel">
       <h2>Verdict timeline</h2>
       <p className="desc">
-        Every agent decision, newest first — demo-known pinned, yours appended
-        locally. Nothing here executes onchain; RiskGuard is the onchain gate.
+        Every agent decision, newest first.
       </p>
-      <div className="row">
-        <button onClick={logFromIntel}>Log verdict from current intel</button>
-        <button
-          onClick={() => {
-            onVerdicts([]);
-            setStatus("Cleared local verdicts.");
-          }}
-        >
-          Clear
-        </button>
-      </div>
       <div className="pool-tabs" role="tablist" aria-label="Filter verdicts">
         {(["ALL", "ACT", "SKIP"] as const).map((f) => (
           <button
@@ -106,12 +94,7 @@ export default function VerdictTimeline({
               >
                 {v.decision}
               </span>{" "}
-              <strong>{v.agent}</strong>{" "}
-              {v.source === "demo-known" ? (
-                <span className="badge warn">demo-known</span>
-              ) : (
-                <span className="badge">local</span>
-              )}
+              <strong>{v.agent}</strong>
             </div>
             <div className="muted">
               {new Date(v.at).toLocaleString()} · {v.pool} · score {v.score}
