@@ -22,6 +22,71 @@ import {
 } from "./aegis";
 import HireWizard, { type HireClient } from "./HireWizard";
 
+// The bench: the three demo worker archetypes (mirror agent/src/workers/*
+// and `hire --agent <name>`) waiting to be picked. A seat reads "on the job"
+// once the user has hired an agent whose name starts with that archetype —
+// derived from the agent list, no new state, nothing faked.
+const BENCH = [
+  { key: "scout", label: "Scout", role: "Finds the pools worth your money." },
+  { key: "analyst", label: "Analyst", role: "Scores risk before a cent moves." },
+  { key: "freelancer", label: "Freelancer", role: "Does the work, settles escrow." },
+];
+
+function Bench({
+  agents,
+  onHire,
+}: {
+  agents: AgentRecord[];
+  onHire: (a: AgentRecord) => void;
+}) {
+  const onJob = (key: string) =>
+    agents.some(
+      (a) => !a.revoked && a.sublabel.toLowerCase().startsWith(key)
+    );
+  const waiting = BENCH.filter((b) => !onJob(b.key)).length;
+  return (
+    <div className="bench">
+      <div className="bench-head">
+        <span className="bench-title">On the bench</span>
+        <span className="muted">
+          {waiting} waiting · {BENCH.length - waiting} on the job
+        </span>
+      </div>
+      <div className="bench-seats">
+        {BENCH.map((b) => {
+          const busy = onJob(b.key);
+          return (
+            <div className="bench-seat" key={b.key}>
+              <span className={`bench-dot${busy ? " busy" : ""}`} aria-hidden />
+              <div>
+                <strong>{b.label}</strong>
+                <div className="muted">{b.role}</div>
+                {busy ? (
+                  <div className="bench-state ok">On the job ✓</div>
+                ) : (
+                  <button
+                    type="button"
+                    className="bench-hire"
+                    onClick={() =>
+                      onHire({
+                        sublabel: `${b.key}-1`,
+                        wallet: "",
+                        expiry: Math.floor(Date.now() / 1000) + 90 * 86400,
+                      })
+                    }
+                  >
+                    Hire {b.label}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Per-card: one clean Etherscan link.
 function VerifyLine({ txHash }: { txHash?: string }) {
   if (!txHash) return null;
@@ -147,6 +212,8 @@ export default function AgentMarket({
         Each agent is an ENSv2 subname with an expiring, revocable onchain
         authorization.
       </p>
+
+      <Bench agents={agents} onHire={hire} />
 
       {/* Featured agent */}
       <div className="card featured" id="featured-agent">

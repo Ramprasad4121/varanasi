@@ -35,7 +35,7 @@ const STATS = [
     image: "/images/figure-builder.jpg",
   },
   {
-    value: "243/243",
+    value: "244/244",
     label: "Tests green",
     href: "https://github.com/Ramprasad4121/varanasi",
     proof: "GitHub",
