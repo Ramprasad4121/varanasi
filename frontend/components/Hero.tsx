@@ -99,6 +99,96 @@ const ZEROS = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// Decorative Indian micro-motifs (inline SVG, no image files, aria-hidden).
+// JaaliStrip: diamond-lattice geometry band. LotusDivider: hairline rule
+// with a centered lotus micro-motif. DiyaMark: tiny flame for the kicker.
+// ---------------------------------------------------------------------------
+function JaaliStrip({ id }: { id: string }) {
+  return (
+    <svg
+      className="jaali-strip"
+      aria-hidden="true"
+      focusable="false"
+      style={{ marginTop: 44 }}
+    >
+      <defs>
+        <pattern
+          id={id}
+          width="28"
+          height="14"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M14 1 L27 7 L14 13 L1 7 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+          <circle cx="14" cy="7" r="1.4" fill="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+function LotusDivider() {
+  return (
+    <div className="motif-divider" aria-hidden="true" style={{ marginTop: 44 }}>
+      <svg
+        width="34"
+        height="16"
+        viewBox="0 0 34 16"
+        fill="none"
+        focusable="false"
+      >
+        <path d="M17 1 C19 5 19 9 17 13 C15 9 15 5 17 1 Z" fill="currentColor" />
+        <path
+          d="M8 3 C11 5 12.5 8.5 12 13 C8.5 12 6.5 8 8 3 Z"
+          fill="currentColor"
+          opacity="0.7"
+        />
+        <path
+          d="M26 3 C27.5 8 25.5 12 22 13 C21.5 8.5 23 5 26 3 Z"
+          fill="currentColor"
+          opacity="0.7"
+        />
+        <path
+          d="M1 6 C4 6.5 6.5 8.5 7.5 12 C4 11.5 1.5 9 1 6 Z"
+          fill="currentColor"
+          opacity="0.45"
+        />
+        <path
+          d="M33 6 C32.5 9 30 11.5 26.5 12 C27.5 8.5 30 6.5 33 6 Z"
+          fill="currentColor"
+          opacity="0.45"
+        />
+        <circle cx="17" cy="14.5" r="1" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
+function DiyaMark() {
+  return (
+    <svg
+      width="12"
+      height="14"
+      viewBox="0 0 12 14"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M6 0 C7.5 2.5 8.5 4.5 8.5 6.5 A2.5 2.5 0 0 1 3.5 6.5 C3.5 4.5 4.5 2.5 6 0 Z"
+        fill="#E8930C"
+      />
+      <path d="M1 10 H11 C11 12.5 8.5 14 6 14 C3.5 14 1 12.5 1 10 Z" fill="#7B1E1E" />
+    </svg>
+  );
+}
+
 export default function Hero({
   agentCount,
   authorizedCount,
@@ -128,6 +218,7 @@ export default function Hero({
     <section className="hero hero-x402">
       <div className="hero-main">
         <div className="kicker">
+          <DiyaMark />
           Agent marketplace · ETHOnline 2026 · Sepolia + Hedera testnet
         </div>
         <h1 className="pitch">Authorize the Agent.</h1>
@@ -154,6 +245,13 @@ export default function Hero({
             Read the proof
           </a>
           <span className={`badge ${isDeployed ? "ok" : "warn"}`}>
+            {isDeployed && (
+              <span
+                className="livedot pulse"
+                aria-hidden="true"
+                style={{ marginRight: 6, verticalAlign: "1px" }}
+              />
+            )}
             {isDeployed ? "live" : "not deployed yet"}
           </span>
         </div>
@@ -164,6 +262,7 @@ export default function Hero({
               <dt className="stat-label">{s.label}</dt>
               <dd className="stat-num">{s.value}</dd>
               <dd className="hero-live">
+                <span className="livedot" aria-hidden="true" />
                 <a href={s.href} target="_blank" rel="noreferrer">
                   live · {s.proof} ↗
                 </a>
@@ -182,6 +281,8 @@ export default function Hero({
           ))}
         </div>
 
+        <JaaliStrip id="varanasi-jaali-hero" />
+
         <div className="hero-code">
           <div className="hero-code-head">
             <span className="muted">Run the full agent loop</span>
@@ -198,6 +299,8 @@ export default function Hero({
             <code>{QUICKSTART}</code>
           </pre>
         </div>
+
+        <LotusDivider />
 
         <div className="hero-oldnew">
           <div className="hero-col hero-col-old">
@@ -238,6 +341,13 @@ export default function Hero({
         </div>
         <div className="stat">
           <span className={`badge ${isDeployed ? "ok" : "warn"}`}>
+            {isDeployed && (
+              <span
+                className="livedot pulse"
+                aria-hidden="true"
+                style={{ marginRight: 6, verticalAlign: "1px" }}
+              />
+            )}
             {isDeployed ? "live" : "not deployed yet"}
           </span>
         </div>

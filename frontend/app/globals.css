@@ -1,11 +1,39 @@
+/* Author: Ramprasad — varanasi global theme: ivory arena, deep maroon + turmeric accents, inscriptional serif display + clean sans body (system stacks only, offline-safe). */
+
+:root {
+  --ivory: #FAF7F0;
+  --card: #FFFDF8;
+  --ink: #1C1512;
+  --ink-soft: #55504A;
+  --muted: #6F6257;
+  --hairline: #E5DCCB;
+  --hairline-soft: #EDE6D6;
+  --maroon: #7B1E1E;
+  --maroon-deep: #5E1414;
+  --maroon-wash: #F7E9E4;
+  --turmeric: #E8930C;
+  --turmeric-soft: #FBF0D9;
+  --leaf: #1E7A34;
+  --leaf-wash: #EAF6EC;
+  --display-serif: Georgia, "Palatino Linotype", "Book Antiqua", "Noto Serif", "Nirmala UI", serif;
+  --body-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: var(--body-sans);
   margin: 0;
-  background: #FAFAF8;
-  color: #141412;
+  background: var(--ivory);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--turmeric-soft); color: var(--maroon-deep); }
+
+/* Display serif: inscriptional voice for headlines + big numbers. */
+.display, .pitch, .panel h2, .feature-card h2, .brand, .stat-num {
+  font-family: var(--display-serif);
 }
 
 /* Airy top nav: logo left, links center, sign-in pill right. */
@@ -14,8 +42,8 @@ body {
   gap: 24px;
   align-items: center;
   padding: 16px 28px;
-  border-bottom: 1px solid #E7E5DE;
-  background: rgba(250, 250, 248, 0.92);
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(250, 247, 240, 0.92);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -25,77 +53,82 @@ body {
 }
 .brand {
   font-weight: 700;
-  font-size: 20px;
-  letter-spacing: -0.02em;
-  color: #141412;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
 }
+/* Diya-flame brand mark: turmeric flame over a maroon dish (inline SVG in layout). */
+.brand-mark { display: inline-flex; flex: none; }
 .navlinks { display: flex; gap: 22px; margin-left: 12px; }
 .navlinks a {
-  color: #55554E;
+  color: var(--ink-soft);
   text-decoration: none;
   font-size: 14.5px;
 }
-.navlinks a:hover { color: #141412; }
+.navlinks a:hover { color: var(--maroon); }
 .signin {
   margin-left: auto;
   font-size: 14px;
   font-weight: 600;
-  color: #FAFAF8;
-  background: #141412;
-  border: 1px solid #141412;
+  color: var(--ivory);
+  background: var(--maroon);
+  border: 1px solid var(--maroon);
   border-radius: 999px;
   padding: 9px 20px;
   text-decoration: none;
   white-space: nowrap;
 }
-.signin:hover { background: #2c2c28; }
+.signin:hover { background: var(--maroon-deep); border-color: var(--maroon-deep); }
 @media (max-width: 640px) {
   .topbar { padding: 12px 16px; gap: 14px; }
   .navlinks { gap: 14px; margin-left: 0; }
 }
 
-.muted { color: #6E6E68; font-size: 13px; }
+.muted { color: var(--muted); font-size: 13px; }
 .wrap { max-width: 1160px; margin: 0 auto; padding: 56px 28px 32px; }
 @media (max-width: 640px) { .wrap { padding: 36px 16px 24px; } }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
-/* Light cards with subtle borders. */
+/* Light cards with warm hairline borders. */
 .panel {
-  background: #FFFFFF;
-  border: 1px solid #E7E5DE;
+  background: var(--card);
+  border: 1px solid var(--hairline);
   border-radius: 16px;
   padding: 28px;
 }
-.panel h2 { margin: 0 0 6px; font-size: 21px; letter-spacing: -0.01em; }
-.panel p.desc { margin: 0 0 16px; color: #6E6E68; font-size: 14px; line-height: 1.6; }
+.panel h2 { margin: 0 0 6px; font-size: 23px; letter-spacing: -0.01em; font-weight: 700; color: var(--ink); }
+.panel p.desc { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.6; }
 
-label { display: block; font-size: 13px; margin: 10px 0 5px; color: #55554E; font-weight: 600; }
+label { display: block; font-size: 13px; margin: 10px 0 5px; color: var(--ink-soft); font-weight: 600; }
 input, textarea, button { font-size: 14px; border-radius: 10px; }
 input, textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #E0DED6;
+  border: 1px solid var(--hairline);
   background: #FFFFFF;
-  color: #141412;
+  color: var(--ink);
 }
-input::placeholder, textarea::placeholder { color: #A9A9A2; }
+input::placeholder, textarea::placeholder { color: #A8A094; }
 textarea { min-height: 110px; font-family: ui-monospace, monospace; }
 button {
   margin-top: 10px;
   padding: 10px 18px;
-  border: 1px solid #E0DED6;
+  border: 1px solid var(--hairline);
   background: #FFFFFF;
-  color: #141412;
+  color: var(--ink);
   cursor: pointer;
   font-weight: 600;
   min-height: 44px;
 }
-button:hover { border-color: #141412; }
+button:hover { border-color: var(--maroon); color: var(--maroon-deep); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 2px solid #141412;
+  outline: 2px solid var(--maroon);
   outline-offset: 2px;
 }
 
@@ -106,19 +139,38 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid #E0DED6;
-  background: #F3F2ED;
-  color: #55554E;
+  border: 1px solid var(--hairline);
+  background: #F3EEE2;
+  color: var(--ink-soft);
 }
-.ok { color: #1E7A34; }
+.ok { color: var(--leaf); }
 .warn { color: #8A6100; }
 .bad { color: #B3261E; }
-.badge.ok { background: #EAF6EC; border-color: #BFE3C6; }
-.badge.warn { background: #FBF3DF; border-color: #EBD9A8; }
+.badge.ok { background: var(--leaf-wash); border-color: #BFE3C6; }
+.badge.warn { background: var(--turmeric-soft); border-color: #EBD9A8; }
 .badge.bad { background: #FBEAEA; border-color: #F0C4C4; }
 
+/* Diya-flame live dot: turmeric heart, maroon halo — marks live/onchain status. */
+.livedot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: radial-gradient(circle at 35% 35%, #F7C04A 0%, var(--turmeric) 55%, var(--maroon) 130%);
+  box-shadow: 0 0 0 3px rgba(232, 147, 12, 0.18);
+  flex: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .livedot.pulse { animation: diya-flicker 2.6s ease-in-out infinite; }
+  @keyframes diya-flicker {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(232, 147, 12, 0.18); }
+    50% { box-shadow: 0 0 0 5px rgba(232, 147, 12, 0.10); }
+  }
+}
+
 .card {
-  border: 1px solid #E7E5DE;
+  border: 1px solid var(--hairline);
   border-radius: 12px;
   padding: 16px;
   margin-top: 12px;
@@ -127,25 +179,46 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   line-height: 1.6;
 }
 .card code { word-break: break-all; }
-a { color: #141412; }
+a { color: var(--ink); }
 .panel a, .card a, .hero a, .footer a { text-decoration: underline; text-underline-offset: 3px; }
+.panel a:hover, .card a:hover, .hero a:hover, .footer a:hover { color: var(--maroon); }
 .navlinks a, .brand, .signin, .btn-solid, .btn-outline, .tab { text-decoration: none; }
-.status { font-size: 13px; margin-top: 10px; min-height: 18px; color: #55554E; }
+.status { font-size: 13px; margin-top: 10px; min-height: 18px; color: var(--ink-soft); }
 pre {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 12.5px;
-  background: #F3F2ED;
-  border: 1px solid #E7E5DE;
+  background: #F4EFE3;
+  border: 1px solid var(--hairline);
   border-radius: 10px;
   padding: 12px;
-  color: #33332E;
+  color: #3A332C;
 }
 code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.92em; }
-.envline { font-size: 12px; color: #6E6E68; }
+.envline { font-size: 12px; color: var(--muted); }
 
-/* Footer columns: Build / Proof / Project. */
-.footer { border-top: 1px solid #E7E5DE; margin-top: 64px; }
+/* Jaali-lattice strip: geometry band rendered by inline SVG in markup. */
+.jaali-strip { display: block; width: 100%; height: 14px; color: var(--maroon); opacity: 0.55; }
+.jaali-strip.tight { height: 10px; opacity: 0.4; }
+
+/* Section divider: hairline + centered lotus/paisley micro-motif (inline SVG). */
+.motif-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  color: var(--maroon);
+}
+.motif-divider::before, .motif-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--hairline);
+}
+.motif-divider svg { flex: none; opacity: 0.85; }
+
+/* Footer columns: Build / Proof / Project, closed by a maroon band. */
+.footer { border-top: 2px solid var(--maroon); margin-top: 64px; background: var(--card); }
 .footer-inner {
   max-width: 1160px;
   margin: 0 auto;
@@ -155,6 +228,22 @@ code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.92em; 
   gap: 24px;
 }
 .footer-col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.footer-col h3 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #6E6E68; }
+.footer-col h3 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--maroon); }
 .footer-col a { font-size: 14px; }
-@media (max-width: 640px) { .footer-inner { grid-template-columns: 1fr; padding: 32px 16px 40px; } }
+.footer-note {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 28px 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .footer-inner { grid-template-columns: 1fr; padding: 32px 16px 40px; }
+  .footer-note { padding: 0 16px 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
