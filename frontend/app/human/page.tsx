@@ -129,6 +129,9 @@ export default function HumanPage() {
             <a href="/" style={{ alignSelf: "center" }}>
               ← Back to the varanasi dashboard
             </a>
+            <a href="/#hire-wizard" style={{ alignSelf: "center" }}>
+              Hire an agent →
+            </a>
           </div>
         </div>
       )}

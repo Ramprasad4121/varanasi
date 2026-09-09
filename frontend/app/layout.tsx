@@ -71,6 +71,19 @@ export default function RootLayout({
                 Hire
               </a>
               <AuthSlot />
+              {/* Mobile menu: <details> needs no JS. Hidden on desktop. */}
+              <details className="mnav">
+                <summary aria-label="Open menu">☰</summary>
+                <nav aria-label="Mobile">
+                  <a href="/#agents">Agents</a>
+                  <a href="/#how-it-works">How it works</a>
+                  <a href="/proof">Proof</a>
+                  <a href="/mandate">Mandate</a>
+                  <a href="/about">About</a>
+                  <a href="/account">Vault</a>
+                  <a href="/#hire-wizard">Hire →</a>
+                </nav>
+              </details>
             </div>
           </header>
 
@@ -100,6 +113,9 @@ export default function RootLayout({
                 </a>
                 <a href={`${DOCS_URL}/tree/main/agent`} target="_blank" rel="noreferrer">
                   Agent SDK ↗
+                </a>
+                <a href={`${DOCS_URL}/blob/main/PROMPT.md`} target="_blank" rel="noreferrer">
+                  Agent prompt ↗
                 </a>
               </div>
               <div className="footer-col">
