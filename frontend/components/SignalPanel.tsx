@@ -77,9 +77,17 @@ export default function SignalPanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query: "usdc-weth momentum" }),
       });
-      if (res.status === 402 || res.status === 200) {
+      if (res.status === 402) {
+        // Honest 402: the gate asked for payment and the browser cannot sign
+        // a Hedera x402 payment — nothing was paid, no signal received.
         setStatus(
-          "Signal ready — payment settles on Hedera via x402. See receipts below."
+          "Payment required ($0.01 x402) and the browser cannot sign it yet — " +
+            "nothing was charged. Run the agent loop (agent/ CLI) to pay and " +
+            "settle, then Refresh receipts."
+        );
+      } else if (res.status === 200) {
+        setStatus(
+          "Signal paid and settled on Hedera via x402. See receipts below."
         );
       } else {
         setStatus(
