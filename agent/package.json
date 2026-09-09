@@ -18,7 +18,7 @@
     "@noble/curves": "2.4.0",
     "@x402/fetch": "^2.25.0",
     "@x402/hedera": "^2.25.0",
-    "commander": "^12.1.0",
+    "commander": "^15.0.0",
     "dotenv": "^16.4.5",
     "graphql-request": "^7.1.2",
     "viem": "^2.23.0"
