@@ -21,7 +21,11 @@ jobs:
       run:
         working-directory: contracts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          # Forge deps (forge-std, v4-core, v4-periphery) are git submodules —
+          # without this, contracts/lib/* is empty and forge build fails.
+          submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
@@ -36,8 +40,8 @@ jobs:
       run:
         working-directory: agent
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -53,8 +57,8 @@ jobs:
       run:
         working-directory: service
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -70,8 +74,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -85,8 +89,14 @@ jobs:
   secrets:
     name: secrets scan (gitleaks)
     runs-on: ubuntu-latest
+    # gitleaks-action v3 requires the token to scope the scan on PRs.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
