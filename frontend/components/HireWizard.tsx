@@ -485,7 +485,8 @@ function HireWizardInner({
         args: [
           sublabel.trim().toLowerCase(),
           mandate.agent,
-          mandate.expiry,
+          // Contract takes expiry DAYS, not the mandate timestamp.
+          BigInt(Math.max(1, Math.floor(Number(expiryDays) || 7))),
         ],
       });
       const hash = await wc.sendTransaction({

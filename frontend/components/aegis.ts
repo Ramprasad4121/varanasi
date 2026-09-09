@@ -19,34 +19,47 @@ export const GRAPH_API_KEY = process.env.NEXT_PUBLIC_GRAPH_API_KEY ?? "";
 const ZERO = "0x0000000000000000000000000000000000000000";
 export const isDeployed = Boolean(REGISTRY) && REGISTRY.toLowerCase() !== ZERO;
 
-// --- Minimal AegisRegistry surface (contracts/AegisRegistry.sol) ---
+// --- Minimal AegisRegistry surface (contracts/src/AegisRegistry.sol) ---
+// Verified against the deployed contract: mintAgent takes expiry DAYS
+// (uint256, <= MAX_EXPIRY_DAYS), revoke-by-label is revokeAgentByLabel,
+// and there is no agentOf(string) — reads go through tokenByLabelHash.
 export const REGISTRY_ABI = [
   {
     inputs: [
       { name: "sublabel", type: "string" },
       { name: "agentWallet", type: "address" },
-      { name: "expiry", type: "uint64" },
+      { name: "expiryDays", type: "uint256" },
     ],
     name: "mintAgent",
-    outputs: [],
+    outputs: [{ name: "tokenId", type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
     inputs: [{ name: "sublabel", type: "string" }],
-    name: "revokeAgent",
+    name: "revokeAgentByLabel",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [{ name: "sublabel", type: "string" }],
-    name: "agentOf",
-    outputs: [
-      { name: "wallet", type: "address" },
-      { name: "expiry", type: "uint64" },
-      { name: "revoked", type: "bool" },
-    ],
+    inputs: [{ name: "", type: "bytes32" }],
+    name: "tokenByLabelHash",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "", type: "uint256" }],
+    name: "expiry",
+    outputs: [{ name: "", type: "uint64" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "", type: "uint256" }],
+    name: "revoked",
+    outputs: [{ name: "", type: "bool" }],
     stateMutability: "view",
     type: "function",
   },
@@ -183,12 +196,13 @@ export function seedVerdicts(): Verdict[] {
   ];
 }
 
-// viem public-client structural type (avoids exporting concrete generics)
+// viem public-client structural type (avoids exporting concrete generics).
+// Loose on purpose: callers cast each read to its expected shape.
 export type PublicClientLike = {
   readContract: (args: {
     address: `0x${string}`;
     abi: typeof REGISTRY_ABI;
-    functionName: "agentOf";
-    args: [string];
-  }) => Promise<readonly [`0x${string}`, bigint, boolean]>;
+    functionName: string;
+    args?: readonly unknown[];
+  }) => Promise<unknown>;
 };
