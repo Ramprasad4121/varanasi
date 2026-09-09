@@ -1,0 +1,6 @@
+# Author: Ramprasad — gitleaks config for varanasi.
+# Committed *.env.example files contain only obvious placeholders
+# (0.0.XXXX, YOUR_KEY, truncated hex) — never real secrets (see README:
+# "Never commit keys"; .env / .env.local are gitignored).
+[allowlist]
+paths = ['''.*\.env\.example$''']

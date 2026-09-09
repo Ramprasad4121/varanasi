@@ -1,0 +1,24 @@
+# Author: Ramprasad — weekly dependency updates, one small PR per package.
+# Review like any other PR: CI must stay green before merging.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /agent
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: npm
+    directory: /service
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
