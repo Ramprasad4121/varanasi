@@ -385,6 +385,26 @@
 .market .span { grid-column: 1 / -1; }
 .market .panel { scroll-margin-top: 90px; }
 
+/* Closing CTA: centered, arena floor behind, nothing else. */
+.cta {
+  position: relative;
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 32px;
+}
+.cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/images/hero-arena.jpg") center 72% / cover no-repeat;
+  opacity: 0.28;
+  pointer-events: none;
+}
+.cta > * { position: relative; }
+.cta h2 { margin: 12px 0 8px; }
+.cta .row { justify-content: center; margin-top: 16px; }
+
 .pool-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .tab {
   margin-top: 8px;

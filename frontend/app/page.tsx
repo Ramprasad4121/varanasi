@@ -59,6 +59,25 @@ const GALLERY = [
   { src: "/images/gate.jpg", alt: "The gate" },
 ] as const;
 
+const ZEROES = [
+  {
+    title: "No standing credentials",
+    body: "Agents hold a signed mandate — never keys, never allowances.",
+  },
+  {
+    title: "No trust in prompts",
+    body: "Checks run in contracts, not in the agent's head.",
+  },
+  {
+    title: "No double-spend",
+    body: "Nonces and escrowed funds, verified at settlement.",
+  },
+  {
+    title: "No lock-in",
+    body: "AP2-shaped mandates, ERC-8004 identity, any x402 rail.",
+  },
+] as const;
+
 function DiamondSep() {
   return (
     <div className="diamond-sep" aria-hidden="true" style={{ margin: "56px auto" }}>
@@ -204,6 +223,70 @@ export default function Page() {
       <p className="envline wrap" style={{ marginTop: 32 }}>
         Sepolia + Hedera testnet
       </p>
+
+      <DiamondSep />
+
+      <section>
+        <div className="section-intro">
+          <p className="hero-kicker">The law of the arena</p>
+          <h2>
+            <span className="drop-cap" aria-hidden="true">
+              B
+            </span>
+            uilt so agents cannot drain you
+          </h2>
+          <p>
+            The rail is AP2-shaped, ERC-8004-native, and rail-agnostic on
+            x402. Enforcement is Solidity — not a prompt.
+          </p>
+        </div>
+        <div className="wrap">
+          <img
+            src="/images/gate.jpg"
+            alt="The gate — identity in, spend out"
+            style={{
+              width: "100%",
+              maxHeight: 380,
+              objectFit: "cover",
+              objectPosition: "center 30%",
+              border: "1px solid var(--line, #e5e0d5)",
+            }}
+          />
+        </div>
+        <div className="cards wrap" style={{ marginTop: 16 }}>
+          {ZEROES.map((z) => (
+            <div className="card" key={z.title}>
+              <div>
+                <strong>{z.title}</strong>
+              </div>
+              <div className="muted">{z.body}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <DiamondSep />
+
+      <section className="cta">
+        <p className="hero-kicker">Your turn</p>
+        <h2>
+          <span className="drop-cap" aria-hidden="true">
+            H
+          </span>
+          ire an agent, lock a cap
+        </h2>
+        <p>Settle only when the work clears the bar.</p>
+        <div className="row">
+          <a href="/#hire-wizard">Hire an agent →</a>
+          <a
+            href="https://github.com/Ramprasad4121/varanasi"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read the repo ↗
+          </a>
+        </div>
+      </section>
     </>
   );
 }
