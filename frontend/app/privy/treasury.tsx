@@ -15,6 +15,7 @@ import {
   type Address,
 } from "viem";
 import { sepolia } from "viem/chains";
+import { loadScoped, saveScoped } from "../../lib/vault";
 
 // ---------------------------------------------------------------------------
 // Env + constants
@@ -106,30 +107,15 @@ const LS_LEDGER = "aegis.privy.ledger";
 const LS_OPS = "aegis.privy.ops";
 const LS_ROLE = "aegis.privy.role";
 
-function load<T>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function save(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* private-mode: ignore */
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Treasury dashboard
 // ---------------------------------------------------------------------------
 export default function Treasury() {
-  const { ready, authenticated, login, logout } = usePrivy();
+  const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
   const wallet = wallets[0] ?? null; // embedded wallet (auto-created on login)
+  const userId = authenticated ? user?.id : undefined;
 
   const [ledger, setLedger] = useState<AgentLedger[]>([]);
   const [ops, setOps] = useState<Op[]>([]);
@@ -145,20 +131,21 @@ export default function Treasury() {
   const [days, setDays] = useState("90");
 
   useEffect(() => {
-    setLedger(load<AgentLedger[]>(LS_LEDGER, []));
-    setOps(load<Op[]>(LS_OPS, []));
-    setRole(load<Role>(LS_ROLE, "owner"));
+    setHydrated(false);
+    setLedger(loadScoped<AgentLedger[]>(userId, LS_LEDGER, []));
+    setOps(loadScoped<Op[]>(userId, LS_OPS, []));
+    setRole(loadScoped<Role>(userId, LS_ROLE, "owner"));
     setHydrated(true);
-  }, []);
+  }, [userId]);
   useEffect(() => {
-    if (hydrated) save(LS_LEDGER, ledger);
-  }, [ledger, hydrated]);
+    if (hydrated) saveScoped(userId, LS_LEDGER, ledger);
+  }, [ledger, hydrated, userId]);
   useEffect(() => {
-    if (hydrated) save(LS_OPS, ops);
-  }, [ops, hydrated]);
+    if (hydrated) saveScoped(userId, LS_OPS, ops);
+  }, [ops, hydrated, userId]);
   useEffect(() => {
-    if (hydrated) save(LS_ROLE, role);
-  }, [role, hydrated]);
+    if (hydrated) saveScoped(userId, LS_ROLE, role);
+  }, [role, hydrated, userId]);
 
   const publicClient = useMemo(
     () =>

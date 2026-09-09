@@ -1,5 +1,7 @@
-// Author: Ramprasad — Colosseum paper chrome: drop-cap wordmark, diamond nav, roman red hire CTA.
+// Author: Ramprasad — Colosseum paper chrome: drop-cap wordmark, diamond nav, roman red hire CTA, site-wide sign-in.
 import type { Metadata } from "next";
+import { AuthSlot } from "../components/AuthSlot";
+import { PrivyRoot } from "../components/PrivyRoot";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -45,70 +47,74 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
       <body className="paper-grain">
-        <header className="topbar">
-          <a className="brand" href="/">
-            <img src="/images/emblem.jpg" alt="" />
-            varanasi
-          </a>
-          <nav className="navlinks" aria-label="Primary">
-            <a href="/#agents">Agents</a>
-            <Diamond />
-            <a href="/#how-it-works">How it works</a>
-            <Diamond />
-            <a href="/#proof">Proof</a>
-            <Diamond />
-            <a href={DOCS_URL} target="_blank" rel="noreferrer">
-              Docs
+        <PrivyRoot>
+          <header className="topbar">
+            <a className="brand" href="/">
+              <img src="/images/emblem.jpg" alt="" />
+              varanasi
             </a>
-          </nav>
-          <a className="nav-cta" href="/#hire-wizard">
-            Hire
-          </a>
-        </header>
-
-        <main>{children}</main>
-
-        <DiamondSep />
-
-        <footer className="footer">
-          <div className="footer-inner">
-            <div className="footer-col">
-              <h3>Product</h3>
-              <a href="/#agents">Browse agents</a>
+            <nav className="navlinks" aria-label="Primary">
+              <a href="/#agents">Agents</a>
+              <Diamond />
               <a href="/#how-it-works">How it works</a>
-              <a href="/privy">Dashboard</a>
-            </div>
-            <div className="footer-col">
-              <h3>Developers</h3>
-              <a href={DOCS_URL} target="_blank" rel="noreferrer">
-                Documentation ↗
+              <Diamond />
+              <a href="/#proof">Proof</a>
+              <Diamond />
+              <a href="/account">Vault</a>
+            </nav>
+            <div className="topbar-actions">
+              <a className="nav-cta" href="/#hire-wizard">
+                Hire
               </a>
-              <a href={`${DOCS_URL}/tree/main/contracts`} target="_blank" rel="noreferrer">
-                Smart contracts ↗
-              </a>
-              <a href={`${DOCS_URL}/tree/main/agent`} target="_blank" rel="noreferrer">
-                Agent SDK ↗
-              </a>
+              <AuthSlot />
             </div>
-            <div className="footer-col">
-              <h3>Network</h3>
-              <a href="/human">Human verification</a>
-              <a href="/#proof">Proof of work</a>
+          </header>
+
+          <main>{children}</main>
+
+          <DiamondSep />
+
+          <footer className="footer">
+            <div className="footer-inner">
+              <div className="footer-col">
+                <h3>Product</h3>
+                <a href="/#agents">Browse agents</a>
+                <a href="/#how-it-works">How it works</a>
+                <a href="/account">Your vault</a>
+                <a href="/privy">Treasury</a>
+              </div>
+              <div className="footer-col">
+                <h3>Developers</h3>
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                  Documentation ↗
+                </a>
+                <a href={`${DOCS_URL}/tree/main/contracts`} target="_blank" rel="noreferrer">
+                  Smart contracts ↗
+                </a>
+                <a href={`${DOCS_URL}/tree/main/agent`} target="_blank" rel="noreferrer">
+                  Agent SDK ↗
+                </a>
+              </div>
+              <div className="footer-col">
+                <h3>Network</h3>
+                <a href="/human">Human verification</a>
+                <a href="/#proof">Proof of work</a>
+              </div>
+              <div className="footer-col">
+                <h3>Project</h3>
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                  GitHub ↗
+                </a>
+                <span className="muted">MIT License</span>
+                <span className="muted">Sepolia + Hedera testnet</span>
+              </div>
             </div>
-            <div className="footer-col">
-              <h3>Project</h3>
-              <a href={DOCS_URL} target="_blank" rel="noreferrer">
-                GitHub ↗
-              </a>
-              <span className="muted">MIT License</span>
-              <span className="muted">Sepolia + Hedera testnet</span>
+            <div className="footer-bottom">
+              <span>varanasi — the enforcement rail for agentic commerce</span>
+              <span>MIT · Ramprasad · Sepolia + Hedera</span>
             </div>
-          </div>
-          <div className="footer-bottom">
-            <span>varanasi — the enforcement rail for agentic commerce</span>
-            <span>MIT · Ramprasad · Sepolia + Hedera</span>
-          </div>
-        </footer>
+          </footer>
+        </PrivyRoot>
       </body>
     </html>
   );
