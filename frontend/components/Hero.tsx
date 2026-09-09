@@ -1,14 +1,11 @@
-// Author: Ramprasad — hero: colosseum.com grammar — one headline, one CTA, stats band.
+// Author: Ramprasad — Colosseum hero: blackletter drop cap, amphitheatre engraving, event card, illustrated stats.
 "use client";
 
 import {
   DEMO_MINT_TX,
   DEMO_RECEIPTS,
-  REGISTRY,
-  RISK_GUARD,
   hashscanTx,
   isDeployed,
-  sepoliaAddress,
   sepoliaTx,
 } from "./aegis";
 
@@ -21,24 +18,28 @@ const STATS = [
     label: "Escrows released",
     href: sepoliaTx(ESCROW_RELEASE_TX),
     proof: "Etherscan",
+    image: "/images/trophy.jpg",
   },
   {
     value: "3+",
     label: "x402 payments",
     href: hashscanTx(DEMO_RECEIPTS[0]),
     proof: "HashScan",
+    image: "/images/eagle.jpg",
   },
   {
     value: "2",
     label: "Agent identities",
     href: sepoliaTx(DEMO_MINT_TX),
     proof: "Etherscan",
+    image: "/images/figure-builder.jpg",
   },
   {
-    value: "132/132",
+    value: "243/243",
     label: "Tests green",
-    href: sepoliaAddress(REGISTRY),
-    proof: "Etherscan",
+    href: "https://github.com/Ramprasad4121/varanasi",
+    proof: "GitHub",
+    image: "/images/scales.jpg",
   },
 ] as const;
 
@@ -51,35 +52,68 @@ export default function Hero({
 }) {
   return (
     <section className="hero">
-      <div className="hero-kicker">
-        Agent marketplace · Sepolia + Hedera testnet
+      <div className="hero-arena" aria-hidden="true">
+        <img src="/images/hero-arena.jpg" alt="" />
       </div>
-      <h1 className="hero-headline">Authorize the Agent.</h1>
-      <p className="hero-sub">
-        The enforcement rail for agentic commerce. Mandates verified at
-        settlement, reputation grounded in payment, release gated on proof.
-        Never hand over keys.
-      </p>
-      <div className="hero-cta">
-        <a className="btn-solid" href="#agents">
-          Browse agents
-        </a>
-        <a
-          className="btn-outline"
-          href="https://github.com/Ramprasad4121/varanasi"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Read the docs
-        </a>
-        <span className={`badge ${isDeployed ? "ok" : "warn"}`}>
-          {isDeployed ? "live on Sepolia" : "not deployed yet"}
-        </span>
+
+      <div className="hero-grid">
+        <div className="hero-copy">
+          <div className="hero-kicker">The arena for agentic commerce</div>
+          <h1 className="hero-headline">
+            <span className="drop-cap" aria-hidden="true">
+              H
+            </span>
+            ire an AI agent. Pay only on proof.
+          </h1>
+          <p className="hero-sub">
+            Set a spending cap. The agent works inside it. Miss the bar — you are
+            refunded. Never hand over keys.
+          </p>
+          <div className="hero-cta">
+            <a className="btn-solid" href="#hire-wizard">
+              Enter the arena
+            </a>
+            <a
+              className="btn-outline"
+              href="https://github.com/Ramprasad4121/varanasi"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Read the docs
+            </a>
+            <span className={`badge ${isDeployed ? "ok" : "warn"}`}>
+              {isDeployed ? "live on Sepolia" : "not deployed yet"}
+            </span>
+          </div>
+        </div>
+
+        <aside className="event-card">
+          <div className="event-art">
+            <img src="/images/palace.jpg" alt="" />
+            <span>Open arena</span>
+          </div>
+          <div className="event-body">
+            <p className="event-kicker">Sepolia + Hedera</p>
+            <h2>Mandate, fund, settle</h2>
+            <p>
+              Live proofs already onchain. Hire Scout, Analyst, or Freelancer —
+              the escrow enforces the bar. {authorizedCount} authorized · {agentCount} listed.
+            </p>
+            <div className="event-live">
+              <strong>Live</strong>
+              <span>escrow · identity · x402</span>
+            </div>
+            <a className="btn-solid" href="#hire-wizard">
+              Hire an agent
+            </a>
+          </div>
+        </aside>
       </div>
 
       <dl className="statsband">
         {STATS.map((s) => (
           <div className="stat-item" key={s.label}>
+            <img className="stat-plate" src={s.image} alt="" />
             <dt className="stat-num">{s.value}</dt>
             <dd className="stat-label">{s.label}</dd>
             <dd className="stat-link">
