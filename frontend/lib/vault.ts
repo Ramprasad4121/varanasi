@@ -37,6 +37,13 @@ export function loadScoped<T>(userId: string | undefined, base: string, fallback
     const guest = loadMaybe<T>(base);
     if (guest !== undefined) {
       save(scopeKey(userId, base), guest);
+      // Guest data moved — clear the unscoped key so sign-out doesn't
+      // resurrect it and shared machines don't keep a copy.
+      try {
+        localStorage.removeItem(base);
+      } catch {
+        /* private-mode: ignore */
+      }
       return guest;
     }
     return fallback;
