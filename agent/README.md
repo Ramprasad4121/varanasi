@@ -71,6 +71,40 @@ Output is single JSON: `{ agent, intel, alpha, verdict, guard, thresholdBps }`
 with `mode.graph: "live" | "offline"` and x402 receipts
 (`alpha.receipt: { paid, txHash, hashscanUrl }`).
 
+## Aave lending intel (official Aave MCP server)
+
+Lending intel comes from the official Aave MCP server (`src/aave.ts` —
+`AaveMcpClient` over streamable HTTP `https://mcp.aave.com`, protocol version
+`2025-11-25`, `Mcp-Session-Id` lifecycle, injectable fetch, 20s timeouts).
+Public server: no keys needed, nothing secret is ever logged. `AAVE_OFFLINE=1`
+(or `--offline`) returns local fixtures — tests only, never demos.
+
+Tools used: `get_chains`, `get_markets` (symbol/APY/caps/liquidity),
+`get_user_summary` (aggregate + health factor), `get_apy_history`,
+`preview_action` (SIMULATE supply/borrow/withdraw/repay — no execution),
+plus `prepare_action` (UNSIGNED tx) via `callTool`. Enforcement fit:
+preview/prepare are unsigned — our story is "prepare unsigned, policy-check,
+sign inside mandate" (this module never signs, never broadcasts, never holds
+keys).
+
+```bash
+# Market snapshots (optional symbol filter)
+npx tsx src/cli.ts lending markets --symbols ETH,USDC
+
+# Wallet summary (aggregate + health factor)
+npx tsx src/cli.ts lending wallet --address 0x…
+
+# Unsigned borrow/supply simulation (never executes)
+npx tsx src/cli.ts lending preview --action supply --reserve USDC --amount 100 --wallet 0x…
+
+# Fixture mode (no network, never for demos)
+npx tsx src/cli.ts lending markets --offline
+```
+
+Output is single JSON (`{ ok, mode: "live" | "offline", … }`); failures print
+error JSON to stderr with a non-zero exit. Env: `AAVE_MCP_URL` (default
+`https://mcp.aave.com`), `AAVE_OFFLINE=1` for fixture mode.
+
 ## What counts as load-bearing Graph use
 
 1. Default path hits the **live Gateway** (`GRAPH_API_KEY` required, no mocks).
@@ -92,6 +126,7 @@ with `mode.graph: "live" | "offline"` and x402 receipts
 | `src/graph.ts` | `GraphClient` — live Gateway, official Uniswap IDs (`KNOWN_SUBGRAPHS`), curated pools (`CURATED_POOLS`), `query()` escape hatch |
 | `src/discover.ts` | ERC-8004 agent discovery — `searchAgents` (Base default, Sepolia opt-in), `getAgentProfile` (chainId:agentId), Agent0 IDs (`AGENT0_SUBGRAPHS`) |
 | `src/mcp.ts` | MCP stdio wrapper (`search_subgraphs/get_schema/run_query`) + Gateway fallback |
+| `src/aave.ts` | Aave MCP streamable-HTTP client (`AaveMcpClient` — markets/wallet/APY/preview, unsigned-only) |
 | `src/ens.ts` | viem ENSv2 resolver (`AegisRegistry` + Universal Resolver V2, registry-only fallback) |
 | `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point (opt-in LLM via brain) |
 | `src/brain.ts` | opt-in LLM reasoning `reasonWithLLM` (OpenAI-compatible chat API, heuristic fallback, `{ llm }` flag) |

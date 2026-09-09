@@ -1,6 +1,6 @@
 "use client";
 
-// Author: Ramprasad — marketplace root: composes Hero + AgentMarket + PoolIntel + SignalPanel + VerdictTimeline; live deps Sepolia RPC/registry, signal service; degrades to localStorage pending + connect hints when unreachable.
+// Author: Ramprasad — homepage: colosseum.com structure — hero, stats, features, agents.
 import { useEffect, useMemo, useState } from "react";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
@@ -29,12 +29,37 @@ import {
   type Verdict,
 } from "../components/aegis";
 
-// ---------------------------------------------------------------------------
-// varanasi agent marketplace — composes Hero + Agents + Pool intel +
-// Paid signals + Verdict timeline. Every panel degrades gracefully when
-// contracts/RPC/service are unreachable (never crashes; shows addresses +
-// connect hints). State persists in localStorage.
-// ---------------------------------------------------------------------------
+const FEATURES = [
+  {
+    title: "Identity",
+    body: "Expiring ENSv2 subnames, revocable onchain. One click kills the agent everywhere.",
+    link: "#agents",
+    linkLabel: "Meet the agents",
+  },
+  {
+    title: "Intel",
+    body: "Pool reasoning grounded in live subgraph data and verified price feeds.",
+    link: "#intel",
+    linkLabel: "See pool intel",
+  },
+  {
+    title: "Payments",
+    body: "x402-settled micropayments through Hedera — pay, retry, receipt.",
+    link: "#signals",
+    linkLabel: "Run the loop",
+  },
+] as const;
+
+function DiamondSep() {
+  return (
+    <div className="diamond-sep" aria-hidden="true" style={{ margin: "56px auto" }}>
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+        <path d="M5 0 L10 5 L5 10 L0 5 Z" />
+      </svg>
+    </div>
+  );
+}
+
 export default function Page() {
   const [agents, setAgents] = useState<AgentRecord[]>([]);
   const [intel, setIntel] = useState<IntelRecord | null>(null);
@@ -73,7 +98,6 @@ export default function Page() {
     []
   );
 
-  // +1 = demo-known sentinel-1.aegis.eth (authorized 2026-09-06, DEMO.md).
   const authorizedCount =
     1 +
     agents.filter(
@@ -81,62 +105,57 @@ export default function Page() {
     ).length;
 
   const upsertAgent = (a: AgentRecord) =>
-    setAgents((prev) => [
-      a,
-      ...prev.filter((x) => x.sublabel !== a.sublabel),
-    ]);
+    setAgents((prev) => [a, ...prev.filter((x) => x.sublabel !== a.sublabel)]);
 
   return (
     <>
       {!isDeployed && (
-        <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel" style={{ marginBottom: 32 }}>
           <span className="badge warn">not deployed yet</span>{" "}
           <span className="envline">
             Set <code>NEXT_PUBLIC_AEGIS_REGISTRY</code> (Sepolia) in{" "}
             <code>.env.local</code> after deploying <code>contracts/</code>.
-            Onchain writes/reads are disabled until then; records are kept in
-            localStorage as pending.
           </span>
         </div>
       )}
+
       <Hero agentCount={agents.length + 1} authorizedCount={authorizedCount} />
-      <section className="panel" id="how-hiring-works" style={{ marginTop: 16 }}>
-        <h2>How hiring works</h2>
-        <p className="desc">
-          Three moves from browsing to escrowed work — all on Sepolia, all
-          reversible until you fund.
-        </p>
-        <div className="features" style={{ marginTop: 16 }}>
-          <div className="feature-card">
-            <h2>1 · Pick an agent</h2>
-            <p>Scout finds pools, analyst scores risk, freelancer settles escrow.</p>
-            <a href="#agents">Meet the agents →</a>
-          </div>
-          <div className="feature-card">
-            <h2>2 · Lock terms</h2>
-            <p>Cap in vUSD, work window, expiry, payout address — signed, not promised.</p>
-            <a href="#hire-wizard">Set terms →</a>
-          </div>
-          <div className="feature-card">
-            <h2>3 · Fund & track</h2>
-            <p>Sign, approve, fund in order — then watch Funded → Released live.</p>
-            <a href="#hire-wizard">Start hiring →</a>
-          </div>
+
+      <DiamondSep />
+
+      {/* How it works */}
+      <section id="how-it-works">
+        <div className="features">
+          {FEATURES.map((f) => (
+            <div className="feature-card" key={f.title}>
+              <h2>{f.title}</h2>
+              <p>{f.body}</p>
+              <a href={f.link}>{f.linkLabel} →</a>
+            </div>
+          ))}
         </div>
       </section>
+
+      <DiamondSep />
+
+      {/* Agents */}
+      <section id="agents">
+        <AgentMarket
+          agents={agents}
+          publicClient={publicClient as unknown as PublicClientLike}
+          onMinted={upsertAgent}
+          onUpdate={(a) =>
+            setAgents((prev) =>
+              prev.map((x) => (x.sublabel === a.sublabel ? a : x))
+            )
+          }
+        />
+      </section>
+
+      <DiamondSep />
+
+      {/* Intel, signals, verdicts */}
       <div className="market">
-        <div className="span">
-          <AgentMarket
-            agents={agents}
-            publicClient={publicClient as unknown as PublicClientLike}
-            onMinted={upsertAgent}
-            onUpdate={(a) =>
-              setAgents((prev) =>
-                prev.map((x) => (x.sublabel === a.sublabel ? a : x))
-              )
-            }
-          />
-        </div>
         <PoolIntel intel={intel} onIntel={setIntel} />
         <SignalPanel receipts={receipts} onReceipts={setReceipts} />
         <div className="span">
@@ -147,10 +166,11 @@ export default function Page() {
           />
         </div>
       </div>
-      <p className="envline" style={{ marginTop: 16 }}>
+
+      <p className="envline" style={{ marginTop: 32 }}>
         Registry: <code>{REGISTRY || "(unset)"}</code> · RPC:{" "}
-        <code>{SEPOLIA_RPC ? "configured" : "(unset — viem default)"}</code> ·
-        Signal: <code>{SIGNAL_URL || "(unset)"}</code>
+        <code>{SEPOLIA_RPC ? "configured" : "(unset)"}</code> · Signal:{" "}
+        <code>{SIGNAL_URL || "(unset)"}</code>
       </p>
     </>
   );

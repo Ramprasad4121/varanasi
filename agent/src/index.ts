@@ -98,3 +98,16 @@ export { buildAnalystBrief, analyzePool, runAnalyst } from "./workers/analyst.js
 export type { AnalystAlpha, AnalystOptions, AnalystResult } from "./workers/analyst.js";
 export { decideFreelancerAction, runFreelancer } from "./workers/freelancer.js";
 export type { FreelancerAction, FreelancerResult, FreelancerOptions, FreelancerDeps } from "./workers/freelancer.js";
+export {
+  AaveMcpClient,
+  AAVE_MCP_URL_DEFAULT,
+  AAVE_MCP_PROTOCOL_VERSION,
+  AAVE_REQUEST_TIMEOUT_MS,
+  AAVE_TOOLS,
+  AAVE_OFFLINE_FIXTURE,
+  toMarketSnapshot,
+  toWalletSummary,
+  extractRows,
+  parseSseData,
+} from "./aave.js";
+export type { AaveToolName, AaveFetch, AaveClientOptions, MarketSnapshot, WalletSummary, PreviewResult } from "./aave.js";

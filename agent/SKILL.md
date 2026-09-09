@@ -120,6 +120,34 @@ Tools exposed through `src/mcp.ts` (`MCP_TOOLS`): `search_subgraphs`,
 `get_schema`, `run_query`. Missing binary is never fatal — `SubgraphAgent`
 degrades to direct Gateway.
 
+## 4b. Aave lending intel (official Aave MCP server)
+
+```ts
+import { AaveMcpClient } from "./src/aave.js";
+// Streamable HTTP https://mcp.aave.com (protocol 2025-11-25, Mcp-Session-Id
+// lifecycle). Public server — no keys needed, never logs secrets.
+const aave = new AaveMcpClient(); // env: AAVE_MCP_URL, AAVE_OFFLINE=1 for fixtures
+await aave.listChains();                          // get_chains
+await aave.marketSnapshots(["ETH", "USDC"]);      // get_markets → MarketSnapshot[]
+await aave.walletSummary("0x…");                  // get_user_summary → { healthFactor, … }
+await aave.reserveApy("USDC", "Ethereum");        // get_apy_history
+await aave.previewSupply("USDC", "100", "0x…");   // preview_action (SIMULATE — no execution)
+await aave.previewBorrow("USDC", "100", "0x…");   // preview_action (SIMULATE — no execution)
+await aave.callTool("prepare_action", { … });     // UNSIGNED tx — sign inside mandate
+```
+
+Tools used: `get_chains`, `get_markets`, `get_user_summary`,
+`get_apy_history`, `preview_action`, `prepare_action` (plus positions,
+reserves, activity, swaps, rewards, governance via `callTool`). Enforcement
+fit: preview/prepare are unsigned — "prepare unsigned, policy-check, sign
+inside mandate" (this module never signs, never broadcasts, never holds keys).
+
+CLI: `npx tsx src/cli.ts lending markets [--symbols ETH,USDC]`,
+`lending wallet --address 0x…`,
+`lending preview --action supply --reserve USDC --amount 100 --wallet 0x…`
+(JSON out, error JSON + non-zero exit on failure); `--offline` fixture mode
+is tests-only (`"mode": "live" | "offline"` in every response).
+
 ## 5. Offline fixture (tests only)
 
 `new GraphClient({ offline: true })` or `--offline` returns a local fixture.

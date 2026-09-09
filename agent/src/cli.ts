@@ -508,4 +508,51 @@ program
     }
   });
 
+import { AaveMcpClient } from "./aave.js";
+
+program
+  .command("lending")
+  .description("Aave lending intel via the official Aave MCP server (public, unsigned-only; JSON out)")
+  .option("--symbols <list>", "comma list of reserve symbols (markets subcommand), e.g. ETH,USDC")
+  .option("--address <addr>", "wallet address (wallet subcommand)")
+  .option("--action <action>", "preview action: supply|borrow|withdraw|repay")
+  .option("--reserve <symbol>", "reserve symbol for preview")
+  .option("--amount <amount>", "amount in base units string for preview")
+  .option("--wallet <addr>", "wallet address for preview")
+  .option("--chain <chain>", "chain label for APY lookup (reserved for future use)")
+  .option("--offline", "fixture mode (no network; tests only)")
+  .argument("[subcommand]", "markets|wallet|preview (default: markets)")
+  .action(async (subcommand, opts) => {
+    try {
+      const sub = String(subcommand ?? "markets").toLowerCase();
+      const offline = Boolean(opts.offline);
+      const aave = new AaveMcpClient({ offline });
+      if (sub === "markets") {
+        const symbols = opts.symbols ? String(opts.symbols).split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+        const markets = await aave.marketSnapshots(symbols);
+        console.log(JSON.stringify({ ok: true, mode: aave.mode, server: aave.serverUrl, count: markets.length, markets }, null, 2));
+        return;
+      }
+      if (sub === "wallet") {
+        if (!opts.address) throw new Error('lending wallet requires --address <addr>.');
+        const summary = await aave.walletSummary(String(opts.address));
+        console.log(JSON.stringify({ ok: true, mode: aave.mode, server: aave.serverUrl, summary }, null, 2));
+        return;
+      }
+      if (sub === "preview") {
+        for (const f of ["action", "reserve", "amount", "wallet"] as const) {
+          if (!opts[f]) throw new Error(`lending preview requires --${f} (want --action supply --reserve USDC --amount 100 --wallet <addr>).`);
+        }
+        // Unsigned simulation only — never signs, never broadcasts.
+        const result = await aave.preview(String(opts.action), String(opts.reserve), String(opts.amount), String(opts.wallet));
+        console.log(JSON.stringify({ ok: true, mode: aave.mode, server: aave.serverUrl, unsigned: true, executed: false, preview: result }, null, 2));
+        return;
+      }
+      throw new Error(`Unknown lending subcommand "${subcommand}" (want markets|wallet|preview).`);
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
 program.parseAsync(process.argv);

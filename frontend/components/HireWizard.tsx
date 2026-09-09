@@ -18,6 +18,7 @@ import { sepolia } from "viem/chains";
 import {
   usePrivy as usePrivyHook,
   useWallets as useWalletsHook,
+  PrivyProvider,
 } from "@privy-io/react-auth";
 import {
   REGISTRY,
@@ -184,35 +185,10 @@ const TASK_STATES = [
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
-// Privy hooks throw outside PrivyProvider (homepage has none) — degrade to
-// window.ethereum. Hook order stays stable: always called, try/catch only.
-function usePrivySoft(): {
+type PrivySoft = {
   authenticated?: boolean;
   login?: () => void;
-} {
-  try {
-    return usePrivyHook() as unknown as {
-      authenticated?: boolean;
-      login?: () => void;
-    };
-  } catch {
-    return {};
-  }
-}
-
-function useWalletsSoft(): { wallets?: unknown[] } {
-  try {
-    return useWalletsHook() as unknown as { wallets?: unknown[] };
-  } catch {
-    return {};
-  }
-}
-
-function randomNonce(): bigint {
-  const b = new Uint8Array(32);
-  crypto.getRandomValues(b);
-  return BigInt(`0x${[...b].map((x) => x.toString(16).padStart(2, "0")).join("")}`);
-}
+};
 
 export default function HireWizard({
   publicClient,
@@ -221,8 +197,55 @@ export default function HireWizard({
   publicClient: HireClient;
   externalAgent?: AgentRecord | null;
 }) {
-  const privy = usePrivySoft();
-  const { wallets } = useWalletsSoft();
+  // Privy hooks throw when no PrivyProvider exists above (homepage has none),
+  // and the throw is not reliably catchable — so the provider lives HERE:
+  // with an App ID we mount our own provider around the privy-enabled inner
+  // component; without one we render the MetaMask-only path with zero privy
+  // hook calls. Either way nothing below ever touches privy SDK unmounted.
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  if (!appId) {
+    return (
+      <HireWizardInner publicClient={publicClient} externalAgent={externalAgent} privy={{}} wallets={[]} />
+    );
+  }
+  return (
+    <PrivyProvider appId={appId} config={{ loginMethods: ["email", "google", "github", "wallet"] }}>
+      <HireWizardWithPrivy publicClient={publicClient} externalAgent={externalAgent} />
+    </PrivyProvider>
+  );
+}
+
+function HireWizardWithPrivy({
+  publicClient,
+  externalAgent,
+}: {
+  publicClient: HireClient;
+  externalAgent?: AgentRecord | null;
+}) {
+  const privy = usePrivyHook() as unknown as PrivySoft;
+  const { wallets } = useWalletsHook() as unknown as { wallets?: unknown[] };
+  return (
+    <HireWizardInner publicClient={publicClient} externalAgent={externalAgent} privy={privy} wallets={wallets ?? []} />
+  );
+}
+
+function randomNonce(): bigint {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return BigInt(`0x${[...b].map((x) => x.toString(16).padStart(2, "0")).join("")}`);
+}
+
+function HireWizardInner({
+  publicClient,
+  externalAgent,
+  privy,
+  wallets,
+}: {
+  publicClient: HireClient;
+  externalAgent?: AgentRecord | null;
+  privy: PrivySoft;
+  wallets: unknown[];
+}) {
 
   const [step, setStep] = useState(1);
   const [arch, setArch] = useState<ArchKey>("scout");
