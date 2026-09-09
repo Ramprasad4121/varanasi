@@ -89,8 +89,14 @@ jobs:
   secrets:
     name: secrets scan (gitleaks)
     runs-on: ubuntu-latest
+    # gitleaks-action v3 requires the token to scope the scan on PRs.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
