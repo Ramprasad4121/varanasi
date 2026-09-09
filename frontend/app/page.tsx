@@ -100,6 +100,30 @@ export default function Page() {
         </div>
       )}
       <Hero agentCount={agents.length + 1} authorizedCount={authorizedCount} />
+      <section className="panel" id="how-hiring-works" style={{ marginTop: 16 }}>
+        <h2>How hiring works</h2>
+        <p className="desc">
+          Three moves from browsing to escrowed work — all on Sepolia, all
+          reversible until you fund.
+        </p>
+        <div className="features" style={{ marginTop: 16 }}>
+          <div className="feature-card">
+            <h2>1 · Pick an agent</h2>
+            <p>Scout finds pools, analyst scores risk, freelancer settles escrow.</p>
+            <a href="#agents">Meet the agents →</a>
+          </div>
+          <div className="feature-card">
+            <h2>2 · Lock terms</h2>
+            <p>Cap in vUSD, work window, expiry, payout address — signed, not promised.</p>
+            <a href="#hire-wizard">Set terms →</a>
+          </div>
+          <div className="feature-card">
+            <h2>3 · Fund & track</h2>
+            <p>Sign, approve, fund in order — then watch Funded → Released live.</p>
+            <a href="#hire-wizard">Start hiring →</a>
+          </div>
+        </div>
+      </section>
       <div className="market">
         <div className="span">
           <AgentMarket

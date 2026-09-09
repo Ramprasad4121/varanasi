@@ -19,6 +19,7 @@ import {
   type AgentRecord,
   type PublicClientLike,
 } from "./aegis";
+import HireWizard, { type HireClient } from "./HireWizard";
 
 // Sepolia chain id for Sourcify repo links.
 const SEPOLIA_CHAIN_ID = 11155111;
@@ -69,6 +70,16 @@ export default function AgentMarket({
 }) {
   const [status, setStatus] = useState("");
   const [liveCheck, setLiveCheck] = useState("");
+  const [hireTarget, setHireTarget] = useState<AgentRecord | null>(null);
+
+  function hire(a: AgentRecord) {
+    setHireTarget(a);
+    requestAnimationFrame(() =>
+      document
+        .getElementById("hire-wizard")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
+  }
 
   const refresh = useCallback(
     async (a: AgentRecord) => {
@@ -188,6 +199,17 @@ export default function AgentMarket({
         <VerifyLine txHash={DEMO_MINT_TX} />
         <div className="row">
           <button onClick={checkSentinel}>Verify live onchain</button>
+          <button
+            onClick={() =>
+              hire({
+                sublabel: "sentinel-1",
+                wallet: "",
+                expiry: Math.floor(Date.now() / 1000) + 90 * 86400,
+              })
+            }
+          >
+            Hire
+          </button>
         </div>
         {liveCheck && <div className="status">{liveCheck}</div>}
       </div>
@@ -238,11 +260,16 @@ export default function AgentMarket({
               <div className="row">
                 <button onClick={() => refresh(a)}>Refresh onchain</button>
                 {!a.revoked && <button onClick={() => revoke(a)}>Revoke</button>}
+                <button onClick={() => hire(a)}>Hire</button>
               </div>
             </div>
           );
         })}
       </div>
+      <HireWizard
+        publicClient={publicClient as unknown as HireClient}
+        externalAgent={hireTarget}
+      />
       <div className="status">{status}</div>
     </section>
   );
