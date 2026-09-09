@@ -18,7 +18,6 @@ import { sepolia } from "viem/chains";
 import {
   usePrivy as usePrivyHook,
   useWallets as useWalletsHook,
-  PrivyProvider,
 } from "@privy-io/react-auth";
 import {
   REGISTRY,
@@ -31,6 +30,7 @@ import {
   sepoliaTx,
   type AgentRecord,
 } from "./aegis";
+import { rememberHire } from "../lib/vault";
 const DEMO_TASK_ID =
   "0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc";
 const DEMO_FUND_TX =
@@ -186,6 +186,7 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 type PrivySoft = {
   authenticated?: boolean;
   login?: () => void;
+  user?: { id?: string };
 };
 
 export default function HireWizard({
@@ -195,22 +196,15 @@ export default function HireWizard({
   publicClient: HireClient;
   externalAgent?: AgentRecord | null;
 }) {
-  // Privy hooks throw when no PrivyProvider exists above (homepage has none),
-  // and the throw is not reliably catchable — so the provider lives HERE:
-  // with an App ID we mount our own provider around the privy-enabled inner
-  // component; without one we render the MetaMask-only path with zero privy
-  // hook calls. Either way nothing below ever touches privy SDK unmounted.
+  // Layout mounts PrivyProvider when an App ID is set. Without one we skip
+  // the hooks entirely and use the MetaMask-only path.
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   if (!appId) {
     return (
       <HireWizardInner publicClient={publicClient} externalAgent={externalAgent} privy={{}} wallets={[]} />
     );
   }
-  return (
-    <PrivyProvider appId={appId} config={{ loginMethods: ["email", "google", "github", "wallet"] }}>
-      <HireWizardWithPrivy publicClient={publicClient} externalAgent={externalAgent} />
-    </PrivyProvider>
-  );
+  return <HireWizardWithPrivy publicClient={publicClient} externalAgent={externalAgent} />;
 }
 
 function HireWizardWithPrivy({
@@ -590,6 +584,14 @@ function HireWizardInner({
       setFundTx(hash);
       const mined = await waitReceipt(hash);
       setFundOk(true);
+      rememberHire(privy.user?.id, {
+        id: taskId || hash,
+        agent: sublabel || arch,
+        cap: capVusd,
+        status: "funded",
+        fundTx: hash,
+        at: new Date().toISOString(),
+      });
       setStatus(
         mined
           ? `Escrow funded ✓ — track task ${taskId.slice(0, 18)}… in step 4.`

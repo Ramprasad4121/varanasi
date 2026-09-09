@@ -1,55 +1,33 @@
 "use client";
 
-// Author: Ramprasad — /privy route gate: mounts PrivyProvider (email/google/github/wallet, embedded wallets) when NEXT_PUBLIC_PRIVY_APP_ID set; live dep Privy SDK; degrades to SetupNotice without SDK mount when App ID unset.
-import { PrivyProvider } from "@privy-io/react-auth";
+// Author: Ramprasad — treasury route. PrivyProvider lives in the layout; this page only renders the dashboard.
 import Treasury from "./treasury";
 
-// App ID is public (Privy dashboard) but gates the whole route: without it we
-// render setup instructions and never mount the SDK — no crash, no spinner.
 const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
 
 export default function PrivyPage() {
   if (!APP_ID) return <SetupNotice />;
-  return (
-    <PrivyProvider
-      appId={APP_ID}
-      config={{
-        // Email + socials first (judge-friendly), external wallet as fallback.
-        loginMethods: ["email", "google", "github", "wallet"],
-        // Self-custodial embedded wallet auto-created on login for users
-        // without one; user owns keys via Privy recovery (email/passkey).
-        embeddedWallets: {
-          ethereum: { createOnLogin: "users-without-wallets" },
-        },
-      }}
-    >
-      <Treasury />
-    </PrivyProvider>
-  );
+  return <Treasury />;
 }
 
 function SetupNotice() {
   return (
     <section className="panel">
-      <h2>Privy treasury — setup required</h2>
+      <h2>Treasury — setup required</h2>
       <p className="desc">
-        This route needs a Privy App ID. It renders nothing from the SDK until one is set, so the
-        rest of the app is unaffected.
+        Sign-in and the embedded wallet need a Privy App ID. The rest of the site still works.
       </p>
       <ol>
         <li>
           Create an app at <code>dashboard.privy.io</code> (see <code>frontend/PRIVY.md</code>).
         </li>
         <li>
-          <code>npm install @privy-io/react-auth</code> in <code>frontend/</code>.
-        </li>
-        <li>
           Copy <code>.env.example</code> → <code>.env.local</code> and set{" "}
-          <code>NEXT_PUBLIC_PRIVY_APP_ID</code>, then restart <code>npm run dev</code>.
+          <code>NEXT_PUBLIC_PRIVY_APP_ID</code>, then restart.
         </li>
       </ol>
       <p className="envline">
-        <a href="/">← Back to the varanasi dashboard</a>
+        <a href="/">← Back to varanasi</a>
       </p>
     </section>
   );

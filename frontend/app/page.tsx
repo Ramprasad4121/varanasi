@@ -16,8 +16,6 @@ import {
   LS_RECEIPTS,
   LS_VERDICTS,
   SEPOLIA_RPC,
-  load,
-  save,
   seedVerdicts,
   type AgentRecord,
   type IntelRecord,
@@ -25,6 +23,7 @@ import {
   type Receipt,
   type Verdict,
 } from "../components/aegis";
+import { loadScoped, saveScoped, useVaultUserId } from "../lib/vault";
 
 const FEATURES = [
   {
@@ -71,6 +70,7 @@ function DiamondSep() {
 }
 
 export default function Page() {
+  const userId = useVaultUserId();
   const [agents, setAgents] = useState<AgentRecord[]>([]);
   const [intel, setIntel] = useState<IntelRecord | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -78,26 +78,27 @@ export default function Page() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setAgents(load<AgentRecord[]>(LS_AGENTS, []));
-    setIntel(load<IntelRecord | null>(LS_INTEL, null));
-    setReceipts(load<Receipt[]>(LS_RECEIPTS, []));
-    const v = load<Verdict[] | null>(LS_VERDICTS, null);
+    setHydrated(false);
+    setAgents(loadScoped<AgentRecord[]>(userId, LS_AGENTS, []));
+    setIntel(loadScoped<IntelRecord | null>(userId, LS_INTEL, null));
+    setReceipts(loadScoped<Receipt[]>(userId, LS_RECEIPTS, []));
+    const v = loadScoped<Verdict[] | null>(userId, LS_VERDICTS, null);
     setVerdicts(v ?? seedVerdicts());
     setHydrated(true);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    if (hydrated) save(LS_AGENTS, agents);
-  }, [agents, hydrated]);
+    if (hydrated) saveScoped(userId, LS_AGENTS, agents);
+  }, [agents, hydrated, userId]);
   useEffect(() => {
-    if (hydrated) save(LS_INTEL, intel);
-  }, [intel, hydrated]);
+    if (hydrated) saveScoped(userId, LS_INTEL, intel);
+  }, [intel, hydrated, userId]);
   useEffect(() => {
-    if (hydrated) save(LS_RECEIPTS, receipts);
-  }, [receipts, hydrated]);
+    if (hydrated) saveScoped(userId, LS_RECEIPTS, receipts);
+  }, [receipts, hydrated, userId]);
   useEffect(() => {
-    if (hydrated) save(LS_VERDICTS, verdicts);
-  }, [verdicts, hydrated]);
+    if (hydrated) saveScoped(userId, LS_VERDICTS, verdicts);
+  }, [verdicts, hydrated, userId]);
 
   const publicClient = useMemo(
     () =>

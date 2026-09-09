@@ -1,25 +1,76 @@
 # varanasi
 
-**The enforcement rail for agentic commerce.** Agents move money on promises —
-signed intents, session keys, API credentials. Varanasi moves the check to
-where the money moves: mandates verified at settlement, reputation grounded
-in payment, release gated on proof.
+**The enforcement rail for agentic commerce.** Hire an AI agent, lock a spending
+cap, and pay only when the work is proven. Agents never hold your keys.
 
-Author: Ramprasad · License: MIT · ETHOnline 2026
+Author: Ramprasad · License: MIT
+
+## What it is
+
+Agents today move money on promises — signed intents, session keys, API
+credentials. One injected prompt and the treasury drains.
+
+Varanasi moves the check to where the money moves:
+
+1. You sign a **mandate** (cap, window, expiry, nonce). Funds lock in escrow.
+2. The agent works inside those bounds. Replay is impossible.
+3. Release pays the merchant when the work clears the bar. Miss it — you are
+   refunded, with the evidence onchain.
+4. One click revokes the agent identity everywhere.
+
+This is a **community product**. Hire from the homepage. Paste
+[`PROMPT.md`](PROMPT.md) into any coding agent. Fork the repo.
+
+## Identity — how your data is kept
+
+Sign in once. Hires, listed agents, and the treasury follow the account — not
+the browser.
+
+Varanasi uses **Privy** (not Apple, not a raw password file):
+
+| You tap | What you get |
+|---|---|
+| Email, Google, or GitHub | An account you already have |
+| Wallet (MetaMask, etc.) | The address you already use |
+| First-time email/social | A **self-custodial embedded Sepolia wallet**, created for you |
+
+The product **never stores private keys or raw passwords**. Better Auth / Privy
+hold the session. The vault stores only public data: your 0x address, hire
+receipts, listed agent names.
+
+Open **Sign in** in the nav, or `/account` for the vault, or `/privy` for the
+treasury dashboard (mint, fund, revoke).
+
+Setup: copy `frontend/.env.example` → `frontend/.env.local`, set
+`NEXT_PUBLIC_PRIVY_APP_ID` from [dashboard.privy.io](https://dashboard.privy.io).
+Details in [`frontend/PRIVY.md`](frontend/PRIVY.md).
 
 ## Live onchain
 
-| Mandate escrows released | x402 payments settled | Agent identities live | Forge tests green | Agent tests green |
-|---|---|---|---|---|
-| 1+ | 3+ | 2 | 111/111 | 132/132 |
+| Mandate escrows released | x402 payments settled | Agent identities live | Tests green |
+|---|---|---|---|
+| 1+ | 3+ | 2 | 243/243 |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
-Etherscan / HashScan. Repo: `github.com/Ramprasad4121/varanasi`.
+Etherscan / HashScan.
 
-## Start as an agent — one prompt
+## Start as a human
+
+```bash
+./run.sh        # boots signal service (:4021) + marketplace (:3000)
+```
+
+Needs: Node 24, gitignored `.env` files (`service/.env.example`,
+`agent/.env.example`, `frontend/.env.example`). Never commit keys.
+
+On the site: **Sign in** → **Hire** on any agent card → pick Scout, Analyst, or
+Freelancer → lock cap / window / expiry → **Authorize & fund**. Watch Funded →
+Validated → Released (or Refunded). Your vault at `/account` keeps the hire.
+
+## Start as an agent
 
 Paste [`PROMPT.md`](PROMPT.md) into any coding agent (Claude, Codex, Cursor).
-It reads the repo in order and runs the full loop in one command:
+It reads the repo in order and runs the full loop:
 
 ```
 npx tsx src/cli.ts analyze --agent sentinel-1.aegis.eth \
@@ -28,44 +79,22 @@ npx tsx src/cli.ts analyze --agent sentinel-1.aegis.eth \
 
 ENS identity → live Uniswap intel (The Graph) → $0.01 USDC x402 payment
 (Hedera testnet) → ACT/SKIP verdict → RiskGuard check → HashScan receipt.
-~11 seconds, JSON out.
 
-## Start as a human — one command
-
-```bash
-./run.sh        # boots signal service (:4021) + marketplace (:3000)
-./run.sh agent  # fires the full agent loop once
-```
-
-Needs: Node 24, gitignored `.env` files (see `service/.env.example`,
-`agent/.env.example`). Never commit keys.
-
-## Hire an agent — from the homepage
-
-Open the marketplace, hit **Hire** on any agent card, and the 4-step
-wizard walks you through it: pick an agent (Scout finds pools, Analyst
-scores risk, Freelancer settles escrow) → lock terms (cap, window, expiry,
-payout) → **Authorize & fund** (one click signs the mandate, mints the
-identity, approves the cap, funds escrow — each step unlocking the next,
-each with its Sepolia link) → track Funded → Validated → Released live,
-with state-gated Release/Refund. Or hire from the CLI:
+Or hire from the CLI:
 
 ```
 npx tsx src/cli.ts hire --agent scout --cap 10 --window-hours 24
 ```
 
-Lending intel comes from the official Aave MCP
-(`npx tsx src/cli.ts lending markets --symbols USDC,WETH`); unsigned
-`preview`/`prepare` calls fit the mandate model — prepare offchain,
-policy-check, sign inside bounds.
+Lending intel: `npx tsx src/cli.ts lending markets --symbols USDC,WETH`.
 
 ## The old way vs the varanasi way
 
 **Old way** — agent gets a private key and standing approvals. One injected
-prompt, one hallucinated address, and the treasury drains. Bankr/Grok
-($180K, Morse code), AIXBT (55.5 ETH). No budget model, no escrow, no audit.
+prompt, one hallucinated address, and the treasury drains.
 
 **Varanasi way** — agent gets a signed mandate (cap, window, expiry, nonce).
+
 1. Funds lock in escrow; replay impossible (nonce nullified).
 2. Allowlisted validator scores the work; release needs score ≥ threshold
    **and** a live identity + threshold re-check, in the same transaction.
@@ -83,30 +112,32 @@ prompt, one hallucinated address, and the treasury drains. Bankr/Grok
 ## Map
 
 - `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
-  (Uniswap v4), deploy scripts, 111 forge tests
+  (Uniswap v4), deploy scripts, forge tests
 - `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
-  demo workers (scout/analyst/freelancer), CLI, 132 tests
+  demo workers (scout / analyst / freelancer), CLI
 - `service/` — x402-gated alpha API, HCS audit log
-- `frontend/` — marketplace with guided Hire wizard + `/human` + `/privy`
+- `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury
 - `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
 - `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
-  · `SUBMISSION.md` · `VIDEO_SCRIPT.md` · `KEYS.md`
 
 ## FAQ
 
 **Is varanasi for agents or humans?**
-Agents first. Humans set mandates, fund escrows, and hold the kill switch —
-agents do everything else inside bounds they cannot exceed.
+Both. Humans set mandates, fund escrows, and hold the kill switch. Agents do
+the work inside bounds they cannot exceed.
+
+**How do I keep my hires if I switch devices?**
+Sign in (email, Google, GitHub, or wallet). The vault is keyed to that
+identity. Guests keep a copy in the current browser only.
 
 **Which chains?**
-Sepolia (contracts) + Hedera testnet (payments) today; mainnet cutover
-planned with zero contract changes.
+Sepolia (contracts) + Hedera testnet (payments) today; mainnet cutover with
+zero contract changes.
 
 **What does it cost to run?**
 One agent loop ≈ $0.01 USDC + Sepolia gas cents. Escrowed funds are the
 user's own, refundable on expiry.
 
-**Production ready?**
-Testnet-proven with mainnet cutover tracked in `docs/SUBMISSION.md`.
-Contracts hold only user-escrowed funds, are Sourcify-verified, and carry
-no owner sweep.
+**Does Varanasi hold my keys?**
+No. The embedded wallet is self-custodial via Privy recovery. The vault stores
+public addresses and receipts only.
