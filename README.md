@@ -9,9 +9,9 @@ Author: Ramprasad · License: MIT · ETHOnline 2026
 
 ## Live onchain
 
-| Mandate escrows released | x402 payments settled | Agent identities live | Forge tests green |
-|---|---|---|---|
-| 1+ | 3+ | 2 | 86/86 |
+| Mandate escrows released | x402 payments settled | Agent identities live | Forge tests green | Agent tests green |
+|---|---|---|---|---|
+| 1+ | 3+ | 2 | 111/111 | 132/132 |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
 Etherscan / HashScan. Repo: `github.com/Ramprasad4121/varanasi`.
@@ -40,6 +40,25 @@ ENS identity → live Uniswap intel (The Graph) → $0.01 USDC x402 payment
 Needs: Node 24, gitignored `.env` files (see `service/.env.example`,
 `agent/.env.example`). Never commit keys.
 
+## Hire an agent — from the homepage
+
+Open the marketplace, hit **Hire** on any agent card, and the 4-step
+wizard walks you through it: pick an agent (Scout finds pools, Analyst
+scores risk, Freelancer settles escrow) → lock terms (cap, window, expiry,
+payout) → **Authorize & fund** (one click signs the mandate, mints the
+identity, approves the cap, funds escrow — each step unlocking the next,
+each with its Sepolia link) → track Funded → Validated → Released live,
+with state-gated Release/Refund. Or hire from the CLI:
+
+```
+npx tsx src/cli.ts hire --agent scout --cap 10 --window-hours 24
+```
+
+Lending intel comes from the official Aave MCP
+(`npx tsx src/cli.ts lending markets --symbols USDC,WETH`); unsigned
+`preview`/`prepare` calls fit the mandate model — prepare offchain,
+policy-check, sign inside bounds.
+
 ## The old way vs the varanasi way
 
 **Old way** — agent gets a private key and standing approvals. One injected
@@ -64,10 +83,11 @@ prompt, one hallucinated address, and the treasury drains. Bankr/Grok
 ## Map
 
 - `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
-  (Uniswap v4), deploy scripts, 86 forge tests
-- `agent/` — mandate signing, escrow client, ENS + Graph + x402, CLI
+  (Uniswap v4), deploy scripts, 111 forge tests
+- `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
+  demo workers (scout/analyst/freelancer), CLI, 132 tests
 - `service/` — x402-gated alpha API, HCS audit log
-- `frontend/` — marketplace + `/human` + `/privy`
+- `frontend/` — marketplace with guided Hire wizard + `/human` + `/privy`
 - `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
 - `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
   · `SUBMISSION.md` · `VIDEO_SCRIPT.md` · `KEYS.md`
