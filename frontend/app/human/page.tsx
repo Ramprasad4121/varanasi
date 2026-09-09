@@ -1,6 +1,6 @@
 "use client";
 
-// Author: Ramprasad — /human World Selfie Check route: tier + limits mirror of agent/src/human.ts; live dep World ID verify (server-side) + NEXT_PUBLIC_WORLD_* env; degrades to SetupNotice/guest tier + local shape-check in sandbox.
+// Author: Ramprasad — /human route: Verify with World ID → tier + limits mirror of agent/src/human.ts; live dep NEXT_PUBLIC_WORLD_* env. Sandbox issues a clearly-labelled test credential; production is honest about the backend verifier not being wired yet.
 import { useState } from "react";
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,6 @@ import { useState } from "react";
 // ---------------------------------------------------------------------------
 
 const APP_ID = process.env.NEXT_PUBLIC_WORLD_APP_ID ?? "";
-const ACTION = process.env.NEXT_PUBLIC_WORLD_ACTION ?? "aegis-human";
 const SANDBOX = (process.env.NEXT_PUBLIC_WORLD_SANDBOX ?? "").toLowerCase() === "1" ||
   (process.env.NEXT_PUBLIC_WORLD_SANDBOX ?? "").toLowerCase() === "true";
 
@@ -32,10 +31,8 @@ function bpsToPct(bps: number) {
 export default function HumanPage() {
   const [tier, setTier] = useState<Tier | null>(null);
   const [nullifier, setNullifier] = useState<string | null>(null);
-  const [proofText, setProofText] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showPaste, setShowPaste] = useState(false);
 
   if (!APP_ID) return <SetupNotice />;
 
@@ -47,102 +44,53 @@ export default function HumanPage() {
     } catch {
       /* private-mode: ignore */
     }
-    setStatus(`Verified via ${via}. Nullifier recorded (sandbox: ${SANDBOX ? "yes — test only" : "no"}).`);
+    setStatus(`Verified via ${via}.`);
   }
 
   function continueAsGuest() {
     setNullifier(null);
     setTier("guest");
-    setStatus("Continuing as guest — capped sandbox tier (1 agent, 5% allowance).");
+    setStatus("Continuing as guest — capped tier (1 agent, 5% allowance).");
   }
 
-  // Sandbox/demo path: fabricates a sandbox-shaped selfie proof locally and
-  // runs it through the same shape-check the agent uses (no network).
-  // Only available when NEXT_PUBLIC_WORLD_SANDBOX=1.
-  function simulateSandboxProof() {
-    const demo = {
-      nullifier_hash: `sandbox-${Math.random().toString(16).slice(2, 10)}`,
-      credential_type: "selfie",
-      action: ACTION,
-    };
-    if (demo.nullifier_hash) applyVerified(demo.nullifier_hash, "sandbox simulation");
-  }
-
-  // Production path step 1: the judge/user completes Selfie Check in World App
-  // via the IDKit widget (see WORLD.md §Integration), then pastes the IDKit
-  // result JSON here. The app forwards it to the backend verifier
-  // (`agent/src/human.ts` verifySelfieProof) — never verified client-side.
-  function submitPastedProof() {
-    setBusy(true);
-    try {
-      const raw = JSON.parse(proofText || "{}") as Record<string, unknown>;
-      const n = raw.nullifier_hash ?? raw.nullifier;
-      const cred = raw.credential_type;
-      if (typeof n !== "string" || n.length === 0) {
-        setStatus("That JSON has no nullifier_hash — paste the full IDKit result object.");
-        return;
-      }
-      if (SANDBOX) {
-        if (cred !== "selfie" && cred !== "face" && cred !== undefined) {
-          setStatus(`Sandbox: credential_type '${String(cred)}' is not a selfie proof.`);
-          return;
-        }
-        applyVerified(n, "sandbox proof (shape-checked locally, test only)");
-        return;
-      }
+  // One honest entry point. Sandbox issues a clearly-labelled test
+  // credential (no network); production opens the real World App flow once
+  // the backend verifier is live — until then it says so instead of faking it.
+  function verify() {
+    if (!SANDBOX) {
+      setBusy(true);
       setStatus(
-        "Proof received. Production verification must run server-side via " +
-          "agent/src/human.ts verifySelfieProof → POST api/v4/verify/{rp_id}. " +
-          "Wire this JSON to your backend, then record the returned nullifier."
+        "World App verification isn't wired to a backend verifier yet — " +
+          "continue as guest, or run the sandbox build to try the test credential."
       );
-    } catch (err) {
-      setStatus(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
       setBusy(false);
+      return;
     }
+    setBusy(true);
+    const n = `sandbox-${Math.random().toString(16).slice(2, 10)}`;
+    applyVerified(n, "sandbox test credential (not a real verification)");
+    setBusy(false);
   }
 
   const policy = tier ? POLICY[tier] : null;
 
   return (
     <section className="panel">
-      <h2>Verify humanity — World Selfie Check</h2>
+      <h2>Verify humanity</h2>
       <p className="desc">
         One verified human → up to {POLICY.verified.maxAgents} agents at{" "}
-        {bpsToPct(POLICY.verified.maxAllowanceBps)} allowance. Unverified guests stay capped at{" "}
+        {bpsToPct(POLICY.verified.maxAllowanceBps)} allowance. Guests stay capped at{" "}
         {POLICY.guest.maxAgents} agent / {bpsToPct(POLICY.guest.maxAllowanceBps)}.{" "}
-        {SANDBOX && <span className="badge warn">sandbox mode — test proofs only</span>}
+        {SANDBOX && <span className="badge warn">sandbox — test credential only</span>}
       </p>
 
       {tier === null && (
-        <>
-          <div className="row">
-            <button onClick={() => setShowPaste((v) => !v)}>
-              {showPaste ? "Hide proof input" : "Verify humanity"}
-            </button>
-            {SANDBOX && <button onClick={simulateSandboxProof}>Simulate sandbox proof</button>}
-            <button onClick={continueAsGuest}>Continue as guest</button>
-          </div>
-          {showPaste && (
-            <>
-              <label>IDKit result JSON (from the World App Selfie Check flow)</label>
-              <textarea
-                value={proofText}
-                onChange={(e) => setProofText(e.target.value)}
-                placeholder='{"nullifier_hash": "…", "credential_type": "selfie", …}'
-              />
-              <div className="row">
-                <button onClick={submitPastedProof} disabled={busy}>
-                  {busy ? "Checking…" : "Submit proof"}
-                </button>
-              </div>
-              <p className="envline">
-                Complete Selfie Check in World App first (QR / deep link from the IDKit widget —
-                see WORLD.md §Integration), then paste the full result object here.
-              </p>
-            </>
-          )}
-        </>
+        <div className="row">
+          <button onClick={verify} disabled={busy}>
+            {busy ? "Checking…" : "Verify with World ID"}
+          </button>
+          <button onClick={continueAsGuest}>Continue as guest</button>
+        </div>
       )}
 
       {tier !== null && policy && (
@@ -151,14 +99,14 @@ export default function HumanPage() {
             <span className={`badge ${tier === "verified" ? "ok" : "warn"}`}>
               {POLICY[tier].label}
             </span>{" "}
-            {SANDBOX && tier === "verified" && <span className="badge warn">sandbox test credential</span>}
+            {SANDBOX && tier === "verified" && <span className="badge warn">test credential</span>}
           </div>
           <div style={{ marginTop: 8 }}>
             max agents <code>{policy.maxAgents}</code> · max allowance{" "}
             <code>{bpsToPct(policy.maxAllowanceBps)}</code>
           </div>
           {nullifier && (
-            <div>
+            <div className="muted">
               human nullifier <code>{nullifier}</code>
             </div>
           )}
@@ -186,10 +134,6 @@ export default function HumanPage() {
       )}
 
       <div className="status">{status}</div>
-      <p className="envline">
-        Action: <code>{ACTION}</code> · sandbox: <code>{SANDBOX ? "on" : "off"}</code> · policy
-        mirror of <code>agent/src/human.ts</code>
-      </p>
     </section>
   );
 }
