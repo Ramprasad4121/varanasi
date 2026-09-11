@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 export type Tone = "ok" | "warn" | "bad" | "neutral";
 
 const tones: Record<Tone, string> = {
-  ok: "bg-ok-soft text-ok border-ok/25",
-  warn: "bg-warn-soft text-warn border-warn/25",
-  bad: "bg-bad-soft text-bad border-bad/25",
-  neutral: "bg-bg-muted text-fg-muted border-border",
+  ok: "bg-ok/10 text-ok border-ok/30",
+  warn: "bg-warn/10 text-warn border-warn/30",
+  bad: "bg-bad/10 text-bad border-bad/30",
+  neutral: "bg-fg/[0.06] text-fg-muted border-border",
 };
 
 export function Badge({

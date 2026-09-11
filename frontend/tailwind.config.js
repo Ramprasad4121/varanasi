@@ -8,56 +8,67 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Ganga night · the river after dark ──────────────────────
         bg: {
-          DEFAULT: "#f3f2ee",
-          elevated: "#f7f6f2",
-          muted: "#ebe9e3",
-          hover: "#e4e1d9",
+          DEFAULT: "#0b0913", // night sky over the water
+          elevated: "#151024", // raised stone, lamp-lit
+          muted: "#1c1631", // deep shadow stone
+          hover: "#262046", // hover warm violet
         },
-        ink: "#1c1b18",
+        ink: "#f4eee1", // pale ivory — primary text
         fg: {
-          DEFAULT: "#1c1b18",
-          body: "#5a564e",
-          muted: "#7a756b",
-          secondary: "#5a564e",
-          inverse: "#f3f2ee",
+          DEFAULT: "#f4eee1",
+          body: "#b9b0cc", // moonlit lavender
+          muted: "#8f86a8", // dusk
+          secondary: "#b9b0cc",
+          inverse: "#0b0913",
         },
         border: {
-          DEFAULT: "#d8d3c6",
-          subtle: "#e6e2d8",
-          strong: "#bdb6a6",
+          DEFAULT: "#2c2447", // violet hairline
+          subtle: "#211b38",
+          strong: "#5a4b8c",
         },
         accent: {
-          DEFAULT: "#c01010",
-          strong: "#9a0c0c",
-          hover: "#9a0c0c",
-          link: "#c01010",
-          soft: "#f4e4e0",
+          // diya flame
+          DEFAULT: "#ff9432",
+          strong: "#f97e1d",
+          hover: "#ffb057",
+          link: "#ffb057",
+          soft: "#2a1b10",
         },
-        "on-accent": "#f3f2ee",
+        "on-accent": "#221204",
+        gold: {
+          DEFAULT: "#d9b36a", // zari thread
+          soft: "#241c33",
+          muted: "#8c7a52",
+        },
+        river: {
+          DEFAULT: "#49d6b0", // living water — live states
+          soft: "#0e2b26",
+        },
         ok: {
-          DEFAULT: "#2f6a38",
-          soft: "#e6f0e7",
+          DEFAULT: "#45d09a",
+          soft: "#0f2a22",
         },
         warn: {
-          DEFAULT: "#8a6100",
-          soft: "#f6edd6",
+          DEFAULT: "#e8b75a",
+          soft: "#2e2413",
         },
         bad: {
-          DEFAULT: "#c01010",
-          soft: "#f4e4e0",
+          DEFAULT: "#ff6b5e",
+          soft: "#331818",
         },
         footer: {
-          DEFAULT: "#f3f2ee",
-          border: "#d8d3c6",
-          muted: "#7a756b",
+          DEFAULT: "#0b0913",
+          border: "#2c2447",
+          muted: "#8f86a8",
         },
       },
       fontFamily: {
         display: ["Newsreader", "Iowan Old Style", "Palatino Linotype", "Georgia", "serif"],
         sans: ["Newsreader", "Iowan Old Style", "Georgia", "serif"],
         label: ["IBM Plex Mono", "ui-monospace", "monospace"],
-        drop: ["UnifrakturMaguntia", "UnifrakturCook", "Old English Text MT", "serif"],
+        deva: ["Tiro Devanagari Hindi", "Noto Serif Devanagari", "serif"],
       },
       borderRadius: {
         none: "0px",
@@ -69,7 +80,9 @@ module.exports = {
         pill: "0px",
       },
       boxShadow: {
-        lift: "0 18px 40px #1c1b1812",
+        lift: "0 24px 48px -12px rgba(0, 0, 0, 0.55)",
+        glow: "0 0 32px rgba(255, 148, 50, 0.22)",
+        "glow-sm": "0 0 14px rgba(255, 148, 50, 0.28)",
       },
     },
   },

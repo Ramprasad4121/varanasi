@@ -1,5 +1,5 @@
 import React from "react";
-import { DisplayHeading } from "@/components/DisplayHeading";
+import { Flame } from "@/components/Flame";
 
 export interface PageHeroProps {
   title: string;
@@ -12,44 +12,49 @@ export interface PageHeroProps {
 export function PageHero({ title, lede, eyebrow, subtitle, image }: PageHeroProps) {
   const text = subtitle || lede;
   return (
-    <header className="relative overflow-hidden border-b border-border bg-bg-muted/30">
-      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-10 sm:px-6 sm:py-14">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="max-w-[760px]">
-            {eyebrow && (
-              <p className="mb-2 font-label text-xs uppercase tracking-[0.16em] text-accent font-medium">
-                {eyebrow}
-              </p>
-            )}
-            <DisplayHeading as="h1" size="page">
-              {title}
-            </DisplayHeading>
-            {text && (
-              <p className="mt-3 max-w-[34rem] font-display text-lg italic leading-relaxed text-fg-body">
-                {text}
-              </p>
-            )}
-          </div>
-          {image && (
-            <div className="shrink-0">
-              <div className="relative w-28 h-28 sm:w-36 sm:h-36 border border-border bg-bg p-1.5 shadow-sm overflow-hidden">
-                <img
-                  src={image}
-                  alt=""
-                  className="w-full h-full object-cover opacity-80"
-                  loading="lazy"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+    <section className="relative overflow-hidden border-b border-border">
+      {/* jaali lattice + a distant lamp glow */}
+      <div className="jaali-bg pointer-events-none absolute inset-0" aria-hidden="true" />
       <div
+        className="pointer-events-none absolute inset-0"
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-bg-muted/60 to-transparent"
+        style={{
+          background:
+            "radial-gradient(640px 300px at 82% -20%, rgba(255,148,50,0.10), transparent 65%), radial-gradient(520px 260px at 8% 120%, rgba(96,78,150,0.12), transparent 60%)",
+        }}
       />
-    </header>
+
+      <div className="relative mx-auto max-w-[1200px] px-4 pb-12 pt-16 sm:px-6 sm:pb-14 sm:pt-20">
+        {eyebrow ? (
+          <p className="flex items-center gap-3 font-label text-[11px] uppercase tracking-[0.24em] text-gold/80">
+            <Flame size={11} withHalo={false} />
+            {eyebrow}
+          </p>
+        ) : null}
+        <h1 className="mt-4 max-w-[24ch] font-display text-[clamp(2.6rem,5.4vw,4.4rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink text-balance">
+          {title}
+        </h1>
+        {text ? (
+          <p className="mt-5 max-w-[44rem] font-display text-[1.2rem] italic leading-relaxed text-fg-body">{text}</p>
+        ) : null}
+      </div>
+
+      {image ? (
+        <div className="relative">
+          <div
+            className="h-40 w-full object-cover opacity-55 sm:h-52"
+            style={{
+              backgroundImage: `url(${image})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center 60%",
+              maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 96%)",
+              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 96%)",
+            }}
+            aria-hidden="true"
+          />
+          <div className="gold-hairline absolute inset-x-0 bottom-0" aria-hidden="true" />
+        </div>
+      ) : null}
+    </section>
   );
 }
-
-export default PageHero;

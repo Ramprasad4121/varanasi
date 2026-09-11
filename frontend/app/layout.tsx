@@ -22,11 +22,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=UnifrakturMaguntia&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=Tiro+Devanagari+Hindi&display=swap"
         />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className="paper-grain min-h-dvh bg-bg text-fg">
+      <body className="night-grain min-h-dvh bg-bg text-fg">
         <PrivyRoot>
           <SiteShell>{children}</SiteShell>
         </PrivyRoot>

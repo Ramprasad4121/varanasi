@@ -4,9 +4,11 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 const styles = {
-  primary: "bg-accent text-on-accent hover:bg-accent-strong focus-visible:outline-accent",
-  ghost: "bg-transparent text-ink border border-ink/80 hover:bg-ink hover:text-bg focus-visible:outline-accent",
-  quiet: "bg-bg-muted text-fg hover:bg-bg-hover focus-visible:outline-accent",
+  primary:
+    "bg-gradient-to-b from-[#ffb057] to-[#f97e1d] text-on-accent hover:brightness-110 hover:shadow-glow focus-visible:outline-accent",
+  ghost:
+    "bg-transparent text-ink border border-gold/40 hover:border-gold/80 hover:bg-gold/10 focus-visible:outline-gold",
+  quiet: "bg-fg/[0.06] text-fg-body border border-border hover:bg-fg/10 hover:text-ink focus-visible:outline-accent",
 };
 
 type Shared = {
@@ -31,7 +33,7 @@ type ButtonProps = Shared &
   };
 
 const base =
-  "inline-flex h-12 items-center justify-center rounded-none px-6 font-label text-[12px] font-medium uppercase tracking-[0.16em] transition-[color,background-color,border-color] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex h-12 items-center justify-center rounded-none px-6 font-label text-[12px] font-medium uppercase tracking-[0.16em] transition-[color,background-color,border-color,filter,box-shadow] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function BrandButton(props: LinkProps | ButtonProps) {
   const { children, className, variant = "primary" } = props;
