@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-
-/// @title MockERC20 — mintable demo token for the AegisHook live revert demo
+/// @title MockERC20 — mintable demo settlement token (zero dependencies)
 /// @author Ramprasad
-/// @notice OpenZeppelin ERC20 with 6/18-configurable decimals and an open
-///         `mint` used ONLY to fund the Sepolia demo pool + demo swaps.
-///         Holds no ether: no payable functions, no receive/fallback.
-contract MockERC20 is ERC20 {
-    /// @notice Emitted on every demo mint (in addition to OZ's Transfer).
-    /// @param to Recipient of the newly minted tokens.
-    /// @param amount Number of base units minted.
-    /// @param minter Caller that triggered the mint.
+/// @notice Standard-ERC20 surface (balanceOf/allowance/transfer/approve/
+///         transferFrom + Transfer/Approval events) with an open `mint` used
+///         ONLY to fund Sepolia/testnet demos (6 decimals like USDC).
+///         Not for mainnet: no permit, no meta-tx — this is a demo token and
+///         says so in its own name.
+contract MockERC20 {
+    /// @notice Emitted on every demo mint (in addition to Transfer).
     event Mint(address indexed to, uint256 amount, address indexed minter);
+
+    /// @notice Standard ERC-20 events (declared locally — zero dependencies).
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    /// @notice Standard ERC-20 approval event.
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 
     /// @notice Mint target is the zero address.
     error ZeroAddress();
@@ -21,16 +23,28 @@ contract MockERC20 is ERC20 {
     error ZeroAmount();
     /// @notice Token name or symbol is empty.
     error EmptyMetadata();
+    /// @notice Insufficient balance for transfer.
+    error InsufficientBalance(address from, uint256 have, uint256 want);
+    /// @notice Insufficient allowance for transferFrom.
+    error InsufficientAllowance(address owner, address spender, uint256 have, uint256 want);
 
-    /// @notice Token decimals override supplied at construction (e.g. 6 or 18).
-    uint8 private immutable _tokenDecimals;
+    string public name;
+    string public symbol;
+    /// @notice Token decimals supplied at construction (6 for USDC-style demos).
+    uint8 public immutable decimals;
+
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
 
     /// @param name_ Token name (non-empty).
     /// @param symbol_ Token symbol (non-empty).
-    /// @param decimals_ Token decimals (e.g. 18).
-    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
+    /// @param decimals_ Token decimals (e.g. 6 or 18).
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) {
         if (bytes(name_).length == 0 || bytes(symbol_).length == 0) revert EmptyMetadata();
-        _tokenDecimals = decimals_;
+        name = name_;
+        symbol = symbol_;
+        decimals = decimals_;
     }
 
     /// @notice Mint `amount` tokens to `to`. Permissionless by design: demo only.
@@ -39,13 +53,46 @@ contract MockERC20 is ERC20 {
     function mint(address to, uint256 amount) external {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
-        _mint(to, amount);
+        totalSupply += amount;
+        balanceOf[to] += amount;
         emit Mint(to, amount, msg.sender);
+        emit Transfer(address(0), to, amount);
     }
 
-    /// @notice Returns the token decimals configured at deployment.
-    /// @return decimals_ Number of decimals (e.g. 6 or 18).
-    function decimals() public view override returns (uint8) {
-        return _tokenDecimals;
+    /// @notice Transfer `amount` to `to`. Returns true (spec-compliant bool).
+    function transfer(address to, uint256 amount) external returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    /// @notice Set caller's allowance for `spender` to `amount`.
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    /// @notice Move `amount` from `from` to `to`, debiting caller's allowance.
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        if (allowed != type(uint256).max) {
+            if (allowed < amount) revert InsufficientAllowance(from, msg.sender, allowed, amount);
+            unchecked {
+                allowance[from][msg.sender] = allowed - amount;
+            }
+        }
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal {
+        if (to == address(0)) revert ZeroAddress();
+        uint256 have = balanceOf[from];
+        if (have < amount) revert InsufficientBalance(from, have, amount);
+        unchecked {
+            balanceOf[from] = have - amount;
+            balanceOf[to] += amount;
+        }
+        emit Transfer(from, to, amount);
     }
 }

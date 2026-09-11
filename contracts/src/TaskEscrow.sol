@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
-import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {IERC20} from "./lib/IERC20.sol";
+import {SafeERC20} from "./lib/SafeERC20.sol";
+import {ReentrancyGuard} from "./lib/ReentrancyGuard.sol";
+import {EIP712} from "./lib/EIP712.sol";
+import {ECDSA} from "./lib/ECDSA.sol";
 import {RiskGuard} from "./RiskGuard.sol";
 
 /// @title VaranasiTaskEscrow — ERC20-only escrow gated by EIP-712 mandates,
@@ -345,8 +345,8 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         _checkMandate(m);
 
         bytes32 digest = _hashTypedDataV4(mandateStructHash(m));
-        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(digest, sig);
-        if (err != ECDSA.RecoverError.NoError || signer == address(0)) revert BadSig(signer);
+        (address signer, bool valid) = ECDSA.tryRecover(digest, sig);
+        if (!valid || signer == address(0)) revert BadSig(signer);
         if (usedNonce[signer][m.nonce]) revert NonceUsed(signer, m.nonce);
 
         taskId = keccak256(abi.encode(digest));
