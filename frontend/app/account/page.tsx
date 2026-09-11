@@ -20,7 +20,7 @@ function SetupNotice() {
         title="Your Vault"
         eyebrow="Authentication"
         subtitle="Sign in to manage your embedded Sepolia treasury and agent mandates."
-        image="/images/scales.jpg"
+        image="/images/silk-jaali.jpg"
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
         <div className="border border-border bg-bg-elevated p-8">
@@ -79,7 +79,7 @@ function AccountInner() {
           title="Your Vault"
           eyebrow="Account Vault"
           subtitle="Loading identity and security context…"
-          image="/images/scales.jpg"
+          image="/images/silk-jaali.jpg"
         />
         <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
           <div className="h-40 animate-pulse bg-bg-muted border border-border" />
@@ -95,7 +95,7 @@ function AccountInner() {
           title="Your Vault"
           eyebrow="Account Vault"
           subtitle="Email, Google, GitHub, or a wallet you already have. An embedded Sepolia wallet is created for you."
-          image="/images/scales.jpg"
+          image="/images/silk-jaali.jpg"
         />
         <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
           <div className="border border-border bg-bg-elevated p-8">
@@ -135,7 +135,7 @@ function AccountInner() {
         title="Your Vault"
         eyebrow="Account Vault"
         subtitle="Kept with the account. Never the keys. Hires and listed agents follow this identity across browsers."
-        image="/images/scales.jpg"
+        image="/images/silk-jaali.jpg"
       />
       <section className="mx-auto grid max-w-[880px] gap-6 px-4 py-12 sm:px-6">
         <article className="border border-border bg-bg-elevated p-6">

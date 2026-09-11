@@ -9,7 +9,7 @@ export default function ProofPage() {
         title="Proof, not screenshots"
         eyebrow="Evidence"
         subtitle="Every claim here links to Sepolia or HashScan. Contracts are Sourcify-verified. There is no owner sweep."
-        image="/images/scales.jpg"
+        image="/images/aarti-flame.jpg"
       />
       <section className="mx-auto max-w-[1100px] px-4 py-14 sm:px-6">
         <ul className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border md:grid-cols-4">

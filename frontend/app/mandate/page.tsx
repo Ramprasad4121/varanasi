@@ -9,7 +9,7 @@ export default function MandatePage() {
         title="How a mandate works"
         eyebrow="The Mandate"
         subtitle="One signed object authorizes one escrowed task. You sign. Anyone can submit. Settlement never trusts a prompt."
-        image="/images/mandate-scroll.jpg"
+        image="/images/silk-jaali.jpg"
       />
       <section className="mx-auto grid max-w-[1100px] gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_280px]">
         <div>
@@ -28,7 +28,7 @@ export default function MandatePage() {
             ))}
             <li className="border border-border bg-bg-elevated">
               <div className="h-32 overflow-hidden border-b border-border bg-bg-muted">
-                <img src="/images/gate.jpg" alt="" className="h-full w-full object-cover opacity-80" />
+                <img src="/images/ghats-night.jpg" alt="" className="h-full w-full object-cover opacity-80" />
               </div>
               <div className="p-6">
                 <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">IV</p>
@@ -49,7 +49,7 @@ export default function MandatePage() {
           </ul>
         </div>
         <aside className="h-fit border border-ink/80 bg-bg-elevated">
-          <img src="/images/mandate-scroll.jpg" alt="" className="h-40 w-full object-cover opacity-80" />
+          <img src="/images/silk-jaali.jpg" alt="" className="h-40 w-full object-cover opacity-80" />
           <div className="p-6">
             <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Spec</p>
             <p className="mt-2 font-display text-xl font-medium text-ink">EIP-712 · AP2-shaped</p>

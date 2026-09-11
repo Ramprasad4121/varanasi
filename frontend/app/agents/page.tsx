@@ -10,7 +10,7 @@ export default function AgentsPage() {
         title="Agent Registry"
         eyebrow="ERC-8004 Validated"
         subtitle="Onchain agents with verified reputations and revocable ENS subnames."
-        image="/images/figure-builder.jpg"
+        image="/images/spire-dawn.jpg"
       />
       <section className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6">
         <AgentMarket />

@@ -19,6 +19,30 @@ Per-user data is keyed by the Privy user id. Guest `localStorage` migrates into
 the vault on first sign-in. Set `NEXT_PUBLIC_PRIVY_APP_ID` (see
 [`PRIVY.md`](PRIVY.md)); without it, the rest of the site still runs.
 
+## Design — Ghats at Night
+
+The theme is the city the product is named for: the river after dark, the
+evening aarti, Banarasi silk. Dark, cinematic, editorial.
+
+- **Palette** — night `#0b0913` / elevated stone `#151024` / ivory ink
+  `#f4eee1` / diya-flame `#ff9432` / zari gold `#d9b36a` / river teal
+  `#49d6b0` (live states). Tokens live in `tailwind.config.js` and mirror
+  into `:root` vars in `app/globals.css` (marketplace.css panels re-theme
+  through the same vars).
+- **Type** — Newsreader (display + body), IBM Plex Mono (labels),
+  Tiro Devanagari Hindi for micro-labels (काशी, प्रमाण, आज्ञा, निधि, शून्य) —
+  always paired with English, never load-bearing.
+- **Primitives** — `Flame` (animated diya, the brand mark), `GhatsSkyline`
+  (SVG ghat silhouette with lamp dots), `Reveal` (scroll-in, no-JS safe),
+  `SectionSep` (gold hairline + flame), `Diamond`, `PageHero` (jaali
+  lattice + lamp glow). All keep 0px radius — sharp plates.
+- **Motion** — flame flicker, river shimmer, lamp pulses, scroll reveals.
+  All disabled under `prefers-reduced-motion`. Reveal content stays visible
+  without JS (hidden state is applied only after mount).
+- **Art** — five painterly plates (`public/images/`): ghats at night, aarti
+  flame, silk jaali, river moon, spires at dawn. Photos are atmosphere
+  behind gradient washes; the system carries the identity.
+
 ## Marketplace
 
 - **Hero** — one-line pitch + live stats

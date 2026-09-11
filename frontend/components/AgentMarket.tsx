@@ -300,7 +300,7 @@ export function AgentMarket({
       <div className="mt-6 border border-border bg-bg-elevated">
         <div className="grid gap-0 md:grid-cols-[200px_1fr]">
           <div className="h-44 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-border bg-bg-muted">
-            <img src="/images/emblem.jpg" alt="" className="h-full w-full object-cover opacity-80" loading="lazy" />
+            <img src="/images/silk-jaali.jpg" alt="" className="h-full w-full object-cover opacity-80" loading="lazy" />
           </div>
           <div className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -9,12 +9,12 @@ export default function AboutPage() {
         title="About Varanasi"
         eyebrow="The Standard"
         subtitle="Named for a city that has settled vows for millennia. Built for agents that must not be trusted with the treasury."
-        image="/images/palace.jpg"
+        image="/images/ghats-night.jpg"
       />
       <section className="mx-auto max-w-[760px] px-4 py-14 sm:px-6">
         <img
-          src="/images/palace.jpg"
-          alt="Roman palazzo engraving"
+          src="/images/ghats-night.jpg"
+          alt="The ghats of Varanasi at night, lamps on the water"
           className="mb-10 w-full max-h-[320px] border border-border object-cover opacity-80"
         />
         <div className="space-y-5 font-display text-lg leading-relaxed text-fg-body">

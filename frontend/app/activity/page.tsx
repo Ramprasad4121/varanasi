@@ -16,7 +16,7 @@ export default function ActivityPage() {
         title="The Ledger"
         eyebrow="Receipts & Signals"
         subtitle="Every x402 payment settled through Hedera, recorded with receipts."
-        image="/images/mandate-scroll.jpg"
+        image="/images/river-moon.jpg"
       />
       <section className="mx-auto grid max-w-[1200px] gap-6 px-4 py-12 sm:px-6 lg:grid-cols-2">
         <PoolIntel intel={intel} onIntel={setIntel} />
