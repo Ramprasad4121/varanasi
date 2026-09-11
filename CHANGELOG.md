@@ -48,10 +48,11 @@ domains, typehashes, ABIs) as the public API.
 - Hero proofs updated to verified counts (204 local checks).
 
 ### Removed
-- `AegisHook` + DemoPool experiment and their docs (`UNISWAP.md`,
-  `DEMOPOOL.md`), `v4-core`/`v4-periphery` submodules — enforcement lives at
-  settlement; `docs/SECURITY_REVIEW.md` annotated (hook findings closed by
-  removal, history preserved).
+- `AegisHook` + DemoPool experiment with their docs (`UNISWAP.md`,
+  `DEMOPOOL.md`) and test suites (`AegisHook.t.sol`, `DemoPool.t.sol`),
+  `v4-core`/`v4-periphery` submodules — enforcement lives at settlement;
+  `docs/SECURITY_REVIEW.md` annotated (hook findings closed by removal,
+  history preserved).
 - Dead weight for a lean tree: `cre/`, `bazantic/`, `e2e/`, `run_e2e.sh`,
   `PROJECT.md`, `WORLD.md`, `TEST_INFRA.md`, `TEST_READY.md`,
   `docs/{SUBMISSION,VIDEO_SCRIPT,KEYS}.md`, all committed `.env.enc` files,
