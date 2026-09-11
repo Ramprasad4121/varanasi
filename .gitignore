@@ -14,9 +14,6 @@ contracts/cache/
 contracts/lib/*/broadcast/
 contracts/lib/*/cache/
 contracts/lib/*/out/
-.cre_build_tmp.js
-__pycache__/
-*.pyc
 
 # agent/tool working files (never commit)
 .agents/
