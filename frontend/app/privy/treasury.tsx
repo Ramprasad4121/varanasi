@@ -389,9 +389,23 @@ export default function Treasury() {
   if (!ready) return <div className="panel">Loading Privy…</div>;
 
   return (
-    <>
+    <section className="wrap" style={{ paddingTop: 48, paddingBottom: 72 }}>
+      <div className="section-intro" style={{ padding: 0 }}>
+        <p className="hero-kicker">Treasury</p>
+        <h2>
+          <span className="drop-cap" aria-hidden="true">
+            M
+          </span>
+          anage your agents and funds
+        </h2>
+        <p>
+          Mint identities, set allowances, fund agents, and revoke access —
+          all from one embedded wallet.
+        </p>
+      </div>
+
       {!registryDeployed && (
-        <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel" style={{ marginTop: 24, marginBottom: 16 }}>
           <span className="badge warn">treasury in local mode</span>{" "}
           <span className="envline">
             <code>NEXT_PUBLIC_AEGIS_REGISTRY</code> unset — funding still works as plain SepoliaETH
@@ -399,7 +413,7 @@ export default function Treasury() {
           </span>
         </div>
       )}
-      <div className="grid">
+      <div className="grid" style={{ marginTop: 24 }}>
         <section className="panel">
           <h2>1 · Sign in</h2>
           <p className="desc">
@@ -407,7 +421,7 @@ export default function Treasury() {
             phrase, no extension. That wallet is the org treasury signer.
           </p>
           {!authenticated ? (
-            <button onClick={() => void login()}>Log in with Privy</button>
+            <button className="btn-solid" onClick={() => void login()}>Log in with Privy</button>
           ) : (
             <>
               <div>
@@ -564,6 +578,6 @@ export default function Treasury() {
       <p className="envline" style={{ marginTop: 8 }}>
         <a href="/">← Back to the varanasi dashboard</a>
       </p>
-    </>
+    </section>
   );
 }

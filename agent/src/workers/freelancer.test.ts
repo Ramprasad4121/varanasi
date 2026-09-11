@@ -20,6 +20,8 @@ function task(over: Partial<EscrowTask> = {}): EscrowTask {
     expiry: 1_700_172_800n,
     scoreBps: 0n,
     validator: "0x0000000000000000000000000000000000000000" as Address,
+    pinnedThresholdBps: 5_000n,
+    pinnedValidator: "0x0000000000000000000000000000000000000000" as Address,
     state: 1,
     label: "Funded",
     ...over,

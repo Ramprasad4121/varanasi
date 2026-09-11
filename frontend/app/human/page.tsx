@@ -1,173 +1,138 @@
 "use client";
 
-// Author: Ramprasad — /human route: Verify with World ID → tier + limits mirror of agent/src/human.ts; live dep NEXT_PUBLIC_WORLD_* env. Sandbox issues a clearly-labelled test credential; production is honest about the backend verifier not being wired yet.
-import { useState } from "react";
-
-// ---------------------------------------------------------------------------
-// /human — World Selfie Check route for varanasi.
-// Verifies the human behind the wallet, then shows their abuse-prevention
-// tier + limits. Mirrors the policy in `agent/src/human.ts` (duplicated
-// deliberately: browser code can't import the agent package).
-// Full flow + sandbox setup: see repo-root WORLD.md.
-// ---------------------------------------------------------------------------
-
-const APP_ID = process.env.NEXT_PUBLIC_WORLD_APP_ID ?? "";
-const SANDBOX = (process.env.NEXT_PUBLIC_WORLD_SANDBOX ?? "").toLowerCase() === "1" ||
-  (process.env.NEXT_PUBLIC_WORLD_SANDBOX ?? "").toLowerCase() === "true";
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/Badge";
+import { BrandButton } from "@/components/BrandButton";
+import { PageHero } from "@/components/PageHero";
 
 type Tier = "verified" | "guest";
 
-const POLICY: Record<Tier, { maxAgents: number; maxAllowanceBps: number; label: string }> = {
-  verified: { maxAgents: 10, maxAllowanceBps: 5000, label: "Verified human" },
-  guest: { maxAgents: 1, maxAllowanceBps: 500, label: "Guest (unverified)" },
+const POLICY: Record<Tier, { maxAgents: number; allowance: string; label: string }> = {
+  verified: { maxAgents: 10, allowance: "50%", label: "Verified human" },
+  guest: { maxAgents: 1, allowance: "5%", label: "Guest" },
 };
 
 const LS_NULLIFIER = "aegis.humanNullifier";
-
-function bpsToPct(bps: number) {
-  return `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
-}
+const LS_TIER = "aegis.humanTier";
 
 export default function HumanPage() {
   const [tier, setTier] = useState<Tier | null>(null);
   const [nullifier, setNullifier] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
 
-  if (!APP_ID) return <SetupNotice />;
-
-  function applyVerified(n: string, via: string) {
-    setNullifier(n);
-    setTier("verified");
+  useEffect(() => {
     try {
-      localStorage.setItem(LS_NULLIFIER, n);
+      const savedTier = localStorage.getItem(LS_TIER) as Tier | null;
+      const savedNullifier = localStorage.getItem(LS_NULLIFIER);
+      if (savedTier && POLICY[savedTier]) {
+        setTier(savedTier);
+        setNullifier(savedNullifier);
+      }
     } catch {
-      /* private-mode: ignore */
+      // ignore
     }
-    setStatus(`Verified via ${via}.`);
-  }
+  }, []);
 
-  function continueAsGuest() {
-    setNullifier(null);
-    setTier("guest");
-    setStatus("Continuing as guest — capped tier (1 agent, 5% allowance).");
-  }
-
-  // One honest entry point. Sandbox issues a clearly-labelled test
-  // credential (no network); production opens the real World App flow once
-  // the backend verifier is live — until then it says so instead of faking it.
-  function verify() {
-    if (!SANDBOX) {
-      setBusy(true);
-      setStatus(
-        "World App verification isn't wired to a backend verifier yet — " +
-          "continue as guest, or run the sandbox build to try the test credential."
-      );
-      setBusy(false);
-      return;
+  function apply(next: Tier, n: string | null, via: string) {
+    setTier(next);
+    setNullifier(n);
+    setNote(via);
+    try {
+      localStorage.setItem(LS_TIER, next);
+      if (n) {
+        localStorage.setItem(LS_NULLIFIER, n);
+      } else {
+        localStorage.removeItem(LS_NULLIFIER);
+      }
+    } catch {
+      // ignore
     }
-    setBusy(true);
-    const n = `sandbox-${Math.random().toString(16).slice(2, 10)}`;
-    applyVerified(n, "sandbox test credential (not a real verification)");
-    setBusy(false);
   }
 
   const policy = tier ? POLICY[tier] : null;
 
   return (
-    <section className="panel">
-      <h2>Verify humanity</h2>
-      <p className="desc">
-        One verified human → up to {POLICY.verified.maxAgents} agents at{" "}
-        {bpsToPct(POLICY.verified.maxAllowanceBps)} allowance. Guests stay capped at{" "}
-        {POLICY.guest.maxAgents} agent / {bpsToPct(POLICY.guest.maxAllowanceBps)}.{" "}
-        {SANDBOX && <span className="badge warn">sandbox — test credential only</span>}
-      </p>
+    <div>
+      <PageHero
+        title="Verify humanity"
+        eyebrow="Human Verification"
+        subtitle="One verified human can run more agents at a higher allowance. Guests stay capped. This stops one person minting an army."
+        image="/images/scales.jpg"
+      />
+      <section className="mx-auto max-w-[680px] px-4 py-12 sm:px-6">
+        <p className="font-display text-lg leading-relaxed text-fg-body">
+          Verified: up to {POLICY.verified.maxAgents} agents at {POLICY.verified.allowance} allowance. Guests:{" "}
+          {POLICY.guest.maxAgents} agent at {POLICY.guest.allowance}.
+        </p>
 
-      {tier === null && (
-        <div className="row">
-          <button onClick={verify} disabled={busy}>
-            {busy ? "Checking…" : "Verify with World ID"}
-          </button>
-          <button onClick={continueAsGuest}>Continue as guest</button>
-        </div>
-      )}
-
-      {tier !== null && policy && (
-        <div className="card">
-          <div>
-            <span className={`badge ${tier === "verified" ? "ok" : "warn"}`}>
-              {POLICY[tier].label}
-            </span>{" "}
-            {SANDBOX && tier === "verified" && <span className="badge warn">test credential</span>}
-          </div>
-          <div style={{ marginTop: 8 }}>
-            max agents <code>{policy.maxAgents}</code> · max allowance{" "}
-            <code>{bpsToPct(policy.maxAllowanceBps)}</code>
-          </div>
-          {nullifier && (
-            <div className="muted">
-              human nullifier <code>{nullifier}</code>
-            </div>
-          )}
-          {tier === "guest" && (
-            <div className="status">
-              Guest mode is clearly capped: mint at most {policy.maxAgents} agent with ≤{" "}
-              {bpsToPct(policy.maxAllowanceBps)} allowance. Verify humanity to unlock higher limits.
-            </div>
-          )}
-          <div className="row">
-            <button
-              onClick={() => {
-                setTier(null);
-                setNullifier(null);
-                setStatus("");
-              }}
+        {tier === null ? (
+          <div className="mt-8 flex flex-wrap gap-3">
+            <BrandButton
+              onClick={() =>
+                apply(
+                  "verified",
+                  `sandbox-${Math.random().toString(16).slice(2, 10)}`,
+                  "Sandbox test credential — clearly labelled, not a live World ID proof."
+                )
+              }
             >
-              Reset
-            </button>
-            <a href="/" style={{ alignSelf: "center" }}>
-              ← Back to the varanasi dashboard
-            </a>
-            <a href="/#hire-wizard" style={{ alignSelf: "center" }}>
-              Hire an agent →
-            </a>
+              Verify with World ID
+            </BrandButton>
+            <BrandButton
+              variant="ghost"
+              onClick={() => apply("guest", null, "Continuing as guest — 1 agent, 5% allowance.")}
+            >
+              Continue as guest
+            </BrandButton>
           </div>
-        </div>
-      )}
+        ) : null}
 
-      <div className="status">{status}</div>
-    </section>
-  );
-}
+        {tier && policy ? (
+          <div className="mt-8 border border-border bg-bg-elevated p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={tier === "verified" ? "ok" : "warn"}>{policy.label}</Badge>
+              {tier === "verified" ? <Badge tone="warn">test credential</Badge> : null}
+            </div>
+            <p className="mt-4 font-display text-lg text-ink">
+              Max agents <strong>{policy.maxAgents}</strong> · max allowance <strong>{policy.allowance}</strong>
+            </p>
+            {nullifier ? (
+              <p className="mt-2 font-label text-xs text-fg-muted">nullifier {nullifier}</p>
+            ) : null}
+            {tier === "guest" ? (
+              <p className="mt-3 font-display text-sm italic text-fg-muted">
+                Guest mode is capped on purpose. Verify to unlock higher limits.
+              </p>
+            ) : (
+              <p className="mt-3 font-display text-sm italic text-fg-muted">
+                This preview issues a sandbox credential so you can try the limits. Live World ID verification needs the
+                backend verifier.
+              </p>
+            )}
+            <div className="mt-6 flex flex-wrap gap-3">
+              <BrandButton
+                variant="ghost"
+                onClick={() => {
+                  setTier(null);
+                  setNullifier(null);
+                  setNote("");
+                  try {
+                    localStorage.removeItem(LS_TIER);
+                    localStorage.removeItem(LS_NULLIFIER);
+                  } catch {}
+                }}
+              >
+                Reset
+              </BrandButton>
+              <BrandButton href="/hire" variant="quiet">
+                Hire an agent
+              </BrandButton>
+            </div>
+          </div>
+        ) : null}
 
-function SetupNotice() {
-  return (
-    <section className="panel">
-      <h2>Verify humanity — setup required</h2>
-      <p className="desc">
-        This route needs a World Sandbox App ID. It renders setup instructions and never touches
-        the World SDK until one is set, so the rest of the app is unaffected.
-      </p>
-      <ol>
-        <li>
-          Create a Sandbox App in the World Developer Portal (see <code>WORLD.md</code> §Sandbox
-          setup) and request the Selfie Check (Beta) feature flag.
-        </li>
-        <li>
-          Copy <code>frontend/.env.example</code> → <code>.env.local</code> and set{" "}
-          <code>NEXT_PUBLIC_WORLD_APP_ID</code>, <code>NEXT_PUBLIC_WORLD_ACTION</code> (e.g.{" "}
-          <code>aegis-human</code>), and <code>NEXT_PUBLIC_WORLD_SANDBOX=1</code>, then restart{" "}
-          <code>npm run dev</code>.
-        </li>
-        <li>
-          Until then, humans stay on the <strong>guest tier</strong>: {POLICY.guest.maxAgents}{" "}
-          agent, {bpsToPct(POLICY.guest.maxAllowanceBps)} max allowance.
-        </li>
-      </ol>
-      <p className="envline">
-        <a href="/">← Back to the varanasi dashboard</a>
-      </p>
-    </section>
+        {note ? <p className="mt-4 font-label text-xs text-fg-muted">{note}</p> : null}
+      </section>
+    </div>
   );
 }

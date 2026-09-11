@@ -1,91 +1,75 @@
-// Author: Ramprasad — /proof route: every claim links to Sepolia/HashScan.
-// Static page (no client JS). All hashes verified against docs/DEMO.md.
-import {
-  AEGIS_HOOK,
-  REGISTRY,
-  RISK_GUARD,
-  TASK_ESCROW,
-  hashscanTx,
-  sepoliaAddress,
-  sepoliaTx,
-} from "../../components/aegis";
-
-const RECEIPTS: { title: string; hash: string; hedera?: boolean }[] = [
-  { title: "Mandate funded", hash: "0x1a3765459f57f7b7af607623a5bface64680d771032695f6c9fa34915886f572" },
-  { title: "Validation submitted", hash: "0xfde951571e35eaa1d0206b139322d539697846c00c3e8d508b01b76b13b2c061" },
-  { title: "Escrow released", hash: "0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702" },
-  { title: "x402 payment", hash: "0.0.7162784-1788675749-710110370", hedera: true },
-  { title: "Identity minted", hash: "0xa31520a82a8ea27c67f3b889d56eeab92944ae19e66645bee2958d3604134b41" },
-  { title: "Kill-switch revoke", hash: "0xa7085e187947d8c35e4f83763a6668bb27a523db865f02b5cb24e172352c2043" },
-];
-
-const CONTRACTS: { name: string; address: string; note: string }[] = [
-  { name: "TaskEscrow", address: TASK_ESCROW, note: "Mandate → fund → validate → release" },
-  { name: "AegisRegistry", address: REGISTRY, note: "Revocable agent identity" },
-  { name: "RiskGuard", address: RISK_GUARD, note: "Live authorize at settlement" },
-  { name: "AegisHook", address: AEGIS_HOOK, note: "Uniswap v4 beforeSwap gate" },
-];
-
-function short(h: string) {
-  return h.startsWith("0x") && h.length > 12 ? `${h.slice(0, 6)}…${h.slice(-4)}` : h;
-}
+import { BrandButton } from "@/components/BrandButton";
+import { PageHero } from "@/components/PageHero";
+import { CONTRACTS, ETHERSCAN_ADDR, GITHUB_URL, PROOF, STATS, proofHref, shortHash } from "@/lib/site";
 
 export default function ProofPage() {
   return (
-    <section className="panel">
-      <h2>Proof, not screenshots</h2>
-      <p className="desc">
-        Every claim here links to Sepolia or HashScan. Contracts are
-        Sourcify-verified. There is no owner sweep.
-      </p>
+    <div>
+      <PageHero
+        title="Proof, not screenshots"
+        eyebrow="Evidence"
+        subtitle="Every claim here links to Sepolia or HashScan. Contracts are Sourcify-verified. There is no owner sweep."
+        image="/images/scales.jpg"
+      />
+      <section className="mx-auto max-w-[1100px] px-4 py-14 sm:px-6">
+        <ul className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border md:grid-cols-4">
+          {STATS.map((stat) => (
+            <li key={stat.label} className="bg-bg-elevated p-5">
+              <img src={stat.image} alt="" className="mb-3 h-14 w-14 object-contain opacity-80" />
+              <p className="font-display text-4xl font-medium leading-none text-ink">
+                {stat.value}
+                {stat.suffix ? <span className="text-base text-fg-muted">{stat.suffix}</span> : null}
+              </p>
+              <p className="mt-2 font-display text-sm text-fg-muted">{stat.label}</p>
+            </li>
+          ))}
+        </ul>
 
-      <h3>Live receipts</h3>
-      {RECEIPTS.map((r) => (
-        <div className="card" key={r.hash}>
-          <div>
-            <strong>{r.title}</strong>{" "}
-            <code>{short(r.hash)}</code>
-          </div>
-          <div>
-            <a
-              href={r.hedera ? hashscanTx(r.hash) : sepoliaTx(r.hash)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {r.hedera ? "Open HashScan ↗" : "Open Etherscan ↗"}
-            </a>
-          </div>
+        <h2 className="mt-14 font-display text-2xl font-medium tracking-[-0.03em] text-ink">Live receipts</h2>
+        <ul className="mt-4 divide-y divide-border overflow-hidden border border-border">
+          {PROOF.map((item) => (
+            <li key={item.hash} className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-display text-lg text-ink">{item.title}</p>
+                <p className="font-label text-xs text-fg-muted">{shortHash(item.hash)}</p>
+              </div>
+              <a
+                href={proofHref(item)}
+                className="font-label text-[11px] uppercase tracking-[0.12em] text-accent underline underline-offset-4"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {item.kind === "hedera" ? "Open HashScan ↗" : "Open Etherscan ↗"}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <h2 className="mt-14 font-display text-2xl font-medium tracking-[-0.03em] text-ink">Contracts · Sepolia</h2>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">
+          {CONTRACTS.map((c) => (
+            <li key={c.address} className="border border-border bg-bg-elevated p-5">
+              <p className="font-display text-xl font-medium text-ink">{c.name}</p>
+              <p className="mt-1 font-display text-[16px] text-fg-body">{c.note}</p>
+              <a
+                href={`${ETHERSCAN_ADDR}/${c.address}`}
+                className="mt-3 inline-block break-all font-label text-xs text-accent underline underline-offset-4"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {c.address}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-10 flex flex-wrap gap-3">
+          <BrandButton href={`${GITHUB_URL}/blob/main/docs/DEMO.md`}>Full demo log</BrandButton>
+          <BrandButton href="/hire" variant="ghost">
+            Run a mandate
+          </BrandButton>
         </div>
-      ))}
-
-      <h3>Contracts · Sepolia</h3>
-      {CONTRACTS.map((c) => (
-        <div className="card" key={c.address}>
-          <div>
-            <strong>{c.name}</strong>
-          </div>
-          <div className="muted">{c.note}</div>
-          <div>
-            <a href={sepoliaAddress(c.address)} target="_blank" rel="noreferrer">
-              <code>{c.address}</code> ↗
-            </a>
-          </div>
-        </div>
-      ))}
-
-      <div className="row" style={{ marginTop: 12 }}>
-        <a
-          href="https://github.com/Ramprasad4121/varanasi/blob/main/docs/DEMO.md"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Full demo log ↗
-        </a>
-        <a href="/#hire-wizard">Run a mandate →</a>
-      </div>
-      <p className="envline">
-        <a href="/">← Back to the varanasi dashboard</a>
-      </p>
-    </section>
+      </section>
+    </div>
   );
 }

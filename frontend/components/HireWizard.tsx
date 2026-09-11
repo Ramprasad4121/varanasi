@@ -3,11 +3,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  createPublicClient,
   createWalletClient,
   custom,
   encodeAbiParameters,
   encodeFunctionData,
   hashTypedData,
+  http,
   isAddress,
   keccak256,
   parseUnits,
@@ -23,6 +25,7 @@ import {
   REGISTRY,
   REGISTRY_ABI,
   SEPOLIA_CHAIN_ID,
+  SEPOLIA_RPC,
   TASK_ESCROW,
   VUSD,
   isDeployed,
@@ -124,6 +127,8 @@ const ESCROW_ABI = [
       { name: "expiry", type: "uint64" },
       { name: "scoreBps", type: "uint256" },
       { name: "validator", type: "address" },
+      { name: "pinnedThresholdBps", type: "uint256" },
+      { name: "pinnedValidator", type: "address" },
       { name: "state", type: "uint8" },
     ],
     stateMutability: "view",
@@ -189,35 +194,68 @@ type PrivySoft = {
   user?: { id?: string };
 };
 
-export default function HireWizard({
+export function HireWizard({
   publicClient,
   externalAgent,
+  initialAgent,
 }: {
-  publicClient: HireClient;
+  publicClient?: HireClient;
   externalAgent?: AgentRecord | null;
+  initialAgent?: string | null;
 }) {
+  const defaultClient = useMemo(
+    () =>
+      createPublicClient({
+        chain: sepolia,
+        transport: SEPOLIA_RPC ? http(SEPOLIA_RPC) : http(),
+      }),
+    []
+  );
+  const client = publicClient || (defaultClient as unknown as HireClient);
   // Layout mounts PrivyProvider when an App ID is set. Without one we skip
   // the hooks entirely and use the MetaMask-only path.
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   if (!appId) {
     return (
-      <HireWizardInner publicClient={publicClient} externalAgent={externalAgent} privy={{}} wallets={[]} />
+      <HireWizardInner
+        publicClient={client}
+        externalAgent={externalAgent}
+        initialAgent={initialAgent}
+        privy={{}}
+        wallets={[]}
+      />
     );
   }
-  return <HireWizardWithPrivy publicClient={publicClient} externalAgent={externalAgent} />;
+  return (
+    <HireWizardWithPrivy
+      publicClient={client}
+      externalAgent={externalAgent}
+      initialAgent={initialAgent}
+    />
+  );
 }
+
+export default HireWizard;
 
 function HireWizardWithPrivy({
   publicClient,
   externalAgent,
+  initialAgent,
 }: {
   publicClient: HireClient;
   externalAgent?: AgentRecord | null;
+  initialAgent?: string | null;
 }) {
   const privy = usePrivyHook() as unknown as PrivySoft;
   const { wallets } = useWalletsHook() as unknown as { wallets?: unknown[] };
   return (
-    <HireWizardInner publicClient={publicClient} externalAgent={externalAgent} privy={privy} wallets={wallets ?? []} />
+    <HireWizardInner
+      publicClient={publicClient}
+      externalAgent={externalAgent}
+      initialAgent={initialAgent}
+      privy={privy}
+      wallets={wallets ?? []}
+    />
   );
 }
 
@@ -230,11 +268,13 @@ function randomNonce(): bigint {
 function HireWizardInner({
   publicClient,
   externalAgent,
+  initialAgent,
   privy,
   wallets,
 }: {
   publicClient: HireClient;
   externalAgent?: AgentRecord | null;
+  initialAgent?: string | null;
   privy: PrivySoft;
   wallets: unknown[];
 }) {
@@ -282,6 +322,12 @@ function HireWizardInner({
     }
     setSublabel(`hire-${externalAgent.sublabel.slice(0, 24)}`);
   }, [externalAgent]);
+
+  useEffect(() => {
+    if (initialAgent && ["scout", "analyst", "freelancer"].includes(initialAgent.toLowerCase())) {
+      pickArch(initialAgent.toLowerCase() as ArchKey);
+    }
+  }, [initialAgent]);
 
   function pickArch(key: ArchKey) {
     setArch(key);
@@ -565,18 +611,19 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
-      const wc = createWalletClient({
+      // Deposit and lock funds into TaskEscrow via walletClient
+      const walletClient = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await wc.getAddresses();
+      const [acct] = await walletClient.getAddresses();
       if (!acct) throw new Error("No account — unlock your wallet first.");
       const data = encodeFunctionData({
         abi: ESCROW_ABI,
         functionName: "fund",
         args: [mandate, s],
       });
-      const hash = await wc.sendTransaction({
+      const hash = await walletClient.sendTransaction({
         account: acct,
         to: TASK_ESCROW as Address,
         data,
@@ -665,8 +712,9 @@ function HireWizardInner({
           functionName: "tasks",
           args: [id],
         } as never)) as unknown as readonly [
-          string, string, string, string, bigint, bigint, bigint, bigint, bigint, bigint, string, number
+          string, string, string, string, bigint, bigint, bigint, bigint, bigint, bigint, string, bigint, string, number
         ];
+        const state = Number(t[13]);
         setTrackDetail(
           `cap ${t[4].toString()} · funded ${t[5].toString()} · score ${t[9].toString()} bps · expiry ${new Date(Number(t[8]) * 1000).toLocaleString()}`
         );
@@ -857,13 +905,13 @@ function HireWizardInner({
         </div>
       )}
 
-      {/* STEP 3 — Sign & fund */}
+      {/* STEP 3 — Sign & fund / deposit */}
       {step === 3 && (
         <div className="card">
-          <strong>Sign & fund (Sepolia, Privy embedded wallet)</strong>
+          <strong>Sign & deposit (Sepolia, Privy embedded wallet)</strong>
           <div className="muted">
             Step 3: one click signs your mandate, mints the agent identity,
-            approves the cap, and funds escrow — in order, stopping at the
+            approves the cap, and deposits funds into escrow — in order, stopping at the
             first problem.
           </div>
           <details>

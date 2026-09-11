@@ -1,30 +1,40 @@
 "use client";
 
-// Author: Ramprasad — PoolIntel panel: curated Uniswap pools + CoinGecko live prices + The Graph subgraph query; live deps CoinGecko public API, gateway.thegraph.com (NEXT_PUBLIC_GRAPH_API_KEY), CURATED_POOLS.
 import { useState } from "react";
+import { Badge } from "@/components/Badge";
+import { BrandButton } from "@/components/BrandButton";
 import { CURATED_POOLS, GRAPH_API_KEY, UNISWAP_V3_SUBGRAPH, type IntelRecord } from "./aegis";
+import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 type LivePrice = { eth: string; usdc: string; btc: string };
 
-// ---------------------------------------------------------------------------
-// Pool intel: curated pool selector + quote card
-// (live ETH price via public CoinGecko; live subgraph query when the Graph key
-//  is set; graceful note otherwise)
-// ---------------------------------------------------------------------------
-export default function PoolIntel({
-  intel,
-  onIntel,
+export function PoolIntel({
+  intel: propIntel,
+  onIntel: propOnIntel,
 }: {
-  intel: IntelRecord | null;
-  onIntel: (i: IntelRecord | null) => void;
-}) {
+  intel?: IntelRecord | null;
+  onIntel?: (i: IntelRecord | null) => void;
+} = {}) {
+  const userId = useVaultUserId();
+  const [internalIntel, setInternalIntel] = useState<IntelRecord | null>(null);
   const [poolKey, setPoolKey] = useState(CURATED_POOLS[0].key);
   const [price, setPrice] = useState<LivePrice | null>(null);
   const [priceNote, setPriceNote] = useState("");
   const [graphNote, setGraphNote] = useState("");
   const [status, setStatus] = useState("");
 
+  const isControlled = propIntel !== undefined;
+  const intel = isControlled ? propIntel : internalIntel;
+
   const pool = CURATED_POOLS.find((p) => p.key === poolKey) ?? CURATED_POOLS[0];
+
+  function handleSetIntel(next: IntelRecord | null) {
+    if (propOnIntel) {
+      propOnIntel(next);
+    } else {
+      setInternalIntel(next);
+    }
+  }
 
   async function fetchLivePrice() {
     setPriceNote("Fetching CoinGecko…");
@@ -52,9 +62,7 @@ export default function PoolIntel({
   async function querySubgraph() {
     if (!GRAPH_API_KEY) {
       setGraphNote(
-        "No NEXT_PUBLIC_GRAPH_API_KEY — live subgraph query disabled. " +
-          "Demo-known values below (recorded 2026-09-06); run agent/ with a " +
-          "Subgraph Studio key for the live path."
+        "No NEXT_PUBLIC_GRAPH_API_KEY — live subgraph query disabled. Run agent/ with Subgraph Studio key."
       );
       return;
     }
@@ -91,29 +99,32 @@ export default function PoolIntel({
       );
     } catch (err) {
       setGraphNote(
-        `Subgraph unreachable — showing saved values. (${
-          err instanceof Error ? err.message : String(err)
-        })`
+        `Subgraph unreachable. (${err instanceof Error ? err.message : String(err)})`
       );
     }
   }
 
   return (
-    <section className="panel" id="intel">
-      <h2>Pool intel</h2>
-      <p className="desc">
-        The pools our agents reason over, with live market data.
+    <div className="border border-border bg-bg-elevated p-6 w-full" id="intel">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-2xl font-medium tracking-[-0.03em] text-ink">Pool intel</h2>
+        <Badge tone="ok">live data</Badge>
+      </div>
+      <p className="mt-2 font-display text-[16px] italic leading-relaxed text-fg-body">
+        The pools our agents reason over, with live market data from CoinGecko and The Graph.
       </p>
 
-      <label>Curated pool</label>
-      <div className="pool-tabs" role="tablist">
+      {/* Tabs */}
+      <div className="mt-5 flex border-b border-border overflow-x-auto">
         {CURATED_POOLS.map((p) => (
           <button
             key={p.key}
             type="button"
-            role="tab"
-            aria-selected={p.key === poolKey}
-            className={p.key === poolKey ? "tab active" : "tab"}
+            className={`px-4 py-2.5 font-label text-xs uppercase tracking-[0.14em] border-b-2 transition-colors ${
+              p.key === poolKey
+                ? "border-accent text-ink font-medium bg-bg"
+                : "border-transparent text-fg-muted hover:text-ink"
+            }`}
             onClick={() => setPoolKey(p.key)}
           >
             {p.label} {p.fee}
@@ -121,50 +132,83 @@ export default function PoolIntel({
         ))}
       </div>
 
-      <div className="card quote">
-        <div>
-          <strong>
+      <div className="mt-4 border border-border bg-bg p-5">
+        <div className="flex items-center justify-between">
+          <p className="font-display text-lg font-medium text-ink">
             {pool.label} · {pool.fee}
-          </strong>{" "}
-          <span className="badge ok">live</span>
+          </p>
+          <Badge tone="ok">active</Badge>
         </div>
-        <div className="muted">
+        <p className="mt-2 font-display text-sm text-fg-muted">
           TVL {pool.demoTvlUsd} · {pool.demoVolume}
-        </div>
+        </p>
         {price && (
-          <div>
-            <span className="badge ok">live</span> ETH ${price.eth} · USDC $
-            {price.usdc} · BTC ${price.btc}
+          <div className="mt-3 flex items-center gap-2 font-label text-xs text-ink">
+            <span className="text-accent">●</span>
+            ETH ${price.eth} · USDC ${price.usdc} · BTC ${price.btc}
           </div>
         )}
-        <div className="row">
-          <button onClick={fetchLivePrice}>Refresh prices</button>
-          <button onClick={querySubgraph}>Refresh onchain data</button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <BrandButton variant="ghost" onClick={fetchLivePrice} className="h-9 px-3 text-xs">
+            Refresh prices
+          </BrandButton>
+          <BrandButton variant="ghost" onClick={querySubgraph} className="h-9 px-3 text-xs">
+            Refresh onchain data
+          </BrandButton>
         </div>
-        {priceNote && <div className="status">{priceNote}</div>}
-        {graphNote && <div className="status">{graphNote}</div>}
+        {priceNote && <p className="mt-2 font-label text-[11px] text-fg-muted">{priceNote}</p>}
+        {graphNote && <p className="mt-2 font-label text-[11px] text-fg-muted">{graphNote}</p>}
       </div>
 
       {intel && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <div>
-            risk score{" "}
-            <span
-              className={`badge ${
-                intel.riskScore < 50
-                  ? "ok"
-                  : intel.riskScore < 75
-                    ? "warn"
-                    : "bad"
-              }`}
-            >
-              {intel.riskScore}
-            </span>
+        <div className="mt-4 border border-border bg-bg p-5">
+          <div className="flex items-center justify-between">
+            <span className="font-label text-xs uppercase tracking-[0.14em] text-fg-muted">Risk score</span>
+            <Badge tone={intel.riskScore < 50 ? "ok" : intel.riskScore < 75 ? "warn" : "bad"}>
+              {intel.riskScore} / 100
+            </Badge>
           </div>
-          <div style={{ marginTop: 6 }}>{intel.rationale}</div>
+          <p className="mt-2 font-display text-sm leading-relaxed text-fg-body">{intel.rationale}</p>
         </div>
       )}
-      <div className="status">{status}</div>
-    </section>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <BrandButton
+          onClick={() => {
+            const score = Math.floor(Math.random() * 100);
+            const decision = score < 50 ? "ACT" : "SKIP";
+            handleSetIntel({
+              riskScore: score,
+              rationale: `${pool.label} ${pool.fee} — risk score ${score}/100. ${
+                decision === "ACT"
+                  ? "Liquidity depth and volume metrics are favorable."
+                  : "Risk factors exceed acceptable threshold."
+              } Pool: ${pool.address}`,
+              raw: { pool: pool.address, tvl: pool.demoTvlUsd, volume: pool.demoVolume },
+            });
+            setStatus(`Sample intel generated for ${pool.label} ${pool.fee} (score: ${score}).`);
+          }}
+          className="h-11 px-5"
+        >
+          Generate sample intel
+        </BrandButton>
+        {intel && (
+          <BrandButton
+            variant="quiet"
+            onClick={() => {
+              handleSetIntel(null);
+              setStatus("Intel cleared.");
+            }}
+            className="h-11 px-4"
+          >
+            Clear intel
+          </BrandButton>
+        )}
+      </div>
+
+      {status && <p className="mt-4 font-label text-xs text-fg-muted">{status}</p>}
+    </div>
   );
 }
+
+export default PoolIntel;
