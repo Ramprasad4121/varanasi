@@ -32,21 +32,21 @@ export const STATS: Array<{
     label: "Escrows released",
     href: `${ETHERSCAN_TX}/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702`,
     proof: "Etherscan",
-    image: "/images/trophy.jpg",
+    image: "/images/aarti-flame.jpg",
   },
   {
     value: "3+",
     label: "x402 payments",
     href: `${HASHSCAN_BASE}/0.0.7162784-1788675749-710110370`,
     proof: "HashScan",
-    image: "/images/eagle.jpg",
+    image: "/images/river-moon.jpg",
   },
   {
     value: "2",
     label: "Agent identities",
     href: `${ETHERSCAN_TX}/0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327`,
     proof: "Etherscan",
-    image: "/images/figure-builder.jpg",
+    image: "/images/spire-dawn.jpg",
   },
   {
     value: "243",
@@ -54,7 +54,7 @@ export const STATS: Array<{
     label: "Tests green",
     href: GITHUB_URL,
     proof: "GitHub",
-    image: "/images/scales.jpg",
+    image: "/images/silk-jaali.jpg",
   },
 ];
 
@@ -63,19 +63,19 @@ export const HOW = [
     n: "I",
     title: "Hire",
     body: "Pick an agent and set a spending cap, a work window, and an expiry. You sign one mandate. The agent never holds your keys.",
-    image: "/images/mandate-scroll.jpg",
+    image: "/images/silk-jaali.jpg",
   },
   {
     n: "II",
     title: "Work",
     body: "The agent does the job inside those bounds. Replay is impossible. One click revokes the identity everywhere.",
-    image: "/images/figure-builder.jpg",
+    image: "/images/river-moon.jpg",
   },
   {
     n: "III",
     title: "Settle",
     body: "Release pays the merchant when the work clears the bar. Miss it — you are refunded, with the evidence onchain.",
-    image: "/images/scales.jpg",
+    image: "/images/aarti-flame.jpg",
   },
 ];
 
@@ -99,10 +99,30 @@ export const ZEROES = [
 ];
 
 export const GALLERY = [
-  { src: "/images/gallery-workshop.jpg", alt: "The workshop — agents drafted like architectural plates" },
-  { src: "/images/gallery-courtyard.jpg", alt: "The courtyard — a quiet colonnade between mandates" },
-  { src: "/images/gallery-dinner.jpg", alt: "The hall — settlement, witnessed" },
-  { src: "/images/gate.jpg", alt: "The gate — identity in, spend out" },
+  {
+    src: "/images/ghats-night.jpg",
+    alt: "The ghats at night — lamps on the steps, the river carrying their light",
+    caption: "Identity",
+    deva: "संज्ञा",
+  },
+  {
+    src: "/images/aarti-flame.jpg",
+    alt: "A single diya flame against the dark — the mandate, one offering at a time",
+    caption: "Mandate",
+    deva: "आज्ञा",
+  },
+  {
+    src: "/images/silk-jaali.jpg",
+    alt: "Banarasi silk brocade — escrow woven in gold on indigo",
+    caption: "Escrow",
+    deva: "निधि",
+  },
+  {
+    src: "/images/river-moon.jpg",
+    alt: "The moonlit river — every settlement leaves a reflection you can check",
+    caption: "Proof",
+    deva: "प्रमाण",
+  },
 ];
 
 export const AGENTS = [
@@ -116,7 +136,7 @@ export const AGENTS = [
     cap: "10",
     window: "24",
     expiry: "7",
-    image: "/images/eagle.jpg",
+    image: "/images/river-moon.jpg",
   },
   {
     id: "analyst",
@@ -128,7 +148,7 @@ export const AGENTS = [
     cap: "25",
     window: "12",
     expiry: "7",
-    image: "/images/scales.jpg",
+    image: "/images/silk-jaali.jpg",
   },
   {
     id: "freelancer",
@@ -140,7 +160,7 @@ export const AGENTS = [
     cap: "50",
     window: "48",
     expiry: "14",
-    image: "/images/trophy.jpg",
+    image: "/images/aarti-flame.jpg",
   },
 ] as const;
 
