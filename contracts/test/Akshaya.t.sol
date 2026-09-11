@@ -30,6 +30,11 @@ contract AkshayaTest is Test {
 
     uint256 nonceSeq;
 
+    /// @dev Locally declared so expectEmit can match the onchain event shape
+    ///      (house pattern from TaskEscrow.t.sol — Solidity cannot emit via
+    ///      contract-qualified references).
+    event Attested(bytes32 indexed taskId, address indexed agent, uint8 outcome, uint256 indexed tokenId);
+
     function setUp() public {
         payer = vm.addr(payerKey);
         registry = new AegisRegistry(address(0), address(0), address(0), "aegis.eth");
@@ -77,7 +82,7 @@ contract AkshayaTest is Test {
         assertEq(balBefore, CAP, "release paid");
 
         vm.expectEmit(true, true, false, false);
-        emit Akshaya.Attested(id, agent, 1, 1);
+        emit Attested(id, agent, 1, 1);
         akshaya.attest(id);
 
         (uint128 coins, uint128 dust, int256 score, uint32 period) = akshaya.statsOf(agent);
