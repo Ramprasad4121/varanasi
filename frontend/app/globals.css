@@ -1,5 +1,9 @@
 /* Author: Ramprasad — Colosseum 2026 paper theme: cream parchment, roman red, blackletter drop caps, engraving plates. */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --paper: #f3f2ee;
   --white: #f7f6f2;

@@ -15,3 +15,5 @@ contracts/lib/*/broadcast/
 contracts/lib/*/cache/
 contracts/lib/*/out/
 .cre_build_tmp.js
+__pycache__/
+*.pyc

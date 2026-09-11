@@ -87,7 +87,7 @@ describe("escrow reads (mocked viem)", () => {
     expect(c.calls[0]).toMatchObject({ address: ESCROW, functionName: "taskState", args: [TASK_ID] });
   });
 
-  it("readTask maps the 12-field tuple to a named object", async () => {
+  it("readTask maps the 14-field tuple to a named object", async () => {
     const tuple = [
       SIGNER,
       "0x1111111111111111111111111111111111111111",
@@ -100,6 +100,8 @@ describe("escrow reads (mocked viem)", () => {
       1_700_172_800n,
       8_000n,
       "0x4444444444444444444444444444444444444444",
+      5_000n,
+      "0x4444444444444444444444444444444444444444",
       2,
     ];
     const c = fakePublic({ tasks: tuple });
@@ -109,6 +111,8 @@ describe("escrow reads (mocked viem)", () => {
       cap: 1_000_000n,
       fundedAmount: 999_000n,
       scoreBps: 8_000n,
+      pinnedThresholdBps: 5_000n,
+      pinnedValidator: "0x4444444444444444444444444444444444444444",
       state: 2,
       label: "Validated",
     });

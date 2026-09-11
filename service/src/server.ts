@@ -107,26 +107,38 @@ function extractSettleTxId(res: Response): string | null {
 const app = express();
 /**
  * Audit fix: CORS allowlist via CORS_ORIGIN (comma-separated).
- * - Set CORS_ORIGIN="https://app.example.com,https://admin.example.com" to restrict.
- * - Unset + NODE_ENV!=production: open `*` (dev convenience) with a startup warning.
- * - Unset + NODE_ENV=production: same-origin only (no open CORS in prod).
+ * - Always permits default local origins: http://localhost:3000 and http://127.0.0.1:3000.
+ * - If CORS_ORIGIN is provided, merges them with default origins.
+ * - If CORS_ORIGIN is unset: open `*` in non-production, default origins in production.
+ * - Configures x402 and standard headers for frontend requests.
  */
 {
   const nodeEnv = process.env.NODE_ENV ?? 'development';
-  const allowlist = (process.env.CORS_ORIGIN ?? '')
+  const defaultOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  const envOrigins = (process.env.CORS_ORIGIN ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  if (allowlist.length > 0) {
-    app.use(cors({ origin: allowlist }));
+
+  const corsOptions = {
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment', 'Payment-Signature', 'X-Payment'],
+    exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'Retry-After'],
+  };
+
+  if (envOrigins.length > 0) {
+    const allowlist = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+    app.use(cors({ ...corsOptions, origin: allowlist }));
   } else if (nodeEnv !== 'production') {
     console.warn(
       '[cors] CORS_ORIGIN unset — open `*` (non-production only). Set CORS_ORIGIN to restrict.',
     );
-    app.use(cors());
+    app.use(cors({ ...corsOptions, origin: '*' }));
   } else {
-    console.warn('[cors] CORS_ORIGIN unset in production — same-origin only (CORS disabled).');
-    app.use(cors({ origin: false }));
+    console.warn(
+      '[cors] CORS_ORIGIN unset in production — allowing default origins (http://localhost:3000, http://127.0.0.1:3000).',
+    );
+    app.use(cors({ ...corsOptions, origin: defaultOrigins }));
   }
 }
 

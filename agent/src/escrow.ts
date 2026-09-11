@@ -159,6 +159,8 @@ export const TASK_ESCROW_ABI = [
       { name: "expiry", type: "uint64" },
       { name: "scoreBps", type: "uint256" },
       { name: "validator", type: "address" },
+      { name: "pinnedThresholdBps", type: "uint256" },
+      { name: "pinnedValidator", type: "address" },
       { name: "state", type: "uint8" },
     ],
   },
@@ -224,7 +226,7 @@ export async function taskState(
   return { state, label: (TASK_STATES[state] ?? "None") as TaskStateLabel };
 }
 
-/** Full onchain task record as a named object (12-field tuple decoded). */
+/** Full onchain task record as a named object (14-field tuple decoded). */
 export interface EscrowTask {
   /** Payer (mandate signer) who funded the task. */
   payer: Address;
@@ -248,6 +250,10 @@ export interface EscrowTask {
   scoreBps: bigint;
   /** Last validator address. */
   validator: Address;
+  /** Threshold bps pinned at fund time. */
+  pinnedThresholdBps: bigint;
+  /** Validator pinned at first validation. */
+  pinnedValidator: Address;
   /** Numeric State enum value. */
   state: number;
   /** Human-readable state label (None/Funded/Validated/Released/Refunded/Cancelled). */
@@ -255,7 +261,7 @@ export interface EscrowTask {
 }
 
 /**
- * Full task record read (12-field tuple → named object).
+ * Full task record read (14-field tuple → named object).
  * @param taskId Task id (bytes32).
  * @param opts Escrow options (rpcUrl, escrow override).
  * @param client Optional injected public client.
@@ -273,9 +279,9 @@ export async function readTask(
     functionName: "tasks",
     args: [taskId],
   })) as unknown as [
-    Address, Address, Address, Address, bigint, bigint, bigint, bigint, bigint, bigint, Address, number,
+    Address, Address, Address, Address, bigint, bigint, bigint, bigint, bigint, bigint, Address, bigint, Address, number,
   ];
-  const state = Number(t[11]);
+  const state = Number(t[13]);
   return {
     payer: t[0],
     agent: t[1],
@@ -288,6 +294,8 @@ export async function readTask(
     expiry: t[8],
     scoreBps: t[9],
     validator: t[10],
+    pinnedThresholdBps: t[11],
+    pinnedValidator: t[12],
     state,
     label: (TASK_STATES[state] ?? "None") as TaskStateLabel,
   };

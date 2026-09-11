@@ -121,7 +121,7 @@ async function buildSchemeClient(accountId: string, privateKey: string, network:
  * @returns PayResult with payload, txHash, hashscanUrl, and paid flag.
  */
 export async function payForSignal(opts: PayerOptions = {}, body: Record<string, unknown> = {}): Promise<PayResult> {
-  const signalUrl = opts.signalUrl ?? process.env.SIGNAL_URL ?? "http://localhost:3001/v1/signal";
+  const signalUrl = opts.signalUrl ?? process.env.SIGNAL_URL ?? "http://localhost:4021/v1/signal";
   const accountId = opts.accountId ?? process.env.HEDERA_AGENT_ACCOUNT_ID ?? "";
   const privateKey = opts.privateKey ?? process.env.HEDERA_AGENT_PRIVATE_KEY ?? "";
   const network = opts.hederaNetwork ?? process.env.HEDERA_NETWORK ?? "testnet";

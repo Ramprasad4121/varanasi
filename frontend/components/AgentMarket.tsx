@@ -1,130 +1,104 @@
 "use client";
 
-// Author: Ramprasad — AgentMarket listings: featured sentinel-1 + onboard/mint via AegisRegistry.mintAgent, revoke; live deps Sepolia RPC/registry via viem + window.ethereum; degrades to local pending records + status hints when undeployed/offline/no wallet.
-import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  createPublicClient,
   createWalletClient,
   custom,
+  http,
   isAddress,
   keccak256,
   stringToBytes,
   type Address,
 } from "viem";
 import { sepolia } from "viem/chains";
+import { Badge } from "@/components/Badge";
+import { BrandButton } from "@/components/BrandButton";
 import {
   DEMO_MINT_TX,
+  LS_AGENTS,
   REGISTRY,
   REGISTRY_ABI,
+  SEPOLIA_RPC,
   isDeployed,
+  sepoliaAddress,
   sepoliaTx,
   type AgentRecord,
   type PublicClientLike,
 } from "./aegis";
-import HireWizard, { type HireClient } from "./HireWizard";
+import { AGENTS, AEGIS_REGISTRY, ETHERSCAN_ADDR, ETHERSCAN_TX, shortAddr } from "@/lib/site";
+import { loadScoped, saveScoped, useVaultUserId } from "@/lib/vault";
 
-// The bench: the three demo worker archetypes (mirror agent/src/workers/*
-// and `hire --agent <name>`) waiting to be picked. A seat reads "on the job"
-// once the user has hired an agent whose name starts with that archetype —
-// derived from the agent list, no new state, nothing faked.
-const BENCH = [
-  { key: "scout", label: "Scout", role: "Finds the pools worth your money." },
-  { key: "analyst", label: "Analyst", role: "Scores risk before a cent moves." },
-  { key: "freelancer", label: "Freelancer", role: "Does the work, settles escrow." },
-];
+const FEATURED_TX = "0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327";
 
-function Bench({
-  agents,
-  onHire,
-}: {
-  agents: AgentRecord[];
-  onHire: (a: AgentRecord) => void;
-}) {
-  const onJob = (key: string) =>
-    agents.some(
-      (a) => !a.revoked && a.sublabel.toLowerCase().startsWith(key)
-    );
-  const waiting = BENCH.filter((b) => !onJob(b.key)).length;
-  return (
-    <div className="bench">
-      <div className="bench-head">
-        <span className="bench-title">On the bench</span>
-        <span className="muted">
-          {waiting} waiting · {BENCH.length - waiting} on the job
-        </span>
-      </div>
-      <div className="bench-seats">
-        {BENCH.map((b) => {
-          const busy = onJob(b.key);
-          return (
-            <div className="bench-seat" key={b.key}>
-              <span className={`bench-dot${busy ? " busy" : ""}`} aria-hidden />
-              <div>
-                <strong>{b.label}</strong>
-                <div className="muted">{b.role}</div>
-                {busy ? (
-                  <div className="bench-state ok">On the job ✓</div>
-                ) : (
-                  <button
-                    type="button"
-                    className="bench-hire"
-                    onClick={() =>
-                      onHire({
-                        sublabel: `${b.key}-1`,
-                        wallet: "",
-                        expiry: Math.floor(Date.now() / 1000) + 90 * 86400,
-                      })
-                    }
-                  >
-                    Hire {b.label}
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+export type AgentMarketProps = {
+  agents?: AgentRecord[];
+  publicClient?: PublicClientLike;
+  onMinted?: (a: AgentRecord) => void;
+  onUpdate?: (a: AgentRecord) => void;
+};
 
-// Per-card: one clean Etherscan link.
-function VerifyLine({ txHash }: { txHash?: string }) {
-  if (!txHash) return null;
-  return (
-    <div className="verify-line">
-      <a href={sepoliaTx(txHash)} target="_blank" rel="noreferrer" className="verify-primary">
-        Verified on Etherscan ↗
-      </a>
-    </div>
-  );
-}
-export default function AgentMarket({
-  agents,
-  publicClient,
-  onMinted,
-  onUpdate,
-}: {
-  agents: AgentRecord[];
-  publicClient: PublicClientLike;
-  onMinted: (a: AgentRecord) => void;
-  onUpdate: (a: AgentRecord) => void;
-}) {
+export function AgentMarket({
+  agents: propAgents,
+  publicClient: propClient,
+  onMinted: propOnMinted,
+  onUpdate: propOnUpdate,
+}: AgentMarketProps = {}) {
+  const userId = useVaultUserId();
+  const [internalAgents, setInternalAgents] = useState<AgentRecord[]>([]);
   const [status, setStatus] = useState("");
   const [liveCheck, setLiveCheck] = useState("");
-  const [hireTarget, setHireTarget] = useState<AgentRecord | null>(null);
+  const [open, setOpen] = useState(false);
+  const [sublabel, setSublabel] = useState("");
+  const [wallet, setWallet] = useState("");
+  const [days, setDays] = useState("90");
 
-  function hire(a: AgentRecord) {
-    setHireTarget(a);
-    requestAnimationFrame(() =>
-      document
-        .getElementById("hire-wizard")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" })
-    );
+  const isControlled = propAgents !== undefined;
+  const agents = isControlled ? propAgents : internalAgents;
+
+  useEffect(() => {
+    if (!isControlled) {
+      setInternalAgents(loadScoped<AgentRecord[]>(userId, LS_AGENTS, []));
+    }
+  }, [isControlled, userId]);
+
+  const defaultPublicClient = useMemo(
+    () =>
+      createPublicClient({
+        chain: sepolia,
+        transport: SEPOLIA_RPC ? http(SEPOLIA_RPC) : http(),
+      }),
+    []
+  );
+
+  const publicClient = propClient || (defaultPublicClient as unknown as PublicClientLike);
+
+  function handleMinted(agent: AgentRecord) {
+    if (propOnMinted) {
+      propOnMinted(agent);
+    } else {
+      setInternalAgents((prev) => {
+        const next = [agent, ...prev.filter((x) => x.sublabel !== agent.sublabel)];
+        saveScoped(userId, LS_AGENTS, next);
+        return next;
+      });
+    }
   }
 
-  // Live onchain check of the featured agent (never crashes when offline).
-  // Reads go through tokenByLabelHash → expiry/revoked: the contract has
-  // no agentOf(string), and mint takes expiry days (see aegis.ts).
+  function handleUpdate(agent: AgentRecord) {
+    if (propOnUpdate) {
+      propOnUpdate(agent);
+    } else {
+      setInternalAgents((prev) => {
+        const next = prev.map((x) => (x.sublabel === agent.sublabel ? agent : x));
+        saveScoped(userId, LS_AGENTS, next);
+        return next;
+      });
+    }
+  }
+
+  // Live onchain check of the featured agent via Viem
   async function checkSentinel() {
     if (!isDeployed) {
       setLiveCheck("Registry not deployed yet — showing local records.");
@@ -170,15 +144,17 @@ export default function AgentMarket({
     }
   }
 
+  // Live onchain revoke via Viem
   async function revoke(a: AgentRecord) {
     if (!isDeployed) {
-      onUpdate({ ...a, revoked: true });
+      handleUpdate({ ...a, revoked: true });
       setStatus("Registry not deployed yet — marked revoked locally.");
       return;
     }
     const eth = (window as unknown as { ethereum?: unknown }).ethereum;
     if (!eth) {
-      setStatus("No window.ethereum found — connect MetaMask (Sepolia) first.");
+      handleUpdate({ ...a, revoked: true });
+      setStatus("No window.ethereum found — marked revoked locally.");
       return;
     }
     try {
@@ -196,7 +172,7 @@ export default function AgentMarket({
         args: [a.sublabel],
         chain: sepolia,
       });
-      onUpdate({ ...a, revoked: true, txHash: hash });
+      handleUpdate({ ...a, revoked: true, txHash: hash });
       setStatus(`Revoked ${a.sublabel}.aegis.eth → ${hash}`);
     } catch (err) {
       setStatus(
@@ -205,202 +181,254 @@ export default function AgentMarket({
     }
   }
 
-  return (
-    <section className="panel" id="agents">
-      <h2>Agents for hire</h2>
-      <p className="desc">
-        Each agent is an ENSv2 subname with an expiring, revocable onchain
-        authorization.
-      </p>
-
-      <Bench agents={agents} onHire={hire} />
-
-      {/* Featured agent */}
-      <div className="card featured" id="featured-agent">
-        <div>
-          <strong>sentinel-1.aegis.eth</strong>{" "}
-          <span className="badge ok">authorized</span>
-        </div>
-        <div className="muted">
-          Minted Sep 6, 2026 · 90-day expiry · RiskGuard verified
-        </div>
-        <VerifyLine txHash={DEMO_MINT_TX} />
-        <div className="row">
-          <button onClick={checkSentinel}>Verify onchain</button>
-          <button
-            onClick={() =>
-              hire({
-                sublabel: "sentinel-1",
-                wallet: "",
-                expiry: Math.floor(Date.now() / 1000) + 90 * 86400,
-              })
-            }
-          >
-            Hire
-          </button>
-        </div>
-        {liveCheck && <div className="status">{liveCheck}</div>}
-      </div>
-
-      <OnboardForm onMinted={onMinted} />
-
-      {agents.length === 0 && (
-        <div className="status muted" style={{ marginTop: 12 }}>
-          No additional agents listed yet.
-        </div>
-      )}
-      <div className="cards">
-        {agents.map((a) => {
-          const expired = a.expiry * 1000 <= Date.now();
-          return (
-            <div className="card" key={a.sublabel}>
-              <div>
-                <strong>{a.sublabel}.aegis.eth</strong>{" "}
-                {a.revoked ? (
-                  <span className="badge bad">revoked</span>
-                ) : expired ? (
-                  <span className="badge bad">expired</span>
-                ) : a.pending || !isDeployed ? (
-                  <span className="badge warn">pending</span>
-                ) : (
-                  <span className="badge ok">authorized</span>
-                )}
-              </div>
-              <div className="muted">
-                Expires {new Date(a.expiry * 1000).toLocaleDateString()}
-              </div>
-              <VerifyLine txHash={a.txHash} />
-              <div className="row">
-                {!a.revoked && (
-                  <>
-                    <button onClick={() => hire(a)}>Hire</button>
-                    <button onClick={() => revoke(a)}>Revoke</button>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <HireWizard
-        publicClient={publicClient as unknown as HireClient}
-        externalAgent={hireTarget}
-      />
-      <div className="status">{status}</div>
-    </section>
-  );
-}
-
-function OnboardForm({ onMinted }: { onMinted: (a: AgentRecord) => void }) {
-  const [open, setOpen] = useState(false);
-  const [sublabel, setSublabel] = useState("");
-  const [wallet, setWallet] = useState("");
-  const [days, setDays] = useState("90");
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-
+  // Mint / List agent
   async function mint(e: FormEvent) {
     e.preventDefault();
-    setStatus("");
     const label = sublabel.trim().toLowerCase();
     if (!/^[a-z0-9-]{1,32}$/.test(label)) {
-      setStatus("Sublabel must be 1–32 chars: a–z, 0–9, hyphen.");
+      setStatus("Name must be 1–32 characters: a–z, 0–9, hyphen.");
       return;
     }
-    if (!isAddress(wallet)) {
-      setStatus("Agent wallet is not a valid 0x address.");
+    if (!isAddress(wallet.trim())) {
+      setStatus("Wallet must be a valid 0x address.");
       return;
     }
-    const expiryDays = Math.max(1, Number(days) || 90);
-    const expiry =
-      Math.floor(Date.now() / 1000) + expiryDays * 86400;
+    const expirySec = Math.floor(Date.now() / 1000) + Math.max(1, Number(days) || 90) * 86400;
 
-    if (!isDeployed) {
-      onMinted({ sublabel: label, wallet, expiry, pending: true });
-      setStatus(
-        `Registry not deployed yet — listed "${label}.aegis.eth" locally as pending.`
-      );
-      return;
-    }
     const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-    if (!eth) {
-      setStatus("No window.ethereum found — connect MetaMask (Sepolia) first.");
-      return;
+    if (eth && isDeployed) {
+      try {
+        const walletClient = createWalletClient({
+          chain: sepolia,
+          transport: custom(eth as never),
+        });
+        const [account] = await walletClient.getAddresses();
+        if (account) {
+          const hash = await walletClient.writeContract({
+            account,
+            address: REGISTRY as Address,
+            abi: REGISTRY_ABI,
+            functionName: "mintAgent",
+            args: [label, wallet.trim() as Address, BigInt(Math.max(1, Number(days) || 90))],
+            chain: sepolia,
+          });
+          const rec: AgentRecord = {
+            sublabel: label,
+            wallet: wallet.trim(),
+            expiry: expirySec,
+            txHash: hash,
+            pending: false,
+          };
+          handleMinted(rec);
+          setStatus(`Minted ${label}.aegis.eth onchain → ${hash}`);
+          setSublabel("");
+          setWallet("");
+          setOpen(false);
+          return;
+        }
+      } catch {
+        // Fall back to saving locally as pending
+      }
     }
-    setBusy(true);
-    try {
-      const walletClient = createWalletClient({
-        chain: sepolia,
-        transport: custom(eth as never),
-      });
-      const [account] = await walletClient.getAddresses();
-      if (!account) throw new Error("No account — unlock your wallet first.");
-      const hash = await walletClient.writeContract({
-        account,
-        address: REGISTRY as Address,
-        abi: REGISTRY_ABI,
-        functionName: "mintAgent",
-        // Contract takes expiry DAYS (not a timestamp) — see aegis.ts.
-        args: [label, wallet as Address, BigInt(expiryDays)],
-        chain: sepolia,
-      });
-      onMinted({ sublabel: label, wallet, expiry, txHash: hash });
-      setStatus(`Listed ${label}.aegis.eth → ${hash}`);
-      setSublabel("");
-    } catch (err) {
-      setStatus(
-        `Mint failed: ${err instanceof Error ? err.message : String(err)}`
-      );
-    } finally {
-      setBusy(false);
-    }
+
+    const rec: AgentRecord = {
+      sublabel: label,
+      wallet: wallet.trim(),
+      expiry: expirySec,
+      pending: true,
+    };
+    handleMinted(rec);
+    setStatus(`${label}.aegis.eth saved to vault as pending.`);
+    setSublabel("");
+    setWallet("");
+    setOpen(false);
   }
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        style={{
-          background: "none",
-          border: "none",
-          color: "var(--muted)",
-          fontSize: 13,
-          cursor: "pointer",
-          padding: 0,
-          marginTop: 0,
-          textDecoration: "underline",
-          textUnderlineOffset: "3px",
-        }}
-      >
-        {open ? "Hide" : "List a new agent"}
-      </button>
-      {open && (
-        <form onSubmit={mint} className="card" style={{ marginTop: 8 }}>
-          <label>Agent name</label>
-          <input
-            value={sublabel}
-            onChange={(e) => setSublabel(e.target.value)}
-            placeholder="sentinel-2"
-          />
-          <label>Agent wallet</label>
-          <input
-            value={wallet}
-            onChange={(e) => setWallet(e.target.value)}
-            placeholder="0x…"
-          />
-          <label>Expiry (days)</label>
-          <input
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-            inputMode="numeric"
-          />
-          <button type="submit" disabled={busy}>
-            {busy ? "Minting…" : isDeployed ? "Mint agent" : "List locally"}
-          </button>
-          <div className="status">{status}</div>
-        </form>
+    <div className="w-full">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <a
+          className="font-label text-[11px] uppercase tracking-[0.12em] text-fg-muted underline underline-offset-4 hover:text-accent transition-colors"
+          href={`${ETHERSCAN_ADDR}/${AEGIS_REGISTRY}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Registry {shortAddr(AEGIS_REGISTRY)}
+        </a>
+      </div>
+
+      {/* 3-column roster */}
+      <ul className="mt-6 grid gap-6 lg:grid-cols-3">
+        {AGENTS.map((agent) => (
+          <li key={agent.id} className="flex flex-col border border-border bg-bg-elevated">
+            <div className="h-40 overflow-hidden border-b border-border bg-bg-muted">
+              <img src={agent.image} alt={agent.name} className="h-full w-full object-cover mix-blend-multiply" />
+            </div>
+            <div className="flex flex-1 flex-col p-6">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">{agent.ens}</p>
+                <Badge tone="ok">authorized</Badge>
+              </div>
+              <h3 className="mt-3 font-display text-[28px] font-medium tracking-[-0.03em] text-ink">{agent.name}</h3>
+              <p className="mt-1 font-display italic text-accent">{agent.role}</p>
+              <p className="mt-3 flex-1 font-display text-[16px] leading-relaxed text-fg-body">{agent.summary}</p>
+              <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
+                <div>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Cap</dt>
+                  <dd className="mt-1 font-display text-lg text-ink">{agent.cap} vUSD</dd>
+                </div>
+                <div>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Window</dt>
+                  <dd className="mt-1 font-display text-lg text-ink">{agent.window}h</dd>
+                </div>
+                <div>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Score</dt>
+                  <dd className="mt-1 font-display text-lg text-ink">98/100</dd>
+                </div>
+              </dl>
+              <div className="mt-6">
+                <BrandButton href={`/hire?agent=${agent.id}`} className="h-11 w-full px-4">
+                  Hire {agent.name}
+                </BrandButton>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Featured sentinel-1 card */}
+      <div className="mt-6 border border-border bg-bg-elevated">
+        <div className="grid gap-0 md:grid-cols-[200px_1fr]">
+          <div className="h-44 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-border bg-bg-muted">
+            <img src="/images/emblem.jpg" alt="" className="h-full w-full object-cover mix-blend-multiply" />
+          </div>
+          <div className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-display text-2xl font-medium text-ink">sentinel-1.aegis.eth</p>
+                <p className="mt-1 font-display text-sm italic text-fg-muted">
+                  Minted Sep 6, 2026 · 90-day expiry · RiskGuard verified
+                </p>
+              </div>
+              <Badge tone="ok">authorized</Badge>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <a
+                className="inline-flex h-11 items-center border border-ink/80 px-4 font-label text-[11px] uppercase tracking-[0.14em] hover:bg-ink hover:text-bg transition-colors"
+                href={`${ETHERSCAN_TX}/${DEMO_MINT_TX}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Verified on Etherscan ↗
+              </a>
+              <BrandButton variant="ghost" onClick={checkSentinel} className="h-11 px-4">
+                Verify onchain
+              </BrandButton>
+              <BrandButton href="/hire?agent=scout" className="h-11 px-5">
+                Hire sentinel
+              </BrandButton>
+            </div>
+            {liveCheck && (
+              <p className="mt-3 font-label text-xs tracking-wide text-fg-body border-l-2 border-accent pl-3">
+                {liveCheck}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Onboard form toggle */}
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted underline underline-offset-4 hover:text-accent transition-colors"
+        >
+          {open ? "− Hide listing form" : "+ List a new agent"}
+        </button>
+        {open && (
+          <form onSubmit={mint} className="mt-4 grid gap-4 border border-border bg-bg-elevated p-6 sm:grid-cols-3">
+            <label className="block sm:col-span-1">
+              <span className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Subname (.aegis.eth)</span>
+              <input
+                value={sublabel}
+                onChange={(e) => setSublabel(e.target.value)}
+                placeholder="sentinel-2"
+                className="mt-2 h-11 w-full border border-border bg-bg px-3 text-fg outline-none focus:border-accent"
+                required
+              />
+            </label>
+            <label className="block sm:col-span-1">
+              <span className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Worker Wallet</span>
+              <input
+                value={wallet}
+                onChange={(e) => setWallet(e.target.value)}
+                placeholder="0x…"
+                className="mt-2 h-11 w-full border border-border bg-bg px-3 font-label text-sm text-fg outline-none focus:border-accent"
+                required
+              />
+            </label>
+            <label className="block sm:col-span-1">
+              <span className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Expiry (days)</span>
+              <input
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                type="number"
+                min="1"
+                max="365"
+                className="mt-2 h-11 w-full border border-border bg-bg px-3 text-fg outline-none focus:border-accent"
+              />
+            </label>
+            <div className="sm:col-span-3 pt-2">
+              <BrandButton type="submit">List agent</BrandButton>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* User's custom listed agents */}
+      {agents.length > 0 && (
+        <div className="mt-8">
+          <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Your listed agents</p>
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {agents.map((a) => {
+              const expired = a.expiry * 1000 <= Date.now();
+              const tone = a.revoked || expired ? "bad" : a.pending ? "warn" : "ok";
+              const label = a.revoked ? "revoked" : expired ? "expired" : a.pending ? "pending" : "authorized";
+              return (
+                <li key={a.sublabel} className="border border-border bg-bg-elevated p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-display text-lg font-medium text-ink">{a.sublabel}.aegis.eth</p>
+                    <Badge tone={tone}>{label}</Badge>
+                  </div>
+                  <p className="mt-2 font-display text-sm text-fg-muted">
+                    Expires {new Date(a.expiry * 1000).toLocaleDateString()}
+                  </p>
+                  {a.wallet && (
+                    <p className="mt-1 font-label text-xs text-fg-muted">
+                      {shortAddr(a.wallet)}
+                    </p>
+                  )}
+                  {!a.revoked && (
+                    <div className="mt-5 flex gap-2">
+                      <BrandButton href={`/hire?agent=${a.sublabel}`} className="h-10 px-4">
+                        Hire
+                      </BrandButton>
+                      <BrandButton variant="ghost" className="h-10 px-4" onClick={() => revoke(a)}>
+                        Revoke
+                      </BrandButton>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
+
+      {status && <p className="mt-4 font-label text-xs text-fg-muted">{status}</p>}
     </div>
   );
 }
+
+export default AgentMarket;

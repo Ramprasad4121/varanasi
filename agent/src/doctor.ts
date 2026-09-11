@@ -54,7 +54,7 @@ export interface DoctorOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 8000;
-const DEFAULT_SIGNAL_URL = "http://localhost:3001/v1/signal";
+const DEFAULT_SIGNAL_URL = "http://localhost:4021/v1/signal";
 
 function fail(name: string, detail: string, fix: string): DoctorCheck {
   return { name, ok: false, detail, fix };
@@ -163,7 +163,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<DoctorCheck[]
       : fail(
           "signal-url",
           "refused: must be https:// or http://localhost",
-          "export SIGNAL_URL=https://<host>/v1/signal  # or http://localhost:3001/v1/signal for local dev",
+          "export SIGNAL_URL=https://<host>/v1/signal  # or http://localhost:4021/v1/signal for local dev",
         ),
   );
 
@@ -261,7 +261,7 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<DoctorCheck[]
       fail(
         "signal:health",
         `unreachable: ${String((e as Error)?.message ?? e).slice(0, 100)}`,
-        "cd service && npm run dev  # start the x402 signal service on :3001",
+        "cd service && npm run dev  # start the x402 signal service on :4021",
       ),
     );
   }
