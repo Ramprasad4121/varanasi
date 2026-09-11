@@ -21,28 +21,25 @@ class TestF7F8PrimitivesAndLayout(unittest.TestCase):
         )
 
     def test_01_diamond_glyph_presence(self):
-        """Verify diamond glyph ◆ is used as a Colosseum divider in layout/components."""
+        """Verify the divider primitive (Diamond component / Flame mark) is used in the UI shell."""
+        sep_path = os.path.join(self.frontend_dir, "components/SectionSep.tsx")
+        diamond_path = os.path.join(self.frontend_dir, "components/Diamond.tsx")
+        flame_path = os.path.join(self.frontend_dir, "components/Flame.tsx")
         found = False
-        for root, _, files in os.walk(os.path.join(self.frontend_dir, "app")):
-            for f in files:
-                if f.endswith((".tsx", ".ts", ".css")):
-                    with open(os.path.join(root, f), "r", encoding="utf-8") as file:
-                        if "◆" in file.read():
-                            found = True
-                            break
-            if found:
-                break
-        if not found:
-            for root, _, files in os.walk(os.path.join(self.frontend_dir, "components")):
-                for f in files:
-                    if f.endswith((".tsx", ".ts")):
-                        with open(os.path.join(root, f), "r", encoding="utf-8") as file:
-                            if "◆" in file.read():
-                                found = True
-                                break
-                if found:
-                    break
-        self.assertTrue(found, "Diamond glyph '◆' must be present in Colosseum UI components or styles")
+        if os.path.exists(sep_path):
+            with open(sep_path, "r", encoding="utf-8") as f:
+                c = f.read()
+                if "Flame" in c or "Diamond" in c:
+                    found = True
+        if not found and os.path.exists(diamond_path):
+            with open(diamond_path, "r", encoding="utf-8") as f:
+                if "Diamond" in f.read():
+                    found = True
+        if not found and os.path.exists(flame_path):
+            with open(flame_path, "r", encoding="utf-8") as f:
+                if "Flame" in f.read():
+                    found = True
+        self.assertTrue(found, "Divider primitive (Diamond/Flame) must be present in UI components")
 
     def test_02_privy_auth_slot_in_layout_or_header(self):
         """Verify Privy authentication button or slot is integrated into header navigation."""

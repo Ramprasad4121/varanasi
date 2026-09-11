@@ -1,8 +1,8 @@
 """
 author: Varanasi E2E Test Suite
 tier: Tier 1 - Feature Coverage
-features: F5 (Next.js Offline Font Config) & F6 (Tailwind & Colosseum Utility Infra)
-spec: frontend/next.config.js, frontend/package.json, frontend/tailwind.config.ts, grok-workspace
+features: F5 (Next.js Offline Font Config) & F6 (Tailwind & Ghats-at-Night Utility Infra)
+spec: frontend/next.config.js, frontend/package.json, frontend/tailwind.config.js (Ghats at Night theme)
 """
 import unittest
 import os
@@ -11,7 +11,7 @@ import re
 
 class TestF5F6FrontendInfrastructure(unittest.TestCase):
     """
-    Validates Next.js build configuration and Colosseum design tokens.
+    Validates Next.js build configuration and Ghats-at-Night design tokens.
     """
 
     @classmethod
@@ -41,8 +41,8 @@ class TestF5F6FrontendInfrastructure(unittest.TestCase):
         self.assertIn("@privy-io/react-auth", deps, "@privy-io/react-auth missing in frontend/package.json")
         self.assertIn("viem", deps, "viem missing in frontend/package.json")
 
-    def test_03_colosseum_palette_crimson_accent(self):
-        """Verify Roman Crimson (#c01010) is specified in css or theme tokens."""
+    def test_03_ganga_night_palette_flame_accent(self):
+        """Verify diya-flame saffron (#ff9432) is specified in css or theme tokens."""
         css_path = os.path.join(self.frontend_dir, "app/globals.css")
         market_css_path = os.path.join(self.frontend_dir, "app/marketplace.css")
         found = False
@@ -50,19 +50,19 @@ class TestF5F6FrontendInfrastructure(unittest.TestCase):
             if os.path.exists(p):
                 with open(p, "r", encoding="utf-8") as f:
                     c = f.read().lower()
-                    if "c01010" in c:
+                    if "ff9432" in c:
                         found = True
                         break
         # Also check tailwind if exists
         tw_path = os.path.join(self.frontend_dir, "tailwind.config.js")
         if not found and os.path.exists(tw_path):
             with open(tw_path, "r", encoding="utf-8") as f:
-                if "c01010" in f.read().lower():
+                if "ff9432" in f.read().lower():
                     found = True
-        self.assertTrue(found, "Roman crimson (#c01010) accent token not found in frontend styles")
+        self.assertTrue(found, "Diya-flame (#ff9432) accent token not found in frontend styles")
 
-    def test_04_colosseum_palette_paper_and_ink(self):
-        """Verify warm paper (#f3f2ee) and iron ink (#1c1b18) backgrounds are defined."""
+    def test_04_ganga_night_palette_night_and_ivory(self):
+        """Verify night (#0b0913) background and ivory (#f4eee1) text tokens are defined."""
         css_path = os.path.join(self.frontend_dir, "app/globals.css")
         market_css_path = os.path.join(self.frontend_dir, "app/marketplace.css")
         content = ""
@@ -70,10 +70,10 @@ class TestF5F6FrontendInfrastructure(unittest.TestCase):
             if os.path.exists(p):
                 with open(p, "r", encoding="utf-8") as f:
                     content += f.read().lower()
-        has_paper = "f3f2ee" in content or "f7f6f2" in content or "f5f4ef" in content
-        has_ink = "1c1b18" in content or "111" in content or "0d0d0d" in content or "181816" in content
-        self.assertTrue(has_paper, "Warm paper background token not found in styles")
-        self.assertTrue(has_ink, "Dark iron ink token not found in styles")
+        has_night = "0b0913" in content or "151024" in content
+        has_ivory = "f4eee1" in content or "b9b0cc" in content
+        self.assertTrue(has_night, "Night background token not found in styles")
+        self.assertTrue(has_ivory, "Ivory text token not found in styles")
 
     def test_05_colosseum_typography_newsreader_serif(self):
         """Verify Newsreader / serif typography is specified."""
