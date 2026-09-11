@@ -8,7 +8,7 @@
  */
 import { Command } from "commander";
 import "dotenv/config";
-import { createPublicClient, createWalletClient, http, keccak256, toHex, type Address } from "viem";
+import { createPublicClient, createWalletClient, http, keccak256, toHex, type Address, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
@@ -23,6 +23,7 @@ import { runScout } from "./workers/scout.js";
 import { runAnalyst } from "./workers/analyst.js";
 import { runFreelancer } from "./workers/freelancer.js";
 import { getAgentProfile, searchAgents, type DiscoverChain } from "./discover.js";
+import { AKSHAYA_ADDRESS, attestTask, isAttested, readReputation } from "./akshaya.js";
 import {
   SEPOLIA_CHAIN_ID,
   TASK_ESCROW_ADDRESS,
@@ -276,6 +277,76 @@ program
         args: [agent],
       })) as boolean;
       console.log(JSON.stringify({ isAuthorizedAfter: after, ok: true }, null, 2));
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("reputation [agent]")
+  .description("Read an agent's onchain proof-of-outcome score (Akshaya): accepts 0x... or <sublabel>[.aegis.eth]")
+  .option("--json", "machine-readable output")
+  .action(async (agentArg: string | undefined, opts) => {
+    try {
+      const input = agentArg ?? process.env.AEGIS_AGENT;
+      if (!input) throw new Error("Pass an agent: `aegis reputation 0x... | sentinel-1`.");
+      let wallet: Address;
+      if (/^0x[0-9a-fA-F]{40}$/.test(input)) {
+        wallet = input as Address;
+      } else {
+        const id = await resolveAgentSubname(input);
+        wallet = id.agentWallet;
+      }
+      const akshaya = (process.env.AKSHAYA_ADDRESS ?? AKSHAYA_ADDRESS) as Address;
+      if (akshaya === "0x0000000000000000000000000000000000000000") {
+        throw new Error("AKSHAYA_ADDRESS is not set - deploy via contracts/script/DeployInventions.s.sol first.");
+      }
+      const rep = await readReputation(wallet, { akshaya });
+      const verdict =
+        rep.score >= 5000n ? "trusted" : rep.score > 0n ? "thin-history" : rep.score === 0n ? "unknown" : "burned";
+      const out = {
+        ok: true,
+        agent: wallet,
+        scoreBps: rep.score.toString(),
+        coins: rep.coins.toString(),
+        dust: rep.dust.toString(),
+        receipts: rep.receipts.toString(),
+        verdict,
+        akshaya,
+      };
+      if (opts.json) console.log(JSON.stringify(out, null, 2));
+      else console.log(`${wallet}  score=${rep.score}/10000  coins=${rep.coins} dust=${rep.dust}  -> ${verdict}`);
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("attest <taskId>")
+  .description("Permissionlessly convert a TERMINAL escrow task into a soulbound Akshaya receipt")
+  .option("--key-stdin", "read the attester key from stdin instead of env")
+  .action(async (taskIdArg: string, opts) => {
+    try {
+      const akshaya = (process.env.AKSHAYA_ADDRESS ?? AKSHAYA_ADDRESS) as Address;
+      if (akshaya === "0x0000000000000000000000000000000000000000") {
+        throw new Error("AKSHAYA_ADDRESS is not set.");
+      }
+      const rpc = process.env.SEPOLIA_RPC_URL ?? "https://rpc.sepolia.org";
+      const pub = createPublicClient({ chain: sepolia, transport: http(rpc) });
+      const id = taskIdArg as Hash;
+      if (await isAttested(id, { akshaya, client: pub })) {
+        console.log(JSON.stringify({ ok: true, alreadyAttested: true, taskId: id }));
+        return;
+      }
+      const key = await resolveMandateKey(Boolean(opts.keyStdin));
+      const account = privateKeyToAccount(key);
+      const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
+      const { hash } = await attestTask(wallet, id, { akshaya });
+      await pub.waitForTransactionReceipt({ hash });
+      const rep = await readReputation(account.address, { akshaya, client: pub });
+      console.log(JSON.stringify({ ok: true, txHash: hash, agent: account.address, scoreBps: rep.score.toString() }, null, 2));
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;

@@ -15,7 +15,7 @@ cp .env.example .env   # fill GRAPH_API_KEY (Subgraph Studio), SEPOLIA_RPC_URL,
                        # AEGIS_REGISTRY, HEDERA_* keys, SIGNAL_URL
 npm install
 npx tsc --noEmit       # must be green
-npm test               # reason.ts unit tests (vitest)
+npm test               # vitest — 156 checks, fully offline (mocked viem/fetch)
 ```
 
 ## Run it
@@ -133,6 +133,7 @@ error JSON to stderr with a non-zero exit. Env: `AAVE_MCP_URL` (default
 | `src/pay.ts` | x402 payer (`@x402/fetch` + Hedera ECDSA signer, HashScan receipts) |
 | `src/mandate.ts` | EIP-712 mandate sign/verify (domain bound to live escrow + Sepolia, nonce mgmt, offline) |
 | `src/escrow.ts` | TaskEscrow viem client (`fundMandate` with ERC20 approve-first, `taskState` read, release/refund/cancel/submitValidation writers) |
+| `src/akshaya.ts` | Akshaya reputation reader + `attest` writer (soulbound proof-of-outcome score; `readReputation`, `isAttested`) |
 | `src/cli.ts` / `src/index.ts` | `analyze` orchestration / public exports (+ `mandate` signer, `hire` workers) |
 | `src/workers/scout.ts` | SignalScout — `topPools` discovery (sane-filtered) + `payForSignal` on healthy turnover → `{ pool, intel, signal, confidence, receipt }` |
 | `src/workers/analyst.ts` | PoolAnalyst — pool intel + alpha → `analyzeRisk` verdict + human brief (LLM opt-in passthrough) |
@@ -207,10 +208,17 @@ network call is attempted — heuristic is used directly.
 
 ## Mandate / escrow lane (Sepolia)
 
-Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
-(Sepolia `11155111`), threshold `5000` bps,
-`RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
-Spec: `docs/MANDATE.md`. The `mandate` command is OFFLINE — it creates +
+Live v2 rail (Sepolia `11155111`, evidence: `docs/DEMO.md` § 7):
+
+| Contract | Address |
+|---|---|
+| TaskEscrow | `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24` |
+| RiskGuard | `0x668c01aE564D51baFF0029D361c20c534d738400` |
+| AegisRegistry | `0x3913f1E6A0Be93180363aBd01Df7968d494033A8` |
+| vUSD (mock 6dp) | `0x6169A84cD7430042fb697c2cC131F663212E8b30` |
+
+Threshold `5000` bps. Defaults baked into `src/mandate.ts`; verify on the
+explorer before funding anything. Spec: `docs/MANDATE.md`. The `mandate` command is OFFLINE — it creates +
 EIP-712 signs a mandate and prints the digest + explorer-ready fields. It
 never broadcasts, stores keys, or logs secrets. Keys NEVER travel via CLI
 flags (no `--private-key` flag exists on any subcommand): the payer key
@@ -244,6 +252,25 @@ AND live `RiskGuard.authorize(agent, score, cap)` AND `now <= expiry`.
 Refund is permissionless strictly after expiry; cancel is payer-only
 pre-validation. Replay = `NonceUsed` per-signer nullifier; revocation lands
 at release via the live guard re-check.
+
+## Reputation lane (Akshaya)
+
+```bash
+npx tsx src/cli.ts reputation sentinel-1   # or a raw 0x… agent address
+npx tsx src/cli.ts attest 0xTASKID…        # permissionless, idempotent
+```
+
+`reputation` reads `statsOf`/`balanceOf` on Akshaya and prints the decayed
+score (bps of one perfect outcome), coins/dust/receipts, and a verdict —
+`trusted / thin-history / unknown / burned`. Accepts `<sublabel>` (resolved
+via AegisRegistry) or a raw address; key-free, 2 RPC reads.
+
+`attest` converts a TERMINAL escrow task into its soulbound receipt
+(released → +10000 coin, refunded/cancelled → −4000 dust). Anyone may call
+it; a known task is skipped via `tokenByTask` pre-check (zero gas). Attester
+key follows the same law as every writer here: env or `--key-stdin`, never a
+flag. Needs `AKSHAYA_ADDRESS` (deploy: `../contracts/script/DeployInventions.s.sol`).
+Spec: `docs/AKSHAYA.md`.
 
 ## LLM plug (legacy seam)
 
