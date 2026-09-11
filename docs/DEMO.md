@@ -39,17 +39,23 @@ One command runs the whole loop:
 - `riskScoreBps: 200, decision: ACT` with factor breakdown
   (liquidity/activity/alpha), threshold 5000bps.
 
-## 5. Enforcement (Uniswap v4 hook, Sepolia)
+## 5. Reputation & streaming primitives (EVM-verified, deploy pending)
 
-- AegisHook `0xf3710a05cbb61eb8b1a73886eb68a341f69d0080` (Sourcify-verified,
-  `beforeSwap`-only bits `...0080`, deployed via canonical CREATE2, salt `0x135d`)
-- Wired: PoolManager `0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`,
-  RiskGuard `0xc358…17ca`, default cap 5000bps, owner = deployer
-- Attested: deployer agent score 200bps, 30d TTL (`agentRisk` onchain)
-- Gate order per swap: PoolManager-only → registry identity → fresh
-  attestation → RiskGuard re-check → `SwapAuthorized` event, zero fee delta
+`Akshaya` (proof-of-outcome reputation) and `GhatStream` (continuous escrow)
+are validated end-to-end on a real ethereumjs VM — 48 checks covering attest
+→ coin/dust mint, double-attest refusal, soulbound refusal, 90d half-life
+decay math (`10000 → 5000 → 1250`), post-revoke kill-switch behavior, stream
+open/accrue/claim/stop/close, replay + unauthorized-agent refusal, and exact
+funds conservation (`claimed + swept == escrowed`). Deploy through
+`contracts/script/DeployInventions.s.sol`; live addresses land in
+`contracts/README.md` § Sepolia and the frontend proof table on deploy.
 
-## 7. Escrow loop (mandate → fund → validate → release, all live)
+- Retired: the Uniswap v4 `AegisHook`/DemoPool experiment was removed from the
+  repo (2026-09-11); its live addresses remain onchain for history but are no
+  longer maintained here. Enforcement lives at settlement now — `TaskEscrow`
+  §6 below and `GhatStream` above.
+
+## 6. Escrow loop (mandate → fund → validate → release, all live)
 
 - TaskEscrow `0xba038d50d70cf63ced17f3f23f77df4783f188da` (Sourcify-verified),
   threshold 5000bps, validator = deployer (allowlisted
@@ -69,18 +75,17 @@ One command runs the whole loop:
   (RiskGuard `Authorized` + 10 vUSD escrow→merchant + `TaskReleased`;
   `taskState` = Released)
 
-## 8. v2 hardened set (audit fixes, redeployed 2026-09-08)
+## 7. v2 hardened set (audit fixes, redeployed 2026-09-08)
 
 All v2 contracts Sourcify-verified. Audit findings closed: label rules,
-revoke-clears-mappings + unRevoke, 1825-day cap, hook EIP-712 attestations,
-30-day attestation TTL, pinned per-task threshold/validator, allowlist
-re-check at release, cancel/refund split, zero-checks, 2-step ownership.
+revoke-clears-mappings + unRevoke, 1825-day cap, 30-day attestation TTL,
+pinned per-task threshold/validator, allowlist re-check at release,
+cancel/refund split, zero-checks, 2-step ownership.
 
 - AegisRegistry v2 `0x3913f1E6A0Be93180363aBd01Df7968d494033A8`
 - RiskGuard v2 `0x668c01aE564D51baFF0029D361c20c534d738400`
-- AegisHook v2 `0x05043B527D67d7E4e3a2ed411fFBD15b8255c080` (salt `0x511f`,
-  attested deployer 200bps/30d
-  [tx](https://sepolia.etherscan.io/tx/0x679295add40ed0d184047efd0ffbfee1edd9dc3996e1164c270054b56cbbf872))
+- ~~AegisHook v2 `0x05043B527D67d7E4e3a2ed411fFBD15b8255c080`~~ — retired
+  (see §5 note); the address stays live onchain as history.
 - TaskEscrow v2 `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24`
   (validator allowlisted
   [tx](https://sepolia.etherscan.io/tx/0x71ebcaa3a8e91b2f646c5a79f9bcfbb2b78d581c0933c49455ef3e7b9f1bdc47))
@@ -88,10 +93,10 @@ re-check at release, cancel/refund split, zero-checks, 2-step ownership.
   [tx](https://sepolia.etherscan.io/tx/0xa31520a82a8ea27c67f3b889d56eeab92944ae19e66645bee2958d3604134b41)
 - Full v2 loop verified: paid `0.0.7162784@1788859852.371306176`,
   verdict ACT, guard wouldPass true
-- v1 set (superseded, §1/§5/§7) left deployed for history; all clients +
+- v1 set (superseded, §1/§6) left deployed for history; all clients +
   frontend now point at v2
 
-## 9. Revoke (kill-switch proven on v1 registry — mechanics unchanged in v2)
+## 8. Revoke (kill-switch proven on v1 registry — mechanics unchanged in v2)
 
 - Minted `revoke-demo` (token #2, 7d, agent = throwaway `0x6c3B…D844D`):
   [tx](https://sepolia.etherscan.io/tx/0xc893faf79bd5656c742cc5cdbe05798edb1ed92bba81d84f7957c60b6642119d)
@@ -103,7 +108,7 @@ re-check at release, cancel/refund split, zero-checks, 2-step ownership.
 - Note: registry enforces one live identity per wallet, so the demo used a
   fresh throwaway agent wallet; `sentinel-1` (deployer) is untouched and live.
 
-## Known quirks (documented for judges)
+## Known quirks
 
 - `@x402/hedera` `PrivateKey.fromString` on 0x-hex ECDSA keys yields
   facilitator-rejected signatures; `fromStringECDSA` is required

@@ -1,50 +1,87 @@
 # Architecture — varanasi
 
-Author: Ramprasad
+Author: Ramprasad · The rail in one page; specs in `MANDATE.md` · `AKSHAYA.md` · `GHATSTREAM.md`.
 
-## Why this wins
+## Thesis
 
-Judges in 2026 reward one thing: load-bearing sponsor tech in a coherent story.
-varanasi tells it in one sentence: **agents can't transact without identity (ENSv2), data (The Graph), and money (Hedera x402).**
+Agentic commerce fails at the money layer: keys, session tokens, standing
+approvals — anything the agent can spend *beyond* what was agreed. Varanasi
+makes over-spend structurally impossible by moving every check to the
+transaction that moves value. Four primitives, one rail:
 
-Each sponsor is load-bearing, not cosmetic:
-- Remove ENSv2 → agents have no revocable identity / permissions.
-- Remove The Graph → agent has no live market data to reason over.
-- Remove Hedera x402 → agent can't buy premium signals; no machine-speed settlement.
+```
+ Human                    Agent                  Chain (Sepolia)                     Settlement
+┌──────────┐   sign    ┌──────────┐   call    ┌───────────────────────────────┐   ┌────────────┐
+│ frontend │ ────────► │  aegis   │ ────────► │ TaskEscrow ──► RiskGuard      │ ◄─┤ validator  │
+│ /hire    │  mandate  │  CLI     │  reads    │    ▲                ▲         │   │ score ≥ θ  │
+└──────────┘           └────┬─────┘           │  Akshaya      AegisRegistry   │   └────────────┘
+                          │ pay (x402)        │  (soulbound,   (ENSv2 names,  │
+                          ▼                   │   decayed)      revocable)    │
+                    ┌──────────┐              │  GhatStream ── same gate      │
+                    │ service  │              └───────────────────────────────┘
+                    │ :4021    │                 hedera testnet (USDC/HBAR)
+                    └──────────┘
+```
 
-## Flows
+- **`TaskEscrow`** — the mandate rail. Payer signs an EIP-712 `Mandate`
+  (agent, merchant, token, cap, window, expiry, nonce). `fund` pulls exactly
+  `cap` and nullifies the nonce; `taskId = keccak(digest)` makes replay
+  structurally impossible. `submitValidation` pins score; `release` requires
+  `score ≥ threshold` **re-checked live** (guard + registry), CEI,
+  reentrancy-guarded. `refund`/`cancel` close the loop after expiry.
+- **`AegisRegistry`** — revocable identity. One live ENSv2 subname per wallet,
+  expiring (`≤ 1825d`), revoke clears lookup mappings (label freed for
+  re-mint). Mock mode (`ens == address(0)`) makes the entire test suite
+  runnable offline.
+- **`RiskGuard`** — stateless gate: `authorize(agent, riskBps, maxBps)` = live
+  identity ∧ risk bound. Called *inline* by both settlement rails — never
+  cached, so the kill switch has instant effect on new value movement.
+- **`Akshaya`** — reputation as a fold over settled outcomes (see
+  `AKSHAYA.md`). No admin, no oracle; escrow state is the only input.
+- **`GhatStream`** — the same mandate discipline for *time* instead of
+  deliverables (see `GHATSTREAM.md`): per-second accrual, payer stop-cock,
+  remainder always returns.
 
-### 1. Onboard (Human → Agent identity)
-Human connects wallet → `AegisRegistry.mintAgent(sublabel, agentWallet, expiry)` → creates/registers `sublabel.aegis.eth` in ENSv2 Permissioned Registry, sets Permissioned Resolver records (avatar, description, agent wallet), grants per-record roles via Enhanced Access Control. Owner can `revokeAgent()` or let expire. Resolved via Universal Resolver V2 wildcard.
+`src/lib/` (all zero-dep, audited in-tree): `EIP712` (domain separator with
+EIP-712 salt fallback), `ECDSA` (65-byte, v∈{27,28}, low-s enforced),
+`SafeERC20` (return-data-checked calls, no `transfer`), `IERC20`,
+`ReentrancyGuard`. The repo's *only* external dep is `forge-std` (tests).
 
-### 2. Intel (Agent → The Graph)
-Agent receives task e.g. "should I enter USDC/ETH vault?":
-- Discover subgraphs: Subgraph MCP `search_subgraphs` (Uniswap V3 standardized, ERC-4626 vaults)
-- Fetch schema → run GraphQL vs live Gateway (Subgraph Studio key)
-- Normalize: TVL, volume24h, fees, APY across protocols (standards leverage: one query pattern, many protocols)
-- LLM reasons: produces risk score + rationale, not raw dump.
+## Data-flow rules
 
-### 3. Alpha (Agent → Hedera x402)
-For premium signal, agent calls `POST /v1/signal` on service:
-- Service returns HTTP 402 with Blocky402 payment requirements (hedera:testnet, HBAR or HTS)
-- Agent signs TransferTransaction with ECDSA key, retries with PAYMENT-SIGNATURE
-- Service verifies via Blocky402 `/verify`, returns alpha payload, facilitator settles async
-- Receipt (txId, HashScan link) stored + shown in UI. HCS audit trail (stretch).
+1. Anything with money attached is keyed by `keccak(signed digest)` and
+   carries a per-signer `usedNonce` nullifier (both escrow and streams) —
+   exactly one chain state per signature.
+2. Every transition is externally callable by an *incentivized* party
+   (agent wants release/claim; anyone can attest/close) — contracts never
+   self-schedule.
+3. Reads are free: `accruedOf/taskState/scoreOf/statsOf` are total functions;
+   indexers reconstruct history from events only.
+4. The frontend and service read the chain; the chain never reads them.
 
-### 4. Act (Agent → Chain)
-RiskGuard checks: ENS identity valid + not revoked/expired, risk score < threshold, human allowance remaining. If pass, executes guarded Sepolia call (e.g. mock swap intent log) else skips with reason. All decisions + receipts in frontend.
+## Verification
 
-## Contracts (Sepolia)
-- `AegisRegistry.sol`: ENSv2 wrapper — mint/revoke/renew agent subnames, stores expiry, emits events for indexer.
-- `RiskGuard.sol`: `authorize(action, riskScore)` — reverts if identity invalid or score too high.
+| Layer | Harness | What it proves |
+|---|---|---|
+| Foundry | `contracts/test/{TaskEscrow,Aegis,Akshaya,GhatStream}.t.sol` | Locked matrix T1–T20: replay, tamper, windows, fee-on-transfer accounting, reentrancy probe, decay arithmetic, soulbound refusal, stream conservation, kill-switch gating |
+| Real EVM (no forge needed) | solc-js `--ir` compile → `@ethereumjs/vm` deploy → drive with **viem**-signed txs; TS-side digest must equal `mandateDigest()` onchain | Bytecode behavior on an actual EVM incl. cross-implementation EIP-712 parity; 48 checks green incl. the two "gotcha" regressions (tuple-decode off-by-one, journal-cache staleness after revert) |
+| Agent/service | vitest (156, mocked viem/fetch) + `node --test` adversarial HTTP harness | No network or keys in CI; signing/verification parity client-side |
+| Frontend | `next build` (13 static routes) | Degrades gracefully with zero env keys |
+| Secrets | gitleaks in CI | `.env*` never committed (pattern enforced, not assumed) |
 
-## Services
-- `service/`: Express + x402/express resource server, Blocky402 facilitator, `/v1/signal` + `/v1/score` + `/v1/receipts`. Receipts are file-backed (`service/data/receipts.json`, last 100).
-- `agent/`: MCP client, ENS viem resolver, reasoning engine (pluggable LLM), x402/fetch payer, CLI + API. Revoke CLI: `aegis revoke --label <sublabel>` (human owner key).
-- `frontend/`: Next.js — onboard form, agent list (ENS names), intel cards (Graph data), pay receipts.
-- Demo video script: `docs/VIDEO_SCRIPT.md`.
+## Failure model (who loses what, when everything goes wrong)
 
-## Prize mapping
-- The Graph AI From Scratch: live Subgraph MCP queries + reasoning + SKILL.md/README runnable.
-- ENS Best Use: hierarchical subnames, wildcard, permissioned resolver, access control, expiring/revocable — central to auth.
-- Hedera x402: live Blocky402-gated service on testnet, real paid request, README payment flow, ≤5min video.
+| Failure | Consequence |
+|---|---|
+| Agent misbehaves mid-window | Payer revokes identity → release path blocked at guard → funds refundable at expiry. Streams: `stop()` freezes meter at that second. |
+| Validator silent | No release (score < bar or absent); refund after expiry. Streams don't need validators — the meter is the verdict. |
+| Payer ghosts a stream | `expiry` + `close()` by anyone; agent's accrued claimable forever; remainder to payer's wallet. |
+| Reputation attacker | `attest` costs nothing but pays nothing: coins require capital that actually left an escrow to a merchant. |
+| Registry ENS layer down | Mock/off-chain `isAuthorized` path still governs settlement (registry is source of truth for its own mappings). |
+
+## What is deliberately NOT here
+
+No DEX pool hooks anymore (the v4 experiment retired — enforcement at
+settlement subsumes it), no DB, no admin panels, no upgradeable proxies, no
+oracles beyond the explicit validator allowlist. Every "nice to have" in this
+repo either gates money or isn't in the repo.

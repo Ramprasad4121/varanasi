@@ -1,0 +1,26 @@
+name: Feature or invention
+description: Propose something that makes the rail stronger or the repo lighter
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two filters: does it **gate money** or **remove weight**? Everything else is a fork.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem this kills
+      description: Who is hurt today, and how does the hurt end when this ships?
+    validations: { required: true }
+  - type: textarea
+    id: design
+    attributes:
+      label: Sketch
+      description: For contracts — storage, transitions, and the invariants you'd add with tests. Failure modes before happy paths.
+    validations: { required: true }
+  - type: dropdown
+    id: weight
+    attributes:
+      label: Net repo weight
+      options: [lighter, neutral, heavier (needs justification)]
+    validations: { required: true }

@@ -1,6 +1,15 @@
 # Security review — varanasi contracts (ethskills-driven, 2026-09-06)
 
 Author: Ramprasad
+> **Postscript 2026-09-11 — scope change.** The Uniswap v4 `AegisHook` +
+> DemoPool experiment was removed from the repo entirely: the enforcement it
+> prototyped now lives at settlement time (`TaskEscrow.release` → `RiskGuard`
+> live re-check), where the money actually is. All hook findings below are
+> preserved as audit history. The `tx.origin` attribution P1 is **CLOSED BY
+> REMOVAL**. Two new contracts shipped since this review — `Akshaya.sol` and
+> `GhatStream.sol` — and were built against every rule in this file (their
+> own matrices live in `contracts/test/` + the real-EVM harness); a fresh
+> review pass is tracked in `docs/ARCHITECTURE.md` § Verification.
 
 Method: read `ethskills` router + `ship` + `security` + `standards` +
 `building-blocks` + `addresses` BEFORE further Solidity/onchain work.
@@ -115,13 +124,10 @@ plus `@dev Author: Ramprasad.` lines on new functions/errors/events.
 
 ## Hackathon-accepted risks (P1s, no fund risk; contracts hold no value)
 
-- P1 `tx.origin` attribution (`AegisHook.sol:165`): `beforeSwap` attributes the
-  swap to `tx.origin` (agent EOA). Phishing / malicious-intermediary contracts
-  could swap in the agent's name while an attestation is live. Status:
-  hackathon-accepted (demo agents are EOAs; PoolManager is the only authorized
-  caller). Hardening plan: pass the agent via signed `hookData` (EIP-712
-  attestation: agent, scoreBps, deadline, poolId) verified onchain instead of
-  `tx.origin`.
+- ~~P1 `tx.origin` attribution (`AegisHook.sol`)~~ **CLOSED BY REMOVAL**
+  (2026-09-11): the hook left the codebase; its history above stands as the
+  record of how the finding was surfaced, hardened once (signed `hookData`
+  attestation), and finally deleted with the component.
 - P1 permissionless mint (`AegisRegistry.sol:113`): `mintAgent` is open
   self-registration — anyone can mint a subname bound to any wallet address
   (owner = caller). Squatting / misleading labels possible; `isAuthorized`

@@ -1,5 +1,10 @@
 # varanasi
 
+![ci](https://github.com/Ramprasad4121/varanasi/actions/workflows/ci.yml/badge.svg)
+[![license: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![solidity](https://img.shields.io/badge/solidity-0.8.26-blue)](contracts)
+[![zero deps](https://img.shields.io/badge/contract%20deps-zero-brightgreen)](contracts/src/lib)
+
 **The enforcement rail for agentic commerce.** Hire an AI agent, lock a spending
 cap, and pay only when the work is proven. Agents never hold your keys.
 
@@ -18,8 +23,15 @@ Varanasi moves the check to where the money moves:
    refunded, with the evidence onchain.
 4. One click revokes the agent identity everywhere.
 
-This is a **community product**. Hire from the homepage. Paste
-[`PROMPT.md`](PROMPT.md) into any coding agent. Fork the repo.
+This is a **community product**. Hire from the homepage. Point any coding
+agent at [`AGENTS.md`](AGENTS.md) — the repo is agent-first. Fork it.
+
+Two new primitives raise the floor for everyone: **Akshaya** — reputation
+that is only ever minted from settled escrow outcomes, decays on a 90-day
+half-life, and cannot be transferred — and **GhatStream** — continuous
+escrow, where payment flows per second and the payer can freeze the tap at
+any instant, with the unearned remainder always returning. Specs:
+[`docs/AKSHAYA.md`](docs/AKSHAYA.md), [`docs/GHATSTREAM.md`](docs/GHATSTREAM.md).
 
 ## Identity — how your data is kept
 
@@ -47,9 +59,9 @@ Details in [`frontend/PRIVY.md`](frontend/PRIVY.md).
 
 ## Live onchain
 
-| Mandate escrows released | x402 payments settled | Agent identities live | Tests green |
+| Mandate escrows released | x402 payments settled | Agent identities live | Local checks green |
 |---|---|---|---|
-| 1+ | 3+ | 2 | 243/243 |
+| 1+ | 3+ | 2 | 204 (vitest + real-EVM harness) + full forge suites |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
 Etherscan / HashScan.
@@ -69,7 +81,7 @@ Validated → Released (or Refunded). Your vault at `/account` keeps the hire.
 
 ## Start as an agent
 
-Paste [`PROMPT.md`](PROMPT.md) into any coding agent (Claude, Codex, Cursor).
+Paste [`AGENTS.md`](AGENTS.md) into any coding agent (Claude, Codex, Cursor).
 It reads the repo in order and runs the full loop:
 
 ```
@@ -87,6 +99,9 @@ npx tsx src/cli.ts hire --agent scout --cap 10 --window-hours 24
 ```
 
 Lending intel: `npx tsx src/cli.ts lending markets --symbols USDC,WETH`.
+Reputation: `npx tsx src/cli.ts reputation <agent>` reads the agent's Akshaya
+score straight off the chain; `attest <taskId>` mints the soulbound receipt
+for any settled task — permissionless, idempotent, capital-secured.
 
 ## The old way vs the varanasi way
 
@@ -100,7 +115,8 @@ prompt, one hallucinated address, and the treasury drains.
    **and** a live identity + threshold re-check, in the same transaction.
 3. Miss the bar → auto-refund with evidence. Misbehave → human revokes the
    identity and every downstream gate closes.
-4. Every payment feeds Sybil-resistant reputation and a Hedera audit topic.
+4. Every settled task feeds **Akshaya** — a soulbound, decaying score minted
+   only from onchain outcomes — plus a Hedera audit topic.
 
 ## Zero in the way
 
@@ -111,14 +127,18 @@ prompt, one hallucinated address, and the treasury drains.
 
 ## Map
 
-- `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
-  (Uniswap v4), deploy scripts, forge tests
-- `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
-  demo workers (scout / analyst / freelancer), CLI
-- `service/` — x402-gated alpha API, HCS audit log
-- `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury
-- `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
-- `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
+- `contracts/` — zero-dependency Solidity: `TaskEscrow`, `AegisRegistry`,
+  `RiskGuard`, `Akshaya`, `GhatStream`, `MockERC20` + in-repo libs
+  (`src/lib/`: EIP712, ECDSA, SafeERC20, ReentrancyGuard), deploy scripts,
+  forge tests
+- `agent/` — TS CLI (`aegis`): mandate signing, escrow + Akshaya clients,
+  ENS / Graph / x402 / Aave intel, demo workers, `revoke` kill switch
+- `service/` — x402-gated signal API (Express, Hedera settlement), HCS audit
+  log, adversarial test harness
+- `frontend/` — Next.js marketplace: hire wizard, vault, treasury — zero
+  raster bytes, all line-art SVG
+- `docs/` — `MANDATE.md` · `AKSHAYA.md` · `GHATSTREAM.md` · `ARCHITECTURE.md`
+  · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
 
 ## FAQ
 

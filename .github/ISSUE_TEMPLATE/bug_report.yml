@@ -1,0 +1,34 @@
+name: Bug report
+description: A reproducible defect — money layer first
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `AGENTS.md` first. Security bugs go to `SECURITY.md`, **not** here.
+  - type: textarea
+    id: layer
+    attributes:
+      label: Which layer?
+      description: contracts · agent · service · frontend
+      value: "contracts/"
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro
+      description: Exact command(s) from a clean checkout. For contracts, a failing Foundry test is the ideal report.
+      render: shell
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What invariant broke (cite `contracts/README.md` § Invariants when applicable)?
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Onchain evidence
+      description: Tx / address links (Sepolia explorer, HashScan) when real chain state is involved. Proof over screenshots.
+    validations: { required: false }

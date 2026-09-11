@@ -23,8 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # Forge deps (forge-std, v4-core, v4-periphery) are git submodules —
-          # without this, contracts/lib/* is empty and forge build fails.
+          # forge-std is the ONLY forge dependency (contracts are zero-dep by
+          # design, src/lib/* holds the protocol primitives) — recursive fetch
+          # still required so contracts/lib/forge-std lands.
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -34,7 +35,7 @@ jobs:
       - run: forge test
 
   agent:
-    name: agent (typecheck + 132 tests)
+    name: agent (typecheck + 156 tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -66,6 +67,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      # In-memory adversarial harness over the built dist/ (no network, no keys).
+      - run: node --test test/adversarial_service.test.mjs
 
   frontend:
     name: frontend (typecheck + next build)

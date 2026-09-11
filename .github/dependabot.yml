@@ -22,3 +22,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+  - package-ecosystem: gitsubmodule
+    directory: /contracts
+    schedule:
+      interval: weekly
+      day: monday
