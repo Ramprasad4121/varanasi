@@ -918,7 +918,7 @@ function HireWizardInner({
             <summary className="muted" style={{ cursor: "pointer" }}>
               Advanced · view the exact mandate your wallet signs
             </summary>
-            <div className="hero-code" style={{ maxWidth: "100%" }}>
+            <div style={{ maxWidth: "100%" }}>
               <pre>
                 <code>{mandateJson}</code>
               </pre>

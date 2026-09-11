@@ -1,15 +1,16 @@
 import React from "react";
 import { DisplayHeading } from "@/components/DisplayHeading";
+import { Engraving, type EngravingVariant } from "@/components/Engraving";
 
 export interface PageHeroProps {
   title: string;
   lede?: string;
   eyebrow?: string;
   subtitle?: string;
-  image?: string;
+  plate?: EngravingVariant;
 }
 
-export function PageHero({ title, lede, eyebrow, subtitle, image }: PageHeroProps) {
+export function PageHero({ title, lede, eyebrow, subtitle, plate }: PageHeroProps) {
   const text = subtitle || lede;
   return (
     <header className="relative overflow-hidden border-b border-border bg-bg-muted/30">
@@ -30,15 +31,10 @@ export function PageHero({ title, lede, eyebrow, subtitle, image }: PageHeroProp
               </p>
             )}
           </div>
-          {image && (
+          {plate && (
             <div className="shrink-0">
-              <div className="relative w-28 h-28 sm:w-36 sm:h-36 border border-border bg-bg p-1.5 shadow-sm overflow-hidden">
-                <img
-                  src={image}
-                  alt=""
-                  className="w-full h-full object-cover opacity-80"
-                  loading="lazy"
-                />
+              <div className="relative w-28 h-28 sm:w-36 sm:h-36 border border-border bg-bg-muted/40 p-1.5 shadow-sm overflow-hidden text-ink">
+                <Engraving variant={plate} className="h-full w-full opacity-85" />
               </div>
             </div>
           )}

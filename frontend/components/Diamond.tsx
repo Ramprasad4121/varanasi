@@ -1,4 +1,5 @@
 import React from "react";
+import { Engraving } from "@/components/Engraving";
 
 export function Diamond({ className = "text-border-strong" }: { className?: string }) {
   return (
@@ -9,13 +10,5 @@ export function Diamond({ className = "text-border-strong" }: { className?: stri
 }
 
 export function Mark({ className = "h-8 w-8" }: { className?: string }) {
-  return (
-    <img
-      src="/images/emblem.jpg"
-      alt=""
-      className={`${className} rounded-none object-cover`}
-      width={32}
-      height={32}
-    />
-  );
+  return <Engraving variant="emblem" className={`${className} text-ink`} title="Varanasi emblem" />;
 }

@@ -19,7 +19,7 @@ export default function HirePage() {
         title="Commission an Agent"
         eyebrow="Escrow & Proof"
         subtitle="Deploy funds to TaskEscrow on Sepolia. Funds released only upon verified validator quorum."
-        image="/images/scales.jpg"
+        plate="scales"
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
         <Suspense fallback={<div className="p-8 text-center font-display italic text-fg-muted">Loading wizard…</div>}>

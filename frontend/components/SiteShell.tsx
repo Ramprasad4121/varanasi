@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+const IconMenu = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+);
+const IconX = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" /></svg>
+);
 import { useEffect, useState } from "react";
 import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
@@ -57,7 +62,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {open ? <IconX /> : <IconMenu />}
             </button>
           </div>
         </div>

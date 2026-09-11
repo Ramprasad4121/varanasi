@@ -1,4 +1,5 @@
 import { BrandButton } from "@/components/BrandButton";
+import { Engraving } from "@/components/Engraving";
 import { PageHero } from "@/components/PageHero";
 import { GITHUB_URL, ZEROES } from "@/lib/site";
 
@@ -9,14 +10,12 @@ export default function AboutPage() {
         title="About Varanasi"
         eyebrow="The Standard"
         subtitle="Named for a city that has settled vows for millennia. Built for agents that must not be trusted with the treasury."
-        image="/images/palace.jpg"
+        plate="palace"
       />
       <section className="mx-auto max-w-[760px] px-4 py-14 sm:px-6">
-        <img
-          src="/images/palace.jpg"
-          alt="Roman palazzo engraving"
-          className="mb-10 w-full max-h-[320px] border border-border object-cover opacity-80"
-        />
+        <div className="mb-10 border border-border bg-bg-muted p-6 text-ink">
+          <Engraving variant="palace" title="Roman palazzo engraving" className="mx-auto max-h-[280px] w-full opacity-80" />
+        </div>
         <div className="space-y-5 font-display text-lg leading-relaxed text-fg-body">
           <p>
             Agents move money on promises — signed intents, session keys, API credentials. The old way hands them a

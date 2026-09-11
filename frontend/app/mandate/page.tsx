@@ -1,4 +1,5 @@
 import { BrandButton } from "@/components/BrandButton";
+import { Engraving } from "@/components/Engraving";
 import { PageHero } from "@/components/PageHero";
 import { GITHUB_URL, HOW, MANDATE_FIELDS } from "@/lib/site";
 
@@ -9,7 +10,7 @@ export default function MandatePage() {
         title="How a mandate works"
         eyebrow="The Mandate"
         subtitle="One signed object authorizes one escrowed task. You sign. Anyone can submit. Settlement never trusts a prompt."
-        image="/images/mandate-scroll.jpg"
+        plate="scroll"
       />
       <section className="mx-auto grid max-w-[1100px] gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_280px]">
         <div>
@@ -17,7 +18,7 @@ export default function MandatePage() {
             {HOW.map((step) => (
               <li key={step.n} className="border border-border bg-bg-elevated">
                 <div className="h-32 overflow-hidden border-b border-border bg-bg-muted">
-                  <img src={step.image} alt="" className="h-full w-full object-cover opacity-80" />
+                  <Engraving variant={step.plate} className="h-full w-full text-ink opacity-70" />
                 </div>
                 <div className="p-6">
                   <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">{step.n}</p>
@@ -28,7 +29,7 @@ export default function MandatePage() {
             ))}
             <li className="border border-border bg-bg-elevated">
               <div className="h-32 overflow-hidden border-b border-border bg-bg-muted">
-                <img src="/images/gate.jpg" alt="" className="h-full w-full object-cover opacity-80" />
+                <Engraving variant="gate" className="h-full w-full text-ink opacity-75" />
               </div>
               <div className="p-6">
                 <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">IV</p>
@@ -49,7 +50,7 @@ export default function MandatePage() {
           </ul>
         </div>
         <aside className="h-fit border border-ink/80 bg-bg-elevated">
-          <img src="/images/mandate-scroll.jpg" alt="" className="h-40 w-full object-cover opacity-80" />
+          <Engraving variant="scroll" className="h-40 w-full text-ink opacity-75" />
           <div className="p-6">
             <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Spec</p>
             <p className="mt-2 font-display text-xl font-medium text-ink">EIP-712 · AP2-shaped</p>

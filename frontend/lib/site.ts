@@ -1,3 +1,5 @@
+import type { EngravingVariant } from "@/components/Engraving";
+
 export const APP_NAME = "Varanasi";
 export const APP_TAGLINE = "Hire an AI agent. Pay only when the work is proven.";
 export const GITHUB_URL = "https://github.com/Ramprasad4121/varanasi";
@@ -8,8 +10,10 @@ export const ETHERSCAN_ADDR = "https://sepolia.etherscan.io/address";
 export const TASK_ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24";
 export const AEGIS_REGISTRY = "0x3913f1E6A0Be93180363aBd01Df7968d494033A8";
 export const RISK_GUARD = "0x668c01aE564D51baFF0029D361c20c534d738400";
-export const AEGIS_HOOK = "0x05043B527D67d7E4e3a2ed411fFBD15b8255c080";
 export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
+// Inventions rail — zero-address means "not yet deployed"; UI hides the row.
+export const AKSHAYA = (process.env.NEXT_PUBLIC_AKSHAYA ?? "0x0000000000000000000000000000000000000000");
+export const GHAT_STREAM = (process.env.NEXT_PUBLIC_GHAT_STREAM ?? "0x0000000000000000000000000000000000000000");
 
 export const NAV = [
   { to: "/agents" as const, label: "Agents" },
@@ -25,28 +29,28 @@ export const STATS: Array<{
   label: string;
   href: string;
   proof: string;
-  image: string;
+  plate: EngravingVariant;
 }> = [
   {
     value: "1+",
     label: "Escrows released",
     href: `${ETHERSCAN_TX}/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702`,
     proof: "Etherscan",
-    image: "/images/trophy.jpg",
+    plate: "trophy" as const,
   },
   {
     value: "3+",
     label: "x402 payments",
     href: `${HASHSCAN_BASE}/0.0.7162784-1788675749-710110370`,
     proof: "HashScan",
-    image: "/images/eagle.jpg",
+    plate: "eagle" as const,
   },
   {
     value: "2",
     label: "Agent identities",
     href: `${ETHERSCAN_TX}/0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327`,
     proof: "Etherscan",
-    image: "/images/figure-builder.jpg",
+    plate: "figure" as const,
   },
   {
     value: "243",
@@ -54,7 +58,7 @@ export const STATS: Array<{
     label: "Tests green",
     href: GITHUB_URL,
     proof: "GitHub",
-    image: "/images/scales.jpg",
+    plate: "scales" as const,
   },
 ];
 
@@ -63,19 +67,19 @@ export const HOW = [
     n: "I",
     title: "Hire",
     body: "Pick an agent and set a spending cap, a work window, and an expiry. You sign one mandate. The agent never holds your keys.",
-    image: "/images/mandate-scroll.jpg",
+    plate: "scroll" as const,
   },
   {
     n: "II",
     title: "Work",
     body: "The agent does the job inside those bounds. Replay is impossible. One click revokes the identity everywhere.",
-    image: "/images/figure-builder.jpg",
+    plate: "figure" as const,
   },
   {
     n: "III",
     title: "Settle",
     body: "Release pays the merchant when the work clears the bar. Miss it — you are refunded, with the evidence onchain.",
-    image: "/images/scales.jpg",
+    plate: "scales" as const,
   },
 ];
 
@@ -99,11 +103,11 @@ export const ZEROES = [
 ];
 
 export const GALLERY = [
-  { src: "/images/gallery-workshop.jpg", alt: "The workshop — agents drafted like architectural plates" },
-  { src: "/images/gallery-courtyard.jpg", alt: "The courtyard — a quiet colonnade between mandates" },
-  { src: "/images/gallery-dinner.jpg", alt: "The hall — settlement, witnessed" },
-  { src: "/images/gate.jpg", alt: "The gate — identity in, spend out" },
-];
+  { variant: "workshop", alt: "The workshop — agents drafted like architectural plates" },
+  { variant: "courtyard", alt: "The courtyard — a quiet colonnade between mandates" },
+  { variant: "hall", alt: "The hall — settlement, witnessed" },
+  { variant: "gate", alt: "The gate — identity in, spend out" },
+] as const;
 
 export const AGENTS = [
   {
@@ -116,7 +120,7 @@ export const AGENTS = [
     cap: "10",
     window: "24",
     expiry: "7",
-    image: "/images/eagle.jpg",
+    plate: "eagle" as const,
   },
   {
     id: "analyst",
@@ -128,7 +132,7 @@ export const AGENTS = [
     cap: "25",
     window: "12",
     expiry: "7",
-    image: "/images/scales.jpg",
+    plate: "scales" as const,
   },
   {
     id: "freelancer",
@@ -140,7 +144,7 @@ export const AGENTS = [
     cap: "50",
     window: "48",
     expiry: "14",
-    image: "/images/trophy.jpg",
+    plate: "trophy" as const,
   },
 ] as const;
 
@@ -148,8 +152,9 @@ export const CONTRACTS = [
   { name: "TaskEscrow", address: TASK_ESCROW, note: "Mandate → fund → validate → release" },
   { name: "AegisRegistry", address: AEGIS_REGISTRY, note: "Revocable agent identity" },
   { name: "RiskGuard", address: RISK_GUARD, note: "Live authorize at settlement" },
-  { name: "AegisHook", address: AEGIS_HOOK, note: "Uniswap v4 beforeSwap gate" },
-];
+  { name: "Akshaya", address: AKSHAYA, note: "Proof-of-outcome reputation (soulbound)" },
+  { name: "GhatStream", address: GHAT_STREAM, note: "Continuous escrow — stop the tap any instant" },
+].filter((c) => !c.address.startsWith("0x000000000000000000000000000000000000000"));
 
 export const PROOF = [
   {

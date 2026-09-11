@@ -6,6 +6,7 @@ import { BrandButton } from "@/components/BrandButton";
 import { DisplayHeading } from "@/components/DisplayHeading";
 import { SectionSep } from "@/components/SectionSep";
 import { APP_NAME, GALLERY, GITHUB_URL, HOW, STATS, ZEROES } from "@/lib/site";
+import { Engraving } from "@/components/Engraving";
 
 export default function HomePage() {
   return (
@@ -39,12 +40,7 @@ function Hero() {
       {/* Background arena image — contained properly */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[50%] sm:h-[55%]">
         <div className="absolute inset-x-0 top-0 z-10 h-32 bg-gradient-to-b from-bg via-bg/80 to-transparent" />
-        <img
-          src="/images/hero-arena.jpg"
-          alt=""
-          className="h-full w-full object-cover object-[center_72%] opacity-25"
-          loading="eager"
-        />
+        <Engraving variant="arena" className="h-full w-full text-ink opacity-[0.14]" />
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg to-transparent" />
       </div>
 
@@ -77,11 +73,9 @@ function Hero() {
               i % 2 === 1 ? "border-l border-border" : ""
             } ${i > 1 ? "border-t border-border md:border-t-0" : ""}`}
           >
-            <img
-              src={stat.image}
-              alt=""
-              className="mb-3 h-12 w-12 rounded-none border border-border object-cover sm:h-14 sm:w-14"
-            />
+            <div className="mb-3 inline-flex h-12 w-12 items-center justify-center border border-border bg-bg-muted text-ink sm:h-14 sm:w-14">
+              <Engraving variant={stat.plate} className="h-8 w-8 sm:h-9 sm:w-9" />
+            </div>
             <dt className="font-display text-[32px] font-medium leading-none tracking-[-0.03em] text-ink">
               {stat.value}
               {stat.suffix ? <span className="text-base text-fg-muted">{stat.suffix}</span> : null}
@@ -108,7 +102,7 @@ function EventCard() {
   return (
     <aside className="border border-ink/60 bg-bg-elevated shadow-lift lg:mt-4">
       <div className="relative h-32 overflow-hidden border-b border-border sm:h-36">
-        <img src="/images/palace.jpg" alt="" className="h-full w-full object-cover object-center opacity-80" />
+        <Engraving variant="palace" title="The palace of records" className="h-full w-full text-ink opacity-70" />
         <p className="absolute left-3 top-3 border border-ink/20 bg-bg/85 px-2 py-1 font-label text-[10px] uppercase tracking-[0.16em] text-ink">
           Open arena
         </p>
@@ -146,13 +140,8 @@ function How() {
       <ul className="mt-10 grid gap-5 md:grid-cols-3">
         {HOW.map((item) => (
           <li key={item.n} className="flex flex-col border border-border bg-bg-elevated overflow-hidden">
-            <div className="h-40 overflow-hidden border-b border-border bg-bg-muted">
-              <img
-                src={item.image}
-                alt=""
-                className="h-full w-full object-cover opacity-75"
-                loading="lazy"
-              />
+            <div className="h-40 overflow-hidden border-b border-border bg-bg-muted text-ink">
+              <Engraving variant={item.plate} className="h-full w-full opacity-70" />
             </div>
             <div className="p-5">
               <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">{item.n}</p>
@@ -178,13 +167,10 @@ function Gallery() {
       </div>
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {GALLERY.map((plate) => (
-          <li key={plate.src} className="overflow-hidden border border-border bg-bg-muted">
-            <img
-              src={plate.src}
-              alt={plate.alt}
-              className="aspect-[4/3] w-full object-cover opacity-80"
-              loading="lazy"
-            />
+          <li key={plate.alt} className="overflow-hidden border border-border bg-bg-muted text-ink">
+            <div className="aspect-[4/3] w-full p-3 opacity-80">
+              <Engraving variant={plate.variant} title={plate.alt} className="h-full w-full" />
+            </div>
           </li>
         ))}
       </ul>
@@ -203,12 +189,9 @@ function Principles() {
             The rail is AP2-shaped, ERC-8004-native, and rail-agnostic on x402. Enforcement is Solidity — not a prompt.
           </p>
         </div>
-        <img
-          src="/images/gate.jpg"
-          alt="Roman triumphal arch engraving"
-          className="w-full max-h-[320px] border border-border object-cover opacity-75"
-          loading="lazy"
-        />
+        <div className="border border-border bg-bg-muted p-6 text-ink opacity-90">
+          <Engraving variant="gate" title="Roman triumphal arch" className="mx-auto w-full max-h-[280px]" />
+        </div>
       </div>
       <ul className="mt-8 grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-2">
         {ZEROES.map((item) => (
@@ -225,12 +208,7 @@ function Principles() {
 function Cta() {
   return (
     <section className="relative mx-auto max-w-[1200px] overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
-      <img
-        src="/images/hero-arena.jpg"
-        alt=""
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
-        loading="lazy"
-      />
+      <Engraving variant="arena" className="pointer-events-none absolute inset-0 h-full w-full text-ink opacity-[0.10]" />
       <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/85 to-bg" />
       <div className="relative">
         <DisplayHeading as="h2" size="hero">
