@@ -22,7 +22,7 @@ function flattenChildren(node: ReactNode): string {
     .trim();
 }
 
-export function DisplayHeading({ children, as: Tag = "h2", className, size = "section", drop = true }: Props) {
+export function DisplayHeading({ children, as: Tag = "h2", className, size = "section", drop = false }: Props) {
   const text = flattenChildren(children);
   const initial = text.charAt(0);
   const rest = text.slice(1);

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PrivyRoot } from "../components/PrivyRoot";
 import { SiteShell } from "../components/SiteShell";
 import "./globals.css";
+import "./marketplace.css";
 
 export const metadata: Metadata = {
   description:

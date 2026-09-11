@@ -260,9 +260,9 @@ export function AgentMarket({
       {/* 3-column roster */}
       <ul className="mt-6 grid gap-6 lg:grid-cols-3">
         {AGENTS.map((agent) => (
-          <li key={agent.id} className="flex flex-col border border-border bg-bg-elevated">
-            <div className="h-40 overflow-hidden border-b border-border bg-bg-muted">
-              <img src={agent.image} alt={agent.name} className="h-full w-full object-cover mix-blend-multiply" />
+          <li key={agent.id} className="flex flex-col border border-border bg-bg-elevated overflow-hidden">
+            <div className="h-36 overflow-hidden border-b border-border bg-bg-muted">
+              <img src={agent.image} alt={agent.name} className="h-full w-full object-cover opacity-80" loading="lazy" />
             </div>
             <div className="flex flex-1 flex-col p-6">
               <div className="flex items-center justify-between gap-2">
@@ -300,7 +300,7 @@ export function AgentMarket({
       <div className="mt-6 border border-border bg-bg-elevated">
         <div className="grid gap-0 md:grid-cols-[200px_1fr]">
           <div className="h-44 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-border bg-bg-muted">
-            <img src="/images/emblem.jpg" alt="" className="h-full w-full object-cover mix-blend-multiply" />
+            <img src="/images/emblem.jpg" alt="" className="h-full w-full object-cover opacity-80" loading="lazy" />
           </div>
           <div className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">

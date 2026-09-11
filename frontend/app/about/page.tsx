@@ -15,7 +15,7 @@ export default function AboutPage() {
         <img
           src="/images/palace.jpg"
           alt="Roman palazzo engraving"
-          className="mb-10 w-full border border-border object-cover mix-blend-multiply"
+          className="mb-10 w-full max-h-[320px] border border-border object-cover opacity-80"
         />
         <div className="space-y-5 font-display text-lg leading-relaxed text-fg-body">
           <p>

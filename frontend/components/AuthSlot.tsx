@@ -33,13 +33,16 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
 
   if (!ready) {
     return (
-      <div
+      <button
+        type="button"
+        disabled
         className={cn(
-          "animate-pulse bg-bg-muted border border-border",
-          variant === "menu" ? "h-12 w-28 my-2" : "h-11 w-24"
+          "inline-flex items-center border border-border px-4 font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted",
+          variant === "menu" ? "h-12 w-full justify-start" : "h-11"
         )}
-        aria-hidden="true"
-      />
+      >
+        Sign in
+      </button>
     );
   }
 

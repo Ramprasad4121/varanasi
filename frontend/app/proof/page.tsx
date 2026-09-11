@@ -15,7 +15,7 @@ export default function ProofPage() {
         <ul className="grid grid-cols-2 gap-px overflow-hidden border border-border bg-border md:grid-cols-4">
           {STATS.map((stat) => (
             <li key={stat.label} className="bg-bg-elevated p-5">
-              <img src={stat.image} alt="" className="mb-3 h-14 w-14 object-contain mix-blend-multiply" />
+              <img src={stat.image} alt="" className="mb-3 h-14 w-14 object-contain opacity-80" />
               <p className="font-display text-4xl font-medium leading-none text-ink">
                 {stat.value}
                 {stat.suffix ? <span className="text-base text-fg-muted">{stat.suffix}</span> : null}

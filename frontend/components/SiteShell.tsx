@@ -20,7 +20,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="paper-grain min-h-dvh bg-bg text-fg flex flex-col">
+    <div className="min-h-dvh bg-bg text-fg flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-bg/92 backdrop-blur-[3px]">
         <div className="mx-auto flex h-[4.25rem] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 w-full">
           <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label={`${APP_NAME} home`}>
