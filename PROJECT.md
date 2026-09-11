@@ -59,7 +59,7 @@ Varanasi is a high-assurance agentic commerce and enforcement rail connecting de
 | M1 | Backend & Agent Wiring, Config & Test Fixes | Fix `SIGNAL_URL` fallback (3001->4021), fix `TASK_ESCROW_ABI` in `agent/src/escrow.ts` (14 fields), add `agent/vitest.config.ts`, align CORS in `service/src/server.ts`, verify tests pass | none | DONE |
 | M2 | Frontend Core Wiring, Bug Fixes & Infrastructure | Fix `ESCROW_ABI` in `frontend/components/HireWizard.tsx` (14 fields), configure `frontend/next.config.js`, install Tailwind v3.4 + PostCSS with Colosseum tokens, setup `lib/utils.ts` and `app/globals.css` | none | DONE |
 | M3 | Frontend Colosseum Design & Grok-Workspace Integration | Port UI primitives (`SiteShell`, `DisplayHeading`, `BrandButton`, `Badge`, `PageHero`, `SectionSep`, `Diamond`), update `layout.tsx` and `page.tsx`, create `/activity`, `/agents`, `/hire`, polish secondary pages, verify Web3 preservation and clean build | M2 | DONE |
-| M4 | Final Milestone: 100% E2E Pass & Adversarial Hardening | Phase 1: Pass 100% of E2E test suite (Tiers 1-4). Phase 2: Adversarial coverage hardening (Tier 5), zero console errors, Gitleaks audit, and git commit | M1, M3, E2E Test Suite | IN_PROGRESS |
+| M4 | Final Milestone: 100% E2E Pass & Adversarial Hardening | Phase 1: Pass 100% of E2E test suite (Tiers 1-4). Phase 2: Adversarial coverage hardening (Tier 5), zero console errors, Gitleaks audit, and git commit | M1, M3, E2E Test Suite | DONE |
 
 *Parallel Track:*
 - **E2E Testing Track**: E2E Testing Orchestrator builds requirement-driven test infrastructure and Tiers 1-4 test suite, publishing `TEST_READY.md`.
