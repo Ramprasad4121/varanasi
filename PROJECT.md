@@ -88,7 +88,7 @@ Varanasi is a high-assurance agentic commerce and enforcement rail connecting de
     `[payer(address), agent(address), merchant(address), token(address), cap(uint256), fundedAmount(uint256), windowStart(uint64), windowEnd(uint64), expiry(uint64), scoreBps(uint256), validator(address), pinnedThresholdBps(uint256), pinnedValidator(address), state(uint8)]`
   - `State` enum: `0: None`, `1: Funded`, `2: Validated`, `3: Released`, `4: Refunded`, `5: Cancelled`
 - **Mandate EIP-712**:
-  - Domain: `{ name: "TaskEscrow", version: "1", chainId: 11155111, verifyingContract: "0xb5D4..." }`
+  - Domain: `{ name: "VaranasiTaskEscrow", version: "1", chainId: 11155111, verifyingContract: "0xb5D4..." }` (matches `TaskEscrow.sol` EIP712 constructor and `agent/src/mandate.ts`)
   - Type: `Mandate(address agent,address merchant,address token,uint256 cap,uint64 windowStart,uint64 windowEnd,uint64 expiry,uint256 nonce,uint256 chainId)`
 
 ### Agent (`varanasi/agent`) ↔ Backend Service & Contracts

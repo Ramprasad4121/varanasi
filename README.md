@@ -111,6 +111,14 @@ prompt, one hallucinated address, and the treasury drains.
 
 ## Map
 
+- `docs/WHITEPAPER.md` — **the whitepaper**: thesis, protocol, economics,
+  roadmap, risks
+- `company/` — **the company build** (15 steps, in order): charter · market ·
+  competition · customers · product strategy · business model · GTM · org ·
+  finance · legal · engineering OS · security program · metrics · risk
+  register · governance
+- `docs/architecture/` — **company-grade architecture record**: system ·
+  data · security (STRIDE threat model) · infrastructure · testing
 - `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
   (Uniswap v4), deploy scripts, forge tests
 - `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
