@@ -1,12 +1,7 @@
 // Author: Ramprasad — the Varanasi legion: curated agent archetypes with
-// Greek-soldier plate art params. The three `live` entries mirror AGENTS in
+// Greek-art imagery. The three `live` entries mirror AGENTS in
 // lib/site.ts (keep in sync). Archetypes are honest mandate templates, not
 // onchain claims — deployment status is explicit.
-
-export type SoldierTone = "accent" | "leaf" | "ink" | "amber";
-export type SoldierHelm = "corinthian" | "pilos" | "attican";
-export type SoldierWeapon = "spear" | "sword" | "torch" | "scales" | "banner" | "bow";
-export type SoldierPose = "guard" | "scout" | "judge" | "scribe";
 
 export type Legionnaire = {
   id: string;
@@ -19,13 +14,7 @@ export type Legionnaire = {
   window: string;
   expiry: string;
   live: boolean;
-  soldier: {
-    helm: SoldierHelm;
-    weapon: SoldierWeapon;
-    pose: SoldierPose;
-    tone: SoldierTone;
-    emblem: string;
-  };
+  image: string;
 };
 
 export const SPECIALTIES = [
@@ -65,7 +54,7 @@ export const LEGION: Legionnaire[] = [
     window: "24",
     expiry: "7",
     live: true,
-    soldier: { helm: "pilos", weapon: "spear", pose: "scout", tone: "accent", emblem: "Σ" },
+    image: "/images/eagle.jpg",
   },
   {
     id: "analyst",
@@ -78,7 +67,7 @@ export const LEGION: Legionnaire[] = [
     window: "12",
     expiry: "7",
     live: true,
-    soldier: { helm: "corinthian", weapon: "scales", pose: "judge", tone: "leaf", emblem: "Λ" },
+    image: "/images/scales.jpg",
   },
   {
     id: "freelancer",
@@ -91,7 +80,7 @@ export const LEGION: Legionnaire[] = [
     window: "48",
     expiry: "14",
     live: true,
-    soldier: { helm: "attican", weapon: "banner", pose: "guard", tone: "ink", emblem: "Α" },
+    image: "/images/trophy.jpg",
   },
   {
     id: "sentry",
@@ -104,7 +93,7 @@ export const LEGION: Legionnaire[] = [
     window: "6",
     expiry: "30",
     live: false,
-    soldier: { helm: "corinthian", weapon: "torch", pose: "guard", tone: "amber", emblem: "Φ" },
+    image: "/images/gate.jpg",
   },
   {
     id: "trader",
@@ -117,7 +106,7 @@ export const LEGION: Legionnaire[] = [
     window: "12",
     expiry: "3",
     live: false,
-    soldier: { helm: "pilos", weapon: "spear", pose: "guard", tone: "accent", emblem: "Τ" },
+    image: "/images/palace.jpg",
   },
   {
     id: "liquidator",
@@ -130,7 +119,7 @@ export const LEGION: Legionnaire[] = [
     window: "24",
     expiry: "2",
     live: false,
-    soldier: { helm: "attican", weapon: "sword", pose: "guard", tone: "leaf", emblem: "Θ" },
+    image: "/images/hero-arena.jpg",
   },
   {
     id: "historian",
@@ -143,7 +132,7 @@ export const LEGION: Legionnaire[] = [
     window: "48",
     expiry: "30",
     live: false,
-    soldier: { helm: "pilos", weapon: "banner", pose: "scribe", tone: "ink", emblem: "Η" },
+    image: "/images/mandate-scroll.jpg",
   },
   {
     id: "courier",
@@ -156,7 +145,7 @@ export const LEGION: Legionnaire[] = [
     window: "12",
     expiry: "7",
     live: false,
-    soldier: { helm: "pilos", weapon: "banner", pose: "scout", tone: "accent", emblem: "Κ" },
+    image: "/images/gallery-courtyard.jpg",
   },
   {
     id: "auditor",
@@ -169,7 +158,7 @@ export const LEGION: Legionnaire[] = [
     window: "36",
     expiry: "14",
     live: false,
-    soldier: { helm: "corinthian", weapon: "scales", pose: "judge", tone: "leaf", emblem: "Ψ" },
+    image: "/images/emblem.jpg",
   },
   {
     id: "broker",
@@ -182,7 +171,7 @@ export const LEGION: Legionnaire[] = [
     window: "6",
     expiry: "7",
     live: false,
-    soldier: { helm: "attican", weapon: "torch", pose: "judge", tone: "amber", emblem: "Β" },
+    image: "/images/gallery-dinner.jpg",
   },
   {
     id: "scribe",
@@ -195,7 +184,7 @@ export const LEGION: Legionnaire[] = [
     window: "6",
     expiry: "3",
     live: false,
-    soldier: { helm: "pilos", weapon: "spear", pose: "scribe", tone: "ink", emblem: "Ξ" },
+    image: "/images/gallery-workshop.jpg",
   },
   {
     id: "oracle",
@@ -208,7 +197,7 @@ export const LEGION: Legionnaire[] = [
     window: "12",
     expiry: "30",
     live: false,
-    soldier: { helm: "attican", weapon: "torch", pose: "scribe", tone: "amber", emblem: "Ω" },
+    image: "/images/figure-builder.jpg",
   },
 ];
 

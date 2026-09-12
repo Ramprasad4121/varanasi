@@ -73,7 +73,7 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
     user?.email?.address ??
     user?.google?.email ??
     user?.github?.username ??
-    (user?.wallet?.address ? `${user.wallet.address.slice(0, 6)}…${user.wallet.address.slice(-4)}` : "Account");
+    "Account";
   const short = label.includes("@") ? label.split("@")[0] : label;
 
   if (variant === "menu") {
