@@ -27,7 +27,7 @@ type ButtonProps = Shared &
   };
 
 const base =
-  "inline-flex h-12 items-center justify-center rounded-none px-6 font-label text-[12px] font-medium uppercase tracking-[0.16em] transition-[color,background-color,border-color] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex h-12 items-center justify-center rounded-none px-6 m-0 font-label text-[12px] font-medium uppercase tracking-[0.16em] transition-[color,background-color,border-color] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function BrandButton(props: LinkProps | ButtonProps) {
   const { children, className, variant = "primary" } = props;

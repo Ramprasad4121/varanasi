@@ -62,7 +62,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle className="hidden h-11 w-11 sm:grid" />
             <button
               type="button"
-              className="grid h-11 w-11 place-items-center text-ink xl:hidden border border-border"
+              className="grid h-11 w-11 m-0 place-items-center border border-border text-ink xl:hidden"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}

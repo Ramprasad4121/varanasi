@@ -67,7 +67,7 @@ export function VerdictTimeline({
           <button
             key={f}
             type="button"
-            className={`px-3 py-1 font-label text-xs uppercase tracking-[0.14em] border transition-colors ${
+            className={`m-0 px-3 py-1 font-label text-xs uppercase tracking-[0.14em] border transition-colors ${
               filter === f
                 ? "border-ink bg-ink text-bg font-medium"
                 : "border-border bg-bg text-fg-body hover:border-ink"
