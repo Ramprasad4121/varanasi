@@ -2,7 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-solc_version = "0.8.26"
+solc_version = "0.8.30"
 # v2 hardening grew TaskEscrow.fund's optimizer-inlined frame past legacy
 # codegen's stack limit; via_ir keeps semantics identical (testnet redeploys).
 via_ir = true
