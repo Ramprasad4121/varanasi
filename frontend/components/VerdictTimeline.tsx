@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
 import { seedVerdicts, type IntelRecord, type Verdict } from "./aegis";
-import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 export function VerdictTimeline({
   verdicts: propVerdicts,
@@ -15,7 +14,6 @@ export function VerdictTimeline({
   intel?: IntelRecord | null;
   onVerdicts?: (v: Verdict[]) => void;
 } = {}) {
-  const userId = useVaultUserId();
   const [internalVerdicts, setInternalVerdicts] = useState<Verdict[]>(() => seedVerdicts());
   const [status, setStatus] = useState("");
   const [filter, setFilter] = useState<"ALL" | "ACT" | "SKIP">("ALL");
