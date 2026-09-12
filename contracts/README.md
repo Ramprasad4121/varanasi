@@ -10,7 +10,25 @@ forge build
 forge test
 ```
 
-`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **166 tests / 10 suites.**
+`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **216 tests / 11 suites** (166 legacy + 50 `MandateTreeEscrow`).
+
+## Mandate delegation trees + verdict network (`src/MandateTreeEscrow.sol`)
+
+The agent-escrow layer's second settlement engine, built on `RiskGuard`:
+
+| Concern | Detail |
+|---|---|
+| Delegation trees | `Mandate` (EIP-712: `parentTaskId, agent, merchant, token, cap, windowStart, windowEnd, expiry, nonce, chainId`) — root signed by the **payer**, children signed by the **parent node's agent**. No token moves on delegation; `cap` is carved from `parent.escrowed` and refunds/cancels roll up to the *direct* parent. Invariant: Σ escrowed ≡ treasury balance. |
+| Child constraints | `cap ≤ parent.escrowed`, token match, window ⊆ parent window, `expiry ≤ parent.expiry`, parent must be live and `liveChildren == 0` gates release (proof composes leaf-first). |
+| Verdict modes | Pinned at the first score write: **SingleValidator** (legacy `thresholdBps`, matches TaskEscrow) or **Quorum** (CRE verdict network). |
+| Quorum | `submitNodeVerdict(taskId, scoreBps, reportHash)` allowlists reporters; the FIRST vote freezes `VerdictMode.Quorum` and `requiredQuorum = defaultQuorum` (deploy param, ≤ `MAX_QUORUM_NODES = 21`); release requires `agreeCount ≥ requiredQuorum`, `quality = agreeCount·10_000 / nodeCount`, then `authorize(agent, 10_000 − quality, pinnedThresholdBps)`. `reportHash` binds each vote to an attested CRE report (see `cre/quorum.ts` `reportDigest`). |
+| Admin | `setValidator / setReporter / setThreshold / setDefaultQuorum` (owner), 2-step ownership transfer, `resetVerdict` (owner) reverts `SubsidyLock` if pruning an agreeing vote would drop a met quorum below the bar. |
+
+Delegation plus the verdict network live entirely in `MandateTreeEscrow` — the
+deployed `TaskEscrow`/`AegisRegistry`/`RiskGuard` are untouched and both paths
+share the same mitigation layer. Coverage: the `MandateTreeEscrow.t.sol` matrix
+(MT01–MT08: fund/replay/chain/delegation constraints/quorum/reset/reentrancy)
+is fully green.
 
 ## Community finance + collateral + gold (src tree)
 

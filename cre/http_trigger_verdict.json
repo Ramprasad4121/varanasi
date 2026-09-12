@@ -1,0 +1,9 @@
+{
+  "taskId": "0xabababababababababababababababababababababababababababababababab",
+  "nodeId": "0xNode0000000000000000000000000000000000001",
+  "deliverableUri": "ipfs://QmHealthyDeliverable",
+  "milestonesComplete": 4,
+  "milestonesTotal": 4,
+  "onTime": true,
+  "collateralAligned": true
+}

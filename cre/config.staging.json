@@ -3,5 +3,9 @@
   "thresholdSecretId": "RISK_THRESHOLD_BPS",
   "weightsSecretId": "STRATEGY_WEIGHTS",
   "allowlistSecretId": "OPERATOR_ALLOWLIST",
-  "apiKeySecretId": "AEGIS_API_KEY"
+  "apiKeySecretId": "AEGIS_API_KEY",
+  "requiredQuorum": 3,
+  "qualityBarSecretId": "VERDICT_QUALITY_BAR_BPS",
+  "rubricWeightsSecretId": "VERDICT_RUBRIC_WEIGHTS",
+  "nodeRosterSecretId": "VERDICT_NODE_ROSTER"
 }
