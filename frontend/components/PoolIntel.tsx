@@ -118,7 +118,7 @@ export function PoolIntel({
           <button
             key={p.key}
             type="button"
-            className={`px-4 py-2.5 font-label text-xs uppercase tracking-[0.14em] border-b-2 transition-colors ${
+            className={`m-0 px-4 py-2.5 font-label text-xs uppercase tracking-[0.14em] border-b-2 transition-colors ${
               p.key === poolKey
                 ? "border-accent text-ink font-medium bg-bg"
                 : "border-transparent text-fg-muted hover:text-ink"

@@ -19,7 +19,7 @@ export function AuthSlot({ variant = "nav" }: { variant?: "nav" | "menu" }) {
     return (
       <Link
         href="/account"
-        className="inline-flex h-11 items-center border border-ink/80 px-4 font-label text-[11px] uppercase tracking-[0.14em] text-ink hover:bg-ink hover:text-bg transition-colors"
+        className="inline-flex h-11 items-center border border-ink/80 px-4 m-0 font-label text-[11px] uppercase tracking-[0.14em] text-ink hover:bg-ink hover:text-bg transition-colors"
       >
         Sign in
       </Link>
@@ -43,7 +43,7 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
         <button
           type="button"
           disabled
-          className="flex h-12 items-center font-display text-[16px] text-fg-muted text-left"
+          className="flex h-12 items-center font-display text-[16px] text-fg-muted text-left m-0"
         >
           Sign in
         </button>
@@ -67,7 +67,7 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
         <button
           type="button"
           onClick={() => login()}
-          className="flex h-12 items-center font-display text-[16px] font-medium text-accent text-left"
+          className="flex h-12 items-center font-display text-[16px] font-medium text-accent text-left m-0"
         >
           Sign in
         </button>
@@ -77,7 +77,7 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
       <button
         type="button"
         onClick={() => login()}
-        className="inline-flex h-11 items-center border border-ink/80 px-4 font-label text-[11px] uppercase tracking-[0.14em] text-ink hover:bg-ink hover:text-bg transition-colors"
+        className="inline-flex h-11 items-center border border-ink/80 px-4 m-0 font-label text-[11px] uppercase tracking-[0.14em] text-ink hover:bg-ink hover:text-bg transition-colors"
       >
         Sign in
       </button>
@@ -93,7 +93,7 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
         <button
           type="button"
           onClick={() => logout()}
-          className="flex h-8 items-center font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted hover:text-accent"
+          className="flex h-8 items-center font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted hover:text-accent m-0"
         >
           Sign out
         </button>

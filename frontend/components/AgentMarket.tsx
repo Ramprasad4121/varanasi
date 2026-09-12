@@ -337,7 +337,7 @@ export function AgentMarket({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted underline underline-offset-4 hover:text-accent transition-colors"
+          className="m-0 font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted underline underline-offset-4 hover:text-accent transition-colors"
         >
           {open ? "− Hide listing form" : "+ List a new agent"}
         </button>
