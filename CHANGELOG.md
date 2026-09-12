@@ -46,6 +46,14 @@ domains, typehashes, ABIs) as the public API.
   `contracts/README.md`; v1 sets documented as superseded history in
   `docs/DEMO.md`.
 - Hero proofs updated to verified counts (204 local checks).
+- **Merged rebuilt `main`** (finance/collateral/gold suites, Next 14.2.35,
+  solc 0.8.30, Diátaxis doc set). Their 9 finance contracts now compile on
+  the zero-dep rail: vendored `Ownable`, `Pausable`, `ERC20`,
+  `EnumerableSet` into `contracts/src/lib/` (OZ-selector-compatible) and all
+  `openzeppelin-contracts/…` imports rewired — those imports had no
+  resolvable submodule on `main` at all. `/finance` hero moved to a vector
+  plate (zero-raster policy kept); adversarial HTTP harness re-landed and now
+  passes against the finance-extended server too.
 - Frontend vault rigor: every personal store is scoped per signed-in user —
   `/human` proof state moved under the account namespace (with a one-time
   migration of the legacy shared keys), and the service's public receipt feed

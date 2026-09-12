@@ -65,9 +65,9 @@ Details in [`frontend/PRIVY.md`](frontend/PRIVY.md).
 
 ## Live onchain
 
-| Mandate escrows released | x402 payments settled | Agent identities live | Local checks green |
-|---|---|---|---|
-| 1+ | 3+ | 2 | 204 (vitest + real-EVM harness) + full forge suites |
+| Mandate escrows released | x402 payments settled | Agent identities live |
+|---|---|---|
+| 1+ | 3+ | 2 |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
 Etherscan / HashScan.
@@ -80,6 +80,8 @@ Etherscan / HashScan.
 
 Needs: Node 24, gitignored `.env` files (`service/.env.example`,
 `agent/.env.example`, `frontend/.env.example`). Never commit keys.
+
+Guided, no-assumptions walkthrough: [`docs/TUTORIAL.md`](docs/TUTORIAL.md).
 
 On the site: **Sign in** → **Hire** on any agent card → pick Scout, Analyst, or
 Freelancer → lock cap / window / expiry → **Authorize & fund**. Watch Funded →
@@ -109,6 +111,28 @@ Reputation: `npx tsx src/cli.ts reputation <agent>` reads the agent's Akshaya
 score straight off the chain; `attest <taskId>` mints the soulbound receipt
 for any settled task — permissionless, idempotent, capital-secured.
 
+## Community finance
+
+Varanasi extends the enforcement rail into a programmable treasury your agent
+can steward — demo-first, contracts-as-source-of-truth:
+
+- **Contracts** (`contracts/src/finance/`, `collateral/`, `gold/`): `SavingsVault`,
+  `ChitPool`, `LoanAgreement`, `FinancialReputation`, `CollateralVault`, gold-backed
+  `GoldRegistry`/`GoldAttestor`/`GoldToken`, and a non-breaking
+  `RiskGuard` authorization hook. 54/54 protocol tests green.
+- **Service** (`service /v1/finance*`): deterministic demo portfolio +
+  recommendation APIs, seeded by wallet address (5/5 tests).
+- **Agent engine** (`agent/src/finance`): `recommend()`, `buildMandate()`,
+  `execute()` — the latter throws until the contracts go live, so no demo state
+  ever broadcasts (9/9 tests).
+- **Frontend** (`/finance`): colosseum-grammar vault — savings vault, chit
+  fund, term loan, gold-backed collateral, credit score, and "what your
+  steward recommends". Every figure is labeled **simulated**; no real funds
+  move.
+
+Shared types live in `frontend/finance-types/` (mirrored into `service` and
+`agent`), so the three surfaces can never drift apart.
+
 ## The old way vs the varanasi way
 
 **Old way** — agent gets a private key and standing approvals. One injected
@@ -134,17 +158,28 @@ prompt, one hallucinated address, and the treasury drains.
 ## Map
 
 - `contracts/` — zero-dependency Solidity: `TaskEscrow`, `AegisRegistry`,
-  `RiskGuard`, `Akshaya`, `GhatStream`, `MockERC20` + in-repo libs
-  (`src/lib/`: EIP712, ECDSA, SafeERC20, ReentrancyGuard), deploy scripts,
-  forge tests
+  `RiskGuard`, `Akshaya`, `GhatStream`, `MockERC20` + community finance
+  (`SavingsVault`, `ChitPool`, `LoanAgreement`, `FinancialReputation`,
+  `CollateralVault`, gold stack), all on in-repo libs (`src/lib/`: EIP712,
+  ECDSA, SafeERC20, ReentrancyGuard, Ownable, Pausable, ERC20, EnumerableSet) —
+  deploy scripts, forge tests
 - `agent/` — TS CLI (`aegis`): mandate signing, escrow + Akshaya clients,
-  ENS / Graph / x402 / Aave intel, demo workers, `revoke` kill switch
-- `service/` — x402-gated signal API (Express, Hedera settlement), HCS audit
-  log, adversarial test harness
-- `frontend/` — Next.js marketplace: hire wizard, vault, treasury — zero
-  raster bytes, all line-art SVG
-- `docs/` — `MANDATE.md` · `AKSHAYA.md` · `GHATSTREAM.md` · `ARCHITECTURE.md`
-  · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
+  ENS / Graph / x402 / Aave intel, finance decision engine, demo workers,
+  `revoke` kill switch
+- `service/` — x402-gated signal API (Express, Hedera settlement), financial
+  demo APIs, HCS audit log, adversarial test harness
+- `frontend/` — Next.js marketplace: hire wizard, per-user vault, `/privy`
+  treasury, `/finance` demo vault, shared `finance-types` — zero raster bytes,
+  all line-art SVG
+- `docs/` — see [`docs/INDEX.md`](docs/INDEX.md):
+  [`MANDATE.md`](docs/MANDATE.md) · [`AKSHAYA.md`](docs/AKSHAYA.md) ·
+  [`GHATSTREAM.md`](docs/GHATSTREAM.md) ·
+  [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (flows, data ownership) ·
+  [`REFERENCE.md`](docs/REFERENCE.md) (verified facts) ·
+  [`TUTORIAL.md`](docs/TUTORIAL.md) · [`HOWTO.md`](docs/HOWTO.md) ·
+  [`DEMO.md`](docs/DEMO.md) (evidence) ·
+  [`SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md). Coding agents start at
+  [`AGENTS.md`](AGENTS.md).
 
 ## FAQ
 

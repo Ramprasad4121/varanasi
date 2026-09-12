@@ -15,6 +15,8 @@ fresh clone; no remappings to lose sleep over, no subtree to drift.
 | `GhatStream.sol` | **New.** Continuous escrow. A signed mandate caps a per-second payment flow: agent claims accrued whenever, payer can stop the tap at any instant, and the unearned remainder always returns. |
 | `MockERC20.sol` | 6-decimal demo token with open `mint`. Testnet furniture only. |
 
+Author: Ramprasad
+
 ## Build / test
 
 ```sh
@@ -24,6 +26,23 @@ forge test           # fully offline — registry mock mode, no RPC needed
 forge test --match-contract AkshayaTest
 forge test --match-contract GhatStreamTest
 ```
+
+`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **10 suites / 143 test functions** (this rail incl. finance).
+
+## Community finance + collateral + gold (src tree)
+
+| Path | Contract | Role |
+|---|---|---|
+| `src/finance/SavingsVault.sol` | SavingsVault | pooled community savings |
+| `src/finance/ChitPool.sol` | ChitPool | periodic contributions, rotating payout |
+| `src/finance/LoanAgreement.sol` | LoanAgreement | term-loan between lender + borrower |
+| `src/finance/FinancialReputation.sol` | FinancialReputation | member credit/reputation tracking |
+| `src/collateral/CollateralVault.sol` | CollateralVault | collateral backing community loans |
+| `src/gold/GoldRegistry.sol` + `GoldAttestor.sol` + `GoldToken.sol` | gold stack | gold-backed collateral (registry, attestor, metal token) |
+
+Not yet deployed — demo state is address-seeded and simulated; the agent's
+`execute()` throws until they go live. Protocol tests: 54 (see
+`docs/REFERENCE.md` §6 for the breakdown).
 
 The `test/` suites encode the locked matrix (T1–T20): replay, window,
 validator pinning, fee-on-transfer accounting, reentrancy probe, quality→risk

@@ -17,8 +17,6 @@ type Shared = {
 
 type LinkProps = Shared & {
   href?: string;
-  to?: string;
-  search?: Record<string, string>;
   target?: string;
   rel?: string;
 };
@@ -26,8 +24,6 @@ type LinkProps = Shared & {
 type ButtonProps = Shared &
   Omit<ComponentProps<"button">, "className" | "children"> & {
     href?: never;
-    to?: never;
-    search?: never;
   };
 
 const base =
@@ -37,14 +33,10 @@ export function BrandButton(props: LinkProps | ButtonProps) {
   const { children, className, variant = "primary" } = props;
   const cls = cn(base, styles[variant], className);
 
-  const destination = props.to || props.href;
+  const destination = props.href;
   if (destination) {
     const isExternal = destination.startsWith("http") || destination.startsWith("//");
-    let finalUrl = destination;
-    if (props.search && Object.keys(props.search).length > 0) {
-      const sp = new URLSearchParams(props.search).toString();
-      finalUrl = `${destination}?${sp}`;
-    }
+    const finalUrl = destination;
 
     if (isExternal) {
       return (

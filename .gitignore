@@ -19,3 +19,4 @@ contracts/lib/*/out/
 .agents/
 .opencode/
 ORIGINAL_REQUEST.md
+service/data/receipts.json

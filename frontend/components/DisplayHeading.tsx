@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import React from "react";
 import { cn } from "@/lib/utils";
 
@@ -7,26 +7,9 @@ type Props = {
   as?: "h1" | "h2" | "h3";
   className?: string;
   size?: "hero" | "section" | "page";
-  drop?: boolean;
 };
 
-function flattenChildren(node: ReactNode): string {
-  return Children.toArray(node)
-    .map((child) => {
-      if (typeof child === "string" || typeof child === "number") return String(child);
-      if (isValidElement<{ children?: ReactNode }>(child)) return flattenChildren(child.props.children);
-      return "";
-    })
-    .join("")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function DisplayHeading({ children, as: Tag = "h2", className, size = "section", drop = false }: Props) {
-  const text = flattenChildren(children);
-  const initial = text.charAt(0);
-  const rest = text.slice(1);
-
+export function DisplayHeading({ children, as: Tag = "h2", className, size = "section" }: Props) {
   return (
     <Tag
       className={cn(
@@ -37,16 +20,7 @@ export function DisplayHeading({ children, as: Tag = "h2", className, size = "se
         className,
       )}
     >
-      {drop && initial ? (
-        <>
-          <span className="drop-cap" aria-hidden="true">
-            {initial}
-          </span>
-          {rest}
-        </>
-      ) : (
-        children
-      )}
+      {children}
     </Tag>
   );
 }

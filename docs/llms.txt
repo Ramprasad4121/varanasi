@@ -1,0 +1,48 @@
+# llms.txt — varanasi documentation manifest
+
+Author: Ramprasad
+
+Machine-readable index of the repo's documentation. One line per doc.
+Human-readable map: `docs/INDEX.md`.
+
+## Root docs
+
+- README.md: Product pitch, setup, FAQ. Start here for orientation.
+- AGENTS.md: The agent contract — orientation, house law, exact commands. Paste-able as-is.
+- WORLD.md: World Selfie Check integration (human verification).
+- PROJECT.md: Milestones M1-M8, architecture + finance notes.
+- ORIGINAL_REQUEST.md: Original build request context.
+
+## AGENTS.md
+
+- AGENTS.md: Cross-package handoff notes for coding agents. Orientation table, exact commands, conventions, never-do list.
+
+## docs/
+
+- docs/INDEX.md: Human-readable doc map (grouped by what each doc answers).
+- docs/GLOSSARY.md: One-line definitions of all terms (mandate, x402, vUSD, chit, escrow, HCS...).
+- docs/REFERENCE.md: Registry of facts — contract addresses, ports, env variables, exact commands, test matrix, CI checks.
+- docs/TUTORIAL.md: Guided first run of the product for a human user.
+- docs/HOWTO.md: Goal-oriented recipes — deploy a contract, add a payment rail, wire Privy, verify locally.
+- docs/MANDATE.md: EIP-712 mandate spec (type string LOCKED). Single escrowed task lifecycle.
+- docs/ARCHITECTURE.md: Architecture — flows, contracts, data ownership, finance protocol.
+- docs/SECURITY_REVIEW.md: Security properties + review status.
+- SECURITY.md: Report channel, isolation model (per-account browser vault; public ledger state), accepted risks.
+- docs/DEMO.md: Onchain proof (Etherscan / HashScan links).
+- docs/VIDEO_SCRIPT.md: Demo video narrative.
+- docs/SUBMISSION.md: Hackathon submission metadata.
+
+## Per-surface docs
+
+- contracts/README.md: Foundry — build/test/deploy, Sepolia ENSv2 wiring table.
+- agent/README.md: TS agent engine — setup, CLI commands, finance engine.
+- service/README.md: Express x402 signal service — routes, setup, finance APIs.
+- frontend/README.md: Next.js app — routes, identity (Privy), finance vault, build.
+- agent/SKILL.md: The Graph "AI-from-scratch" skill — discovery, intel, reasoning.
+
+## Verification
+
+- CI (`.github/workflows/ci.yml`): contracts (forge), agent (vitest), service
+  (node:test + adversarial HTTP), frontend (typecheck+build), gitleaks.
+- `docs/REFERENCE.md` §6: exact test counts, all offline-safe.
+- run.sh: boots service :4021 + web :3000; `run.sh agent` runs one live loop (spends $0.01 — ask first).

@@ -108,7 +108,6 @@
   margin: 16px 0 0;
 }
 @media (max-width: 860px) {
-  .gallery { grid-template-columns: 1fr 1fr; padding: 0 16px; }
   .section-intro { padding: 0 16px; }
 }
 
@@ -122,116 +121,7 @@
 @media (max-width: 1020px) { .cards { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
 
-/* The bench: three worker archetypes waiting to be picked. One slim strip,
-   theme tokens only, no new visual language. */
-.bench { margin-top: 16px; }
-.bench-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-.bench-title {
-  font-family: var(--label-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.bench-seats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-@media (max-width: 640px) { .bench-seats { grid-template-columns: 1fr; } }
-.bench-seat {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  border: 1px solid var(--line, #e5e0d5);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--paper);
-}
-.bench-dot {
-  flex: none;
-  width: 9px;
-  height: 9px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--warn);
-  animation: bench-pulse 2.2s ease-in-out infinite;
-}
-.bench-dot.busy { background: var(--leaf); animation: none; }
-@keyframes bench-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.bench-state { margin-top: 6px; font-size: 13px; color: var(--leaf); }
-.bench-hire {
-  margin-top: 6px;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent);
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.market {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 72px;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0 32px;
-}
-@media (max-width: 860px) { .market { grid-template-columns: 1fr; padding: 0 16px; } }
-.market .span { grid-column: 1 / -1; }
-.market .panel { scroll-margin-top: 90px; }
-
-/* Closing CTA: centered, arena floor behind, nothing else. */
-.cta {
-  position: relative;
-  text-align: center;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 56px 32px;
-}
-.cta::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("/images/hero-arena.jpg") center 72% / cover no-repeat;
-  opacity: 0.28;
-  pointer-events: none;
-}
-.cta > * { position: relative; }
-.cta h2 { margin: 12px 0 8px; }
-.cta .row { justify-content: center; margin-top: 16px; }
-
-.pool-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-.tab {
-  margin-top: 8px;
-  background: var(--white);
-  border: 1px solid var(--hairline);
-  border-radius: 0;
-  padding: 8px 16px;
-  min-height: 40px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-}
-.tab.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--paper);
-}
-
+/* Hire flow + verification */
 .flow {
   font-size: 13px;
   color: var(--ink-soft);
@@ -243,16 +133,6 @@
   line-height: 1.6;
 }
 .flow li { margin: 3px 0; }
-
-.timeline {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.timeline .card { margin-top: 12px; }
 
 .stepper {
   list-style: none;
@@ -275,24 +155,10 @@
 .stepper li.done { border-color: #bfe3c6; color: var(--leaf); }
 @media (max-width: 860px) { .stepper { grid-template-columns: 1fr 1fr; } }
 
-.date-header { font-size: 14px; color: var(--ink-soft); margin: 20px 0 0; font-weight: 600; }
-.footline { margin: 28px 0 0; font-size: 12.5px; }
-.footline a { text-decoration: underline; }
-
 .verify-line { font-size: 14px; line-height: 1.7; margin-top: 10px; }
 .verify-line a { text-decoration: underline; }
-.verify-primary { font-weight: 700; color: var(--accent); }
 
 .panel button, .card button {
   min-height: 44px;
   min-width: 44px;
-}
-.pool-tabs .tab { min-height: 44px; padding: 10px 18px; }
-
-@media (max-width: 860px) {
-  .market { display: flex; flex-direction: column; }
-  .market > div:nth-of-type(1) { order: 1; }
-  .market > div:nth-of-type(2) { order: 2; }
-  .market > section:nth-of-type(1) { order: 3; }
-  .market > section:nth-of-type(2) { order: 4; }
 }

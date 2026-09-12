@@ -111,3 +111,41 @@ export {
   parseSseData,
 } from "./aave.js";
 export type { AaveToolName, AaveFetch, AaveClientOptions, MarketSnapshot, WalletSummary, PreviewResult } from "./aave.js";
+
+/** Finance decision engine: deterministic demo recommendations + mandates. */
+export {
+  DEMO_FINANCE_SOURCE,
+  demoFinanceSource,
+  recommend,
+  buildMandate,
+  execute,
+  prepareOnchain,
+  publicClient,
+} from "./finance/finance.js";
+export type { FinanceWallet, FinanceSource, FinanceOptions } from "./finance/finance.js";
+export type {
+  ChitPoolState,
+  CollateralPosition,
+  FinancialMandate,
+  FinancialReceipt,
+  FinancialRecommendation,
+  GoldPosition,
+  LoanState,
+  ReputationScores,
+  SavingsVaultState,
+} from "./finance/types.js";
+export type {
+  Address,
+  Hash,
+  Hex,
+  ChitPoolConfig,
+  ChitPoolStatus,
+  ChitRoundResult,
+  GoldPositionStatus,
+  LoanParams,
+  LoanStatus,
+  MandateType,
+  RecommendationAction,
+  ReputationProfile,
+  SavingsVaultConfig,
+} from "./finance/types.js";

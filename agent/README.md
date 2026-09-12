@@ -15,7 +15,7 @@ cp .env.example .env   # fill GRAPH_API_KEY (Subgraph Studio), SEPOLIA_RPC_URL,
                        # AEGIS_REGISTRY, HEDERA_* keys, SIGNAL_URL
 npm install
 npx tsc --noEmit       # must be green
-npm test               # vitest — 156 checks, fully offline (mocked viem/fetch)
+npm test               # vitest — 165 tests / 18 files, fully offline (mocked viem/fetch)
 ```
 
 ## Run it
@@ -138,6 +138,16 @@ error JSON to stderr with a non-zero exit. Env: `AAVE_MCP_URL` (default
 | `src/workers/scout.ts` | SignalScout — `topPools` discovery (sane-filtered) + `payForSignal` on healthy turnover → `{ pool, intel, signal, confidence, receipt }` |
 | `src/workers/analyst.ts` | PoolAnalyst — pool intel + alpha → `analyzeRisk` verdict + human brief (LLM opt-in passthrough) |
 | `src/workers/freelancer.ts` | EscrowFreelancer — signed mandate + taskId → `taskState` monitor → `releaseTask` on Validated / `refundTask` past expiry (caller-supplied wallet, never holds keys) |
+| `src/finance/finance.ts` | Community-finance engine — `recommend(portfolio)`, `buildMandate(decisions)`, `execute(mandate)` (**throws** until finance contracts are deployed — no demo state broadcasts) + `types.ts`, `finance.test.ts` (9 tests) |
+
+## Community finance engine
+
+Decision layer for the demo community vault (`contracts/src/finance/`,
+`service /v1/finance*`, `frontend /finance`). Inputs are address-seeded
+portfolio summaries; outputs are steward recommendations + signed mandate
+shapes. Shared types come from `frontend/finance-types/` (mirror of the
+single source of truth). See `docs/REFERENCE.md` §6 for the finance test
+breakdown.
 
 ## Demo workers (hire agents → find work → earn into escrow)
 

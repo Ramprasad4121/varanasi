@@ -8,13 +8,13 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.87.0",
     "@x402/core": "^2.25.0",
     "@x402/express": "^2.25.0",
-    "@x402/fetch": "^2.25.0",
     "@x402/hedera": "^2.25.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",

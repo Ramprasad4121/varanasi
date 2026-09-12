@@ -6,8 +6,6 @@
 export const REGISTRY =
   process.env.NEXT_PUBLIC_AEGIS_REGISTRY ??
   "0x3913f1E6A0Be93180363aBd01Df7968d494033A8";
-export const RISK_GUARD = "0x668c01aE564D51baFF0029D361c20c534d738400";
-export const AEGIS_HOOK = "0x05043B527D67d7E4e3a2ed411fFBD15b8255c080";
 // Sepolia TaskEscrow + mock vUSD (6dp) — the hire flow's settlement pair.
 export const TASK_ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24";
 export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
@@ -105,24 +103,16 @@ export const CURATED_POOLS: CuratedPool[] = [
 
 export const UNISWAP_V3_SUBGRAPH = "5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV";
 
-// --- Demo-known receipts + verdict (docs/DEMO.md) ---
-export const DEMO_RECEIPTS = [
-  "0.0.7162784-1788675749-710110370",
-  "0.0.7162784-1788676249-125024441",
-];
+// --- Demo-known mint tx (docs/DEMO.md) ---
 export const DEMO_MINT_TX =
   "0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327";
 
 // --- Links ---
-export const etherscanAddress = (a: string) =>
-  `https://etherscan.io/address/${a}`;
 export const sepoliaAddress = (a: string) =>
   `https://sepolia.etherscan.io/address/${a}`;
 export const sepoliaTx = (h: string) => `https://sepolia.etherscan.io/tx/${h}`;
 export const hashscanTx = (txId: string) =>
   `https://hashscan.io/testnet/transaction/${encodeURIComponent(txId)}`;
-export const graphSubgraphUrl = (id: string) =>
-  `https://thegraph.com/explorer/subgraphs/${id}`;
 
 // --- Shared record types (localStorage-backed) ---
 export type AgentRecord = {

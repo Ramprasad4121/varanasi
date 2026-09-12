@@ -1,0 +1,16 @@
+{
+  "name": "@varanasi/finance-types",
+  "version": "0.1.0",
+  "description": "shared finance protocol types for varanasi (frontend/service/agent) — mirrors contracts/src/finance/*.sol",
+  "type": "module",
+  "license": "MIT",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --strict --skipLibCheck index.ts"
+  },
+  "author": "Ramprasad"
+}

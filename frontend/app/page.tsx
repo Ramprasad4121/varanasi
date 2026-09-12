@@ -65,13 +65,13 @@ function Hero() {
       </div>
 
       {/* Stats band */}
-      <dl className="relative z-10 mx-auto grid max-w-[1200px] grid-cols-2 border-y border-border bg-bg/90 backdrop-blur-sm md:grid-cols-4">
+      <dl className="relative z-10 mx-auto grid max-w-[1200px] grid-cols-1 border-y border-border bg-bg/90 backdrop-blur-sm sm:grid-cols-3">
         {STATS.map((stat, i) => (
           <div
             key={stat.label}
-            className={`px-4 py-6 sm:px-6 ${i > 0 ? "md:border-l md:border-border" : ""} ${
-              i % 2 === 1 ? "border-l border-border" : ""
-            } ${i > 1 ? "border-t border-border md:border-t-0" : ""}`}
+            className={`px-4 py-6 sm:px-6 ${i > 0 ? "sm:border-l sm:border-border" : ""} ${
+              i > 0 ? "border-t border-border sm:border-t-0" : ""
+            }`}
           >
             <div className="mb-3 inline-flex h-12 w-12 items-center justify-center border border-border bg-bg-muted text-ink sm:h-14 sm:w-14">
               <Engraving variant={stat.plate} className="h-8 w-8 sm:h-9 sm:w-9" />
