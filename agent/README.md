@@ -217,9 +217,9 @@ network call is attempted — heuristic is used directly.
 
 ## Mandate / escrow lane (Sepolia)
 
-Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
+Live: `TaskEscrow 0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24`
 (Sepolia `11155111`), threshold `5000` bps,
-`RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
+`RiskGuard 0x668c01aE564D51baFF0029D361c20c534d738400`.
 Spec: `docs/MANDATE.md`. The `mandate` command is OFFLINE — it creates +
 EIP-712 signs a mandate and prints the digest + explorer-ready fields. It
 never broadcasts, stores keys, or logs secrets. Keys NEVER travel via CLI

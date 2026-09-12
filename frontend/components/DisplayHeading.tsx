@@ -31,10 +31,11 @@ export function DisplayHeading({ children, as: Tag = "h2", className, size = "se
     >
       {drop ? (
         <>
-          <span className="drop-cap" aria-hidden="true">
-            {drop}
+          <span className="sr-only">{text}</span>
+          <span aria-hidden="true">
+            <span className="drop-cap">{drop}</span>
+            {rest}
           </span>
-          {rest}
         </>
       ) : (
         children

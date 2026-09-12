@@ -207,6 +207,8 @@ export async function resolveAgentSubname(name: string, opts: EnsResolverOptions
       args: [dnsEncodeName(name.toLowerCase()), inner],
     })) as [`0x${string}`, Address];
     ensAddr = decodeFunctionResult({ abi: ADDR_ABI, functionName: "addr", data: ret }) as Address;
+    // Zero address means the name is unset — fall through to registry-only mode.
+    if (ensAddr === "0x0000000000000000000000000000000000000000") ensAddr = null;
   } catch {
     ensAddr = null; // resolver miss / name unowned → report, don't throw
   }

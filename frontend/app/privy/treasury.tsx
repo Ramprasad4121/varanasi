@@ -3,6 +3,7 @@
 // Author: Ramprasad — Privy treasury dashboard: login + embedded-wallet mint/fund/revoke vs allowance with ops log; live deps Privy SDK, Sepolia RPC/registry (ABI verified vs contracts/src/AegisRegistry.sol); degrades to local-mode ledger + pending when registry/RPC unreachable.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
+import Link from "next/link";
 import {
   createPublicClient,
   encodeFunctionData,
@@ -393,10 +394,11 @@ export default function Treasury() {
       <div className="section-intro" style={{ padding: 0 }}>
         <p className="hero-kicker">Treasury</p>
         <h2>
-          <span className="drop-cap" aria-hidden="true">
-            M
+          <span className="sr-only">Manage your agents and funds</span>
+          <span aria-hidden="true">
+            <span className="drop-cap">M</span>
+            anage your agents and funds
           </span>
-          anage your agents and funds
         </h2>
         <p>
           Mint identities, set allowances, fund agents, and revoke access —
@@ -576,7 +578,7 @@ export default function Treasury() {
         {status || "Sign in, authorize an agent, then fund it — all from the embedded wallet."}
       </div>
       <p className="envline" style={{ marginTop: 8 }}>
-        <a href="/">← Back to the varanasi dashboard</a>
+        <Link href="/">← Back to the varanasi dashboard</Link>
       </p>
     </section>
   );
