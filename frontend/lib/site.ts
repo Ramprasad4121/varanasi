@@ -13,6 +13,7 @@ export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
 
 export const NAV = [
   { to: "/agents" as const, label: "Agents" },
+  { to: "/finance" as const, label: "Finance" },
   { to: "/mandate" as const, label: "How it works" },
   { to: "/activity" as const, label: "Activity" },
   { to: "/proof" as const, label: "Proof" },
