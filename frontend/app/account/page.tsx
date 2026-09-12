@@ -17,9 +17,9 @@ function SetupNotice() {
   return (
     <div>
       <PageHero
-        title="Your Vault"
+        title="Profile"
         eyebrow="Authentication"
-        subtitle="Sign in to manage your embedded Sepolia treasury and agent mandates."
+        subtitle="Sign in to manage your wallet and mandates."
         image="/images/scales.jpg"
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
@@ -30,7 +30,7 @@ function SetupNotice() {
           </h2>
           <p className="mt-3 font-display text-base leading-relaxed text-fg-body">
             Varanasi uses Privy so a community member can sign in with email, Google, GitHub, or a
-            wallet — and get a self-custodial Sepolia wallet without installing MetaMask.
+            wallet — and get a self-custodial wallet without installing anything.
           </p>
           <ol className="mt-6 space-y-3 font-display text-base text-fg-body list-decimal list-inside">
             <li>
@@ -76,9 +76,9 @@ function AccountInner() {
     return (
       <div>
         <PageHero
-          title="Your Vault"
-          eyebrow="Account Vault"
-          subtitle="Loading identity and security context…"
+          title="Profile"
+          eyebrow="Profile"
+          subtitle="Loading identity…"
           image="/images/scales.jpg"
         />
         <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
@@ -92,16 +92,16 @@ function AccountInner() {
     return (
       <div>
         <PageHero
-          title="Your Vault"
-          eyebrow="Account Vault"
-          subtitle="Email, Google, GitHub, or a wallet you already have. An embedded Sepolia wallet is created for you."
+          title="Profile"
+          eyebrow="Profile"
+          subtitle="Email, Google, GitHub, or a wallet you already have. A wallet is created for you."
           image="/images/scales.jpg"
         />
         <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
           <div className="border border-border bg-bg-elevated p-8">
             <h2 className="font-display text-2xl font-medium text-ink">Sign in to keep your vault</h2>
             <p className="mt-3 font-display text-base leading-relaxed text-fg-body">
-              An embedded self-custodial Sepolia wallet is initialized for you upon sign-in. Varanasi never stores private keys.
+              A self-custodial wallet is initialized for you upon sign-in. Varanasi never stores private keys.
             </p>
             <div className="mt-6">
               <BrandButton onClick={() => login()}>Sign in</BrandButton>
@@ -132,8 +132,8 @@ function AccountInner() {
   return (
     <div>
       <PageHero
-        title="Your Vault"
-        eyebrow="Account Vault"
+        title="Profile"
+        eyebrow="Profile"
         subtitle="Kept with the account. Never the keys. Hires and listed agents follow this identity across browsers."
         image="/images/scales.jpg"
       />
@@ -141,9 +141,17 @@ function AccountInner() {
         <article className="border border-border bg-bg-elevated p-6">
           <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Identity</p>
           <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl font-medium text-ink">{identity}</h2>
-              <p className="mt-1 font-display text-sm text-fg-muted">Signed in with {method}</p>
+            <div className="flex items-center gap-4">
+              <span
+                aria-hidden="true"
+                className="grid h-14 w-14 shrink-0 place-items-center border border-accent font-display text-2xl font-medium text-accent"
+              >
+                {(identity || "M").charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <h2 className="font-display text-2xl font-medium text-ink">{identity}</h2>
+                <p className="mt-1 font-display text-sm text-fg-muted">Signed in with {method}</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-3">
               <BrandButton href="/hire">Hire an agent</BrandButton>
@@ -156,7 +164,7 @@ function AccountInner() {
 
         <article className="border border-border bg-bg-elevated p-6">
           <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Treasury wallet</p>
-          <h2 className="mt-2 font-display text-2xl font-medium text-ink">Embedded Sepolia</h2>
+          <h2 className="mt-2 font-display text-2xl font-medium text-ink">Embedded wallet</h2>
           {address ? (
             <div className="mt-4 space-y-2">
               <p>
@@ -171,7 +179,7 @@ function AccountInner() {
                   rel="noreferrer"
                   className="font-label text-xs text-accent underline underline-offset-4"
                 >
-                  View on Etherscan ↗
+                  View transaction ↗
                 </a>
               </p>
             </div>
@@ -181,7 +189,7 @@ function AccountInner() {
             </p>
           )}
           <p className="mt-4 font-display text-sm text-fg-body">
-            Fund this address from a Sepolia faucet before a live hire. Or connect an external wallet at sign-in.
+            Fund this address before a live hire. Or connect an external wallet at sign-in.
           </p>
           <div className="mt-6">
             <BrandButton href="/privy" variant="ghost">

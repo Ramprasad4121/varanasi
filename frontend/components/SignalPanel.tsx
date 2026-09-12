@@ -100,7 +100,7 @@ export function SignalPanel({
           "Payment required ($0.01 x402) — run the agent loop (agent/ CLI) to pay and settle, then Refresh receipts."
         );
       } else if (res.status === 200) {
-        setStatus("Signal paid and settled on Hedera via x402. See receipts below.");
+        setStatus("Signal paid and settled. See receipts below.");
         void fetchReceipts();
       } else {
         setStatus(`Signal request returned HTTP ${res.status} — is the service running?`);
@@ -144,7 +144,7 @@ export function SignalPanel({
         <Badge tone="ok">x402 rail</Badge>
       </div>
       <p className="mt-2 font-display text-[16px] italic leading-relaxed text-fg-body">
-        Agents buy premium market alpha — paid and settled on Hedera via x402.
+        Agents buy premium market alpha — paid per request, receipt attached.
       </p>
 
       <dl className="mt-5 grid grid-cols-3 gap-px border border-border bg-border">

@@ -5,6 +5,7 @@
 import { useMemo, useState } from "react";
 import React from "react";
 import { PageHero } from "@/components/PageHero";
+import { RobotPet } from "@/components/RobotPet";
 import { SectionSep } from "@/components/SectionSep";
 import { AgentMarket } from "@/components/AgentMarket";
 import { SoldierPlate } from "@/components/SoldierPlate";
@@ -50,34 +51,42 @@ export default function AgentsLibraryPage() {
     <div>
       <PageHero
         title="The Legion"
-        eyebrow={mode === "agent" ? "ERC-8004 · Agent mode" : "ERC-8004 · Human mode"}
+        eyebrow={mode === "agent" ? "Agent mode" : "Human mode"}
         subtitle={
           mode === "agent"
             ? "You are the agent. Register an identity, list your specialty, claim open mandates, and get paid on proof."
-            : "A roster of agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live onchain today."
+            : "A roster of agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
         }
         image="/images/figure-builder.jpg"
       />
 
       {/* persona switch strip */}
       <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="border border-border bg-bg-elevated p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">
-              Viewing as
-            </p>
-            <p className="mt-1 font-display text-lg text-ink">
-              {mode === "agent" ? "An agent scouting for work" : "A principal commissioning work"}
-            </p>
+        <div className="grid items-center gap-6 border border-border bg-bg-elevated p-4 sm:p-5 lg:grid-cols-[1fr_300px]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">
+                Viewing as
+              </p>
+              <p className="mt-1 font-display text-lg text-ink">
+                {mode === "agent" ? "An agent scouting for work" : "A principal commissioning work"}
+              </p>
+              <p className="mt-1 font-display text-[15px] italic text-fg-muted">
+                Move your pointer — the bot watches. Click it and it waves.
+              </p>
+            </div>
+            <ModeToggle />
           </div>
-          <ModeToggle />
+          <div className="h-[240px]">
+            <RobotPet label="Arena-bot mascot for the agent roster" />
+          </div>
         </div>
       </section>
 
       {/* featured live agents */}
       <section className="mx-auto mt-12 max-w-[1200px] px-4 sm:px-6">
         <div className="mb-6 max-w-[36rem]">
-          <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live onchain</p>
+          <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live today</p>
           <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
             Three agents are already working
           </h2>
@@ -159,7 +168,7 @@ export default function AgentsLibraryPage() {
             </p>
             <ul className="mt-8 space-y-4">
               {[
-                ["1", "Register an identity", "One .aegis.eth subname. Expiring, revocable, onchain."],
+                ["1", "Register an identity", "One .aegis.eth subname. Expiring, revocable."],
                 ["2", "State your specialty", "Scout / Analyst / Freelancer / your own label. It becomes the mandate's default bar."],
                 ["3", "Work inside the window", "Cap, window, and expiry are written before any funds move. No allowance, no keys."],
                 ["4", "Get paid on proof", "Validator releases for you the moment the work clears the bar. Refund if it doesn't."],
@@ -214,7 +223,7 @@ export default function AgentsLibraryPage() {
         <div className="mb-8 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The registry</p>
           <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
-            Live onchain roster and identity tools
+            Live roster and identity tools
           </h2>
           <p className="mt-3 font-display text-lg italic leading-relaxed text-fg-body">
             Register an expiring identity, revoke one, and watch live registry state. These are the only identities an escrow can reach today.
@@ -276,7 +285,7 @@ function AgentCard({ a, mode }: { a: Legionnaire; mode: "human" | "agent" }) {
         </dl>
         <div className="mt-6">
           <BrandButton
-            href={a.live ? `/hire?agent=${a.id}` : `/mandate`}
+            href={a.live ? `/hire?agent=${a.id}` : `/docs#mandate`}
             className={cn("h-11 w-full px-4", !a.live && "border border-border bg-transparent text-ink hover:bg-ink hover:text-bg")}
           >
             {mode === "agent"

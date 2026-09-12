@@ -18,7 +18,7 @@ export default function HirePage() {
       <PageHero
         title="Commission an Agent"
         eyebrow="Escrow & Proof"
-        subtitle="Deploy funds to TaskEscrow on Sepolia. Funds released only upon verified validator quorum."
+        subtitle="Lock funds in escrow. They release only when the work clears the bar."
         image="/images/scales.jpg"
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
