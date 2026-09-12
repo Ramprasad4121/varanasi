@@ -6,6 +6,10 @@ solc_version = "0.8.30"
 # v2 hardening grew TaskEscrow.fund's optimizer-inlined frame past legacy
 # codegen's stack limit; via_ir keeps semantics identical (testnet redeploys).
 via_ir = true
+# Foundry >=1.6 auto-advances block.timestamp +1s per test transaction. Every
+# timing equality in these suites (decay half-life, stream accrual rounding)
+# is written against a frozen clock with explicit vm.warp — pin it.
+block_timestamp_increment = 0
 
 [rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"
