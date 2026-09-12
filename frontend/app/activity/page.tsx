@@ -15,7 +15,7 @@ export default function ActivityPage() {
       <PageHero
         title="The Ledger"
         eyebrow="Receipts & Signals"
-        subtitle="Every x402 payment settled through Hedera, recorded with receipts."
+        subtitle="Every paid signal, recorded with its receipt. Pick a pool, buy intel, watch the verdict."
         image="/images/mandate-scroll.jpg"
       />
       <section className="mx-auto grid max-w-[1200px] gap-6 px-4 py-12 sm:px-6 lg:grid-cols-2">

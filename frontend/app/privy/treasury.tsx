@@ -288,7 +288,7 @@ export default function Treasury() {
       const hash = await sendViaPrivy(a.wallet as Address, amountEth);
       const fundedEth = String(funded + Number(amountEth));
       setLedger((prev) => prev.map((x) => (x.sublabel === a.sublabel ? { ...x, fundedEth } : x)));
-      log(kind, `${amountEth} SepoliaETH → ${a.sublabel}.aegis.eth`, hash);
+      log(kind, `${amountEth} ETH → ${a.sublabel}.aegis.eth`, hash);
       setStatus(`${kind === "fund" ? "Funded" : "Task approved"}: ${amountEth} ETH → ${hash}`);
       void refreshBalance();
     } catch (err) {
@@ -408,8 +408,8 @@ export default function Treasury() {
         <div className="panel" style={{ marginTop: 24, marginBottom: 16 }}>
           <span className="badge warn">treasury in local mode</span>{" "}
           <span className="envline">
-            <code>NEXT_PUBLIC_AEGIS_REGISTRY</code> unset — funding still works as plain SepoliaETH
-            transfers; mint/revoke sync onchain after deploy.
+            <code>NEXT_PUBLIC_AEGIS_REGISTRY</code> unset — funding still works as plain
+            transfers; mint/revoke sync after deploy.
           </span>
         </div>
       )}
@@ -417,7 +417,7 @@ export default function Treasury() {
         <section className="panel">
           <h2>1 · Sign in</h2>
           <p className="desc">
-            Email or social login creates a self-custodial embedded wallet on Sepolia — no seed
+            Email or social login creates a self-custodial embedded wallet — no seed
             phrase, no extension. That wallet is the org treasury signer.
           </p>
           {!authenticated ? (
@@ -428,8 +428,8 @@ export default function Treasury() {
                 treasury <code>{wallet?.address ?? "(creating wallet…)"}</code>
               </div>
               <div>
-                Sepolia balance{" "}
-                <code>{balance === null ? "(loading — fund via a Sepolia faucet)" : `${balance} ETH`}</code>
+                Balance{" "}
+                <code>{balance === null ? "(loading — fund the address first)" : `${balance} ETH`}</code>
               </div>
               <div className="row" style={{ marginTop: 8 }}>
                 <button onClick={() => void refreshBalance()}>Refresh balance</button>

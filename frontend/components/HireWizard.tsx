@@ -438,7 +438,7 @@ function HireWizardInner({
     const eth = (window as unknown as { ethereum?: unknown }).ethereum;
     if (eth) return eth;
     throw new Error(
-      "No wallet found — connect MetaMask (Sepolia) or log in with Privy first."
+      "No wallet found — connect a wallet or log in with Privy first."
     );
   }
 
@@ -776,7 +776,7 @@ function HireWizardInner({
     <section className="panel" id="hire-wizard" style={{ marginTop: 20 }}>
       <h2>Hire an agent — guided</h2>
       <p className="desc">
-        Four small steps from browsing to escrowed work on Sepolia. Nothing
+        Four small steps from browsing to escrowed work. Nothing
         moves funds until you sign and fund in step 3.
       </p>
       <ol className="stepper">
@@ -907,7 +907,7 @@ function HireWizardInner({
       {/* STEP 3 — Sign & fund / deposit */}
       {step === 3 && (
         <div className="card">
-          <strong>Sign & deposit (Sepolia, Privy embedded wallet)</strong>
+          <strong>Sign & deposit</strong>
           <div className="muted">
             Step 3: one click signs your mandate, mints the agent identity,
             approves the cap, and deposits funds into escrow — in order, stopping at the
@@ -932,7 +932,7 @@ function HireWizardInner({
                 </button>
               ) : (
                 <span>
-                  connect MetaMask (Sepolia), or{" "}
+                  connect a wallet, or{" "}
                   <a href="/privy">log in with Privy →</a>
                 </span>
               )}
@@ -985,7 +985,7 @@ function HireWizardInner({
                 <span>
                   Identity{" "}
                   <a href={sepoliaTx(mintTx)} target="_blank" rel="noreferrer">
-                    Sepolia tx ↗
+                    record ↗
                   </a>{" "}
                 </span>
               )}
@@ -993,7 +993,7 @@ function HireWizardInner({
                 <span>
                   · Approval{" "}
                   <a href={sepoliaTx(approveTx)} target="_blank" rel="noreferrer">
-                    Sepolia tx ↗
+                    record ↗
                   </a>{" "}
                 </span>
               )}
@@ -1001,7 +1001,7 @@ function HireWizardInner({
                 <span>
                   · Fund{" "}
                   <a href={sepoliaTx(fundTx)} target="_blank" rel="noreferrer">
-                    Sepolia tx ↗
+                    record ↗
                   </a>
                 </span>
               )}
@@ -1101,7 +1101,7 @@ function HireWizardInner({
             )}
             {settleTx && (
               <a href={sepoliaTx(settleTx)} target="_blank" rel="noreferrer">
-                Sepolia tx ↗
+                record ↗
               </a>
             )}
           </div>
@@ -1115,7 +1115,7 @@ function HireWizardInner({
 
       <div className="status">{status}</div>
       <p className="envline">
-        Sepolia only — TaskEscrow <code>{TASK_ESCROW}</code> · vUSD{" "}
+        Escrow <code>{TASK_ESCROW}</code> · vUSD{" "}
         <code>{VUSD}</code> (6dp)
       </p>
     </section>
