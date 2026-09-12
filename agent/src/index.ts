@@ -149,3 +149,26 @@ export type {
   ReputationProfile,
   SavingsVaultConfig,
 } from "./finance/types.js";
+
+/** ERC-8004 agent identity + reputation client (Sepolia stubs). */
+export {
+  ERC8004_IDENTITY_REGISTRY,
+  ERC8004_REPUTATION_REGISTRY,
+  registerAgent,
+  getAgentIdFromTx,
+  getAgentOwner,
+  getAgentURI,
+  giveFeedback,
+  getSummary,
+  isDeployed,
+  buildSentinel1Registration,
+} from "./erc8004.js";
+
+/** World ID Selfie verification gate (human check → agent allowance tiers). */
+export {
+  GUEST_TIER,
+  VERIFIED_TIER,
+  verifySelfieProof,
+  tierFor,
+} from "./human.js";
+export type { HumanTier, TierPolicy, SelfieProof, VerifyConfig, VerifyResult } from "./human.js";

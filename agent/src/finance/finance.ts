@@ -94,7 +94,7 @@ const demoHash = (seed: string): Hash => pad(toHex(fnv1a(`fin:${seed}`), { size:
 /** Deterministic, address-seeded demo ledger (mirrors the service engine). */
 export const DEMO_FINANCE_SOURCE: FinanceSource = {
   savings(user) {
-    const balance = BigInt(Math.floor(100 + (mulberry32(fnv1a(`bal:${user}`))() % 4_900))) * SCALE;
+    const balance = BigInt(Math.floor(100 + (mulberry32(fnv1a(`bal:${user}`))() * 4_900))) * SCALE;
     return { open: true, balance, deposited: balance, withdrawn: 0n };
   },
   chit(user) {

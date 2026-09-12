@@ -156,9 +156,9 @@ It must never appear in a judging demo — `analyze` JSON reports
 
 ## 6. Mandate / escrow lane (Sepolia TaskEscrow)
 
-Live: `TaskEscrow 0xba038d50d70cf63ced17f3f23f77df4783f188da`
+Live: `TaskEscrow 0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24`
 (chain `11155111`), threshold `5000` bps,
-`RiskGuard 0xc35861c4dbe63a9c8cfefd32c671998151c217ca`.
+`RiskGuard 0x668c01aE564D51baFF0029D361c20c534d738400`.
 Spec: `docs/MANDATE.md` (EIP-712 type + domain
 `{ name: "VaranasiTaskEscrow", version: "1", chainId, verifyingContract }`).
 

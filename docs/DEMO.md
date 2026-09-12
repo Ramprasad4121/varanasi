@@ -51,7 +51,7 @@ One command runs the whole loop:
 
 ## 7. Escrow loop (mandate → fund → validate → release, all live)
 
-- TaskEscrow `0xba038d50d70cf63ced17f3f23f77df4783f188da` (Sourcify-verified),
+- TaskEscrow `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24` (Sourcify-verified),
   threshold 5000bps, validator = deployer (allowlisted
   [tx](https://sepolia.etherscan.io/tx/0x9353081df46a8805129b301cac91808ab16f2a74beb83c37d7fb6308d116a01e))
 - Mock token vUSD `0x6169A84cD7430042fb697c2cC131F663212E8b30` (6 decimals,

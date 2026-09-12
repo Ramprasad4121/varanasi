@@ -8,11 +8,12 @@
  */
 import { Command } from "commander";
 import "dotenv/config";
-import { createPublicClient, createWalletClient, http, keccak256, toHex, type Address } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { createPublicClient, createWalletClient, http, keccak256, toHex, hexToBytes, serializeTransaction, type Address } from "viem";
+import { toAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
-import { GraphClient } from "./graph.js";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { GraphClient, KNOWN_SUBGRAPHS, UNISWAP_POOL_QUERY, UNISWAP_V2_PAIR_QUERY, toPoolIntel } from "./graph.js";
 import { SubgraphAgent } from "./mcp.js";
 import { isIdentityAuthorized, resolveAgentSubname } from "./ens.js";
 import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
@@ -31,8 +32,28 @@ import {
   randomNonce,
   sepoliaAddressUrl,
   signMandate,
+  addressFromPrivateKey,
   type Mandate,
 } from "./mandate.js";
+
+function getLocalAccount(pk: `0x${string}`) {
+  return toAccount({
+    address: addressFromPrivateKey(pk),
+    async signMessage() { throw new Error("Not implemented"); },
+    async signTypedData() { throw new Error("Not implemented"); },
+    async signTransaction(transaction, { serializer = serializeTransaction } = {}) {
+      const hash = keccak256(await serializer(transaction as any));
+      const raw = secp256k1.sign(hexToBytes(hash), hexToBytes(pk), { lowS: true, prehash: false, format: "recovered" }) as Uint8Array;
+      const rec = raw[0];
+      return serializer(transaction as any, {
+        r: toHex(raw.slice(1, 33)),
+        s: toHex(raw.slice(33, 65)),
+        v: rec ? 28n : 27n,
+        yParity: rec
+      } as any);
+    }
+  });
+}
 
 const RISKGUARD_ABI = [
   {
@@ -79,13 +100,14 @@ program
       const subgraphs = new SubgraphAgent(graph);
       let intel;
       try {
-        intel = opts.pair || opts.vault
-          ? await graph.pairIntel(opts.pool, opts.subgraph)
-          : await graph.poolIntel(opts.pool, opts.subgraph);
+        const subgraphId = opts.subgraph || (opts.pair || opts.vault ? KNOWN_SUBGRAPHS.uniswapV2 : KNOWN_SUBGRAPHS.uniswapV3);
+        const query = opts.pair || opts.vault ? UNISWAP_V2_PAIR_QUERY : UNISWAP_POOL_QUERY;
+        const variables = { id: opts.pool.toLowerCase() };
+        const data = await subgraphs.runQuery(subgraphId, query, variables, useMcp) as any;
+        intel = toPoolIntel(subgraphId, opts.pair || opts.vault ? data.pair : data.pool);
       } finally {
         subgraphs.disconnect();
       }
-      void useMcp; // MCP discovery path exercised via SubgraphAgent.runQuery in live integrations
 
       // 3. x402 alpha (paid leg)
       let alpha: { score: number; direction: "long" | "short" | "neutral"; receipt: unknown } = {
@@ -259,7 +281,7 @@ program
         args: [agent],
       })) as boolean;
       console.log(JSON.stringify({ label, tokenId: tokenId.toString(), agent, isAuthorizedBefore: before }));
-      const account = privateKeyToAccount(pk as `0x${string}`);
+      const account = getLocalAccount(pk as `0x${string}`);
       const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
       const txHash = await wallet.writeContract({
         address: registry,
@@ -494,7 +516,7 @@ program
       if (worker === "freelancer") {
         if (!opts.task) throw new Error('hire freelancer requires --task <taskId> (escrow task to settle).');
         const privateKey = await resolveFreelancerKey(Boolean(opts.keyStdin));
-        const account = privateKeyToAccount(privateKey);
+        const account = getLocalAccount(privateKey);
         const rpc = process.env.SEPOLIA_RPC_URL ?? "https://rpc.sepolia.org";
         const wallet = createWalletClient({ account, chain: sepolia, transport: http(rpc) });
         const result = await runFreelancer(String(opts.task) as `0x${string}`, wallet);

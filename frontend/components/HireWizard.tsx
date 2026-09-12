@@ -324,9 +324,14 @@ function HireWizardInner({
   }, [externalAgent]);
 
   useEffect(() => {
-    if (initialAgent && ["scout", "analyst", "freelancer"].includes(initialAgent.toLowerCase())) {
-      pickArch(initialAgent.toLowerCase() as ArchKey);
+    if (!initialAgent) return;
+    const lower = initialAgent.toLowerCase();
+    if (["scout", "analyst", "freelancer"].includes(lower)) {
+      pickArch(lower as ArchKey);
+    } else {
+      setSublabel(lower.slice(0, 32));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAgent]);
 
   function pickArch(key: ArchKey) {

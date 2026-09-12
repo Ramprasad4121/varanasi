@@ -140,7 +140,7 @@ export async function payForSignal(opts: PayerOptions = {}, body: Record<string,
     // facilitators have rejected the HBAR leg in preflight during testing.
     // Fall back to whatever the service lists first.
     if (Array.isArray(accepts)) {
-      const usdc = accepts.find((a) => typeof a?.asset === "string" && a.asset !== "0.0.0");
+      const usdc = accepts.find((a) => typeof a?.price === "string" || (typeof a?.price === "object" && a.price?.asset !== "0.0.0"));
       if (usdc) return usdc;
       return accepts[0];
     }

@@ -20,7 +20,7 @@
     "commander": "^15.0.0",
     "dotenv": "^16.4.5",
     "graphql-request": "^7.1.2",
-    "viem": "^2.23.0"
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

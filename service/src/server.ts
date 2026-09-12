@@ -128,7 +128,7 @@ const app = express();
   const corsOptions = {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment', 'Payment-Signature', 'X-Payment'],
-    exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'Retry-After'],
+    exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'payment-required', 'x-payment-required', 'Retry-After'],
   };
 
   if (envOrigins.length > 0) {
@@ -180,6 +180,16 @@ function freeRouteLimiter(req: Request, res: Response, next: () => void): void {
   next();
 }
 app.use(express.json({ limit: '256kb' }));
+
+/**
+ * BigInt-safe JSON serialization: Express 5 uses JSON.stringify internally
+ * in res.json(), which throws "Do not know how to serialize a BigInt".
+ * The finance types legitimately use bigint (mirrors Solidity uint256).
+ * This app-level replacer converts bigint → string in all JSON responses.
+ */
+app.set('json replacer', (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value,
+);
 
 /**
  * P2 trust boundary: symbol allowlist. Missing body/symbol keeps the

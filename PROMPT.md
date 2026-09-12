@@ -26,7 +26,7 @@ RULES:
   static-checks RiskGuard — returning verdict JSON with a HashScan receipt.
 - Mandate → escrow loop: `mandate` subcommand signs offline (see agent/README.md),
   then fund / validate / release on TaskEscrow
-  (0xba038d50d70cf63ced17f3f23f77df4783f188da, Sepolia).
+  (0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24, Sepolia).
 - Verify your work: `npx tsc --noEmit`, `npm test` (agent/), `forge test`
   (contracts/). Report file:line for every claim.
 ```
