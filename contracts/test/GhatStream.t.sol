@@ -37,7 +37,7 @@ contract GhatStreamTest is Test {
         registry.mintAgent("stream-1", agent, 90);
     }
 
-    function _mandate(address who, uint64 ttl) internal view returns (GhatStream.StreamMandate memory m) {
+    function _mandate(address who, uint64 ttl) internal returns (GhatStream.StreamMandate memory m) {
         m.agent = who;
         m.payer = payer;
         m.token = address(usdc);
@@ -68,7 +68,7 @@ contract GhatStreamTest is Test {
 
         bytes32 id = _opened();
         assertEq(usdc.balanceOf(address(ghat)), CAP, "cap locked");
-        (,,,, uint256 cap,, uint256 refunded,, uint64 openedAt,, bool frozen, bool closed) = ghat.streamOf(id);
+        (,,,, uint256 cap,, uint256 refunded,, uint64 openedAt,,, bool frozen, bool closed) = ghat.streamOf(id);
         assertEq(cap, CAP);
         assertEq(refunded, 0);
         assertEq(openedAt, uint64(block.timestamp));
@@ -101,7 +101,7 @@ contract GhatStreamTest is Test {
         bytes32 id = _opened();
         skip(MAX_DURATION + 30); // flow saturates at maxDuration
         uint256 due = uint256(MAX_DURATION) * RATE; // 60×100 = 6000 < cap
-        assertEq(ghat.accruedOf(id), due, "min(cap, rate×dur)");
+        assertEq(ghat.accruedOf(id), due, "min(cap, rate*dur)");
         assertLt(due, CAP);
         ghat.claim(id);
         assertEq(usdc.balanceOf(agent), due);
