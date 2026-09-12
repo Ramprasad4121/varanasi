@@ -23,7 +23,13 @@ Varanasi is a high-assurance agentic commerce and enforcement rail connecting de
    - Next.js 14 App Router, React 18.3.1, `@privy-io/react-auth`, Viem.
    - Colosseum design system adapted from secondary workspace `grok-workspace` (`Newsreader` serif, `#1c1b18` iron ink, `#f3f2ee` warm paper, `#c01010` Roman crimson, 0px radius, diamond glyphs, custom plates).
    - Real Web3 integrations: Privy embedded self-custodial Sepolia wallets, Viem contract calls, EIP-712 mandate signing, backend signal fetching.
-   - Pages: `/` (Home), `/activity`, `/agents`, `/hire`, `/account`, `/human`, `/mandate`, `/proof`, `/privy` (Treasury).
+   - Pages: `/` (Home), `/activity`, `/agents`, `/hire`, `/account`, `/human`, `/mandate`, `/proof`, `/privy` (Treasury), `/finance` (community-finance demo vault).
+6. **Community Finance Protocol**:
+   - `contracts/src/finance/`: `SavingsVault`, `ChitPool`, `LoanAgreement`, `FinancialReputation`; `collateral/CollateralVault` (ICollateral) + `gold/GoldRegistry`/`GoldAttestor`/`GoldToken`; `RiskGuard` extended with a non-breaking `IFinancialReputation` authorization hook. 54/54 Forge tests green.
+   - `frontend/finance-types/`: shared TS types (dependency-free, viem-less `0x${string}` template literals), mirrored in `service/src/finance/types.ts` and `agent/src/finance/types.ts`.
+   - `service /v1/finance*`: deterministic address-seeded demo summary/recommendation APIs (5/5 tests), 400 on malformed addresses, demo-labeled responses.
+   - `agent/src/finance`: decision engine — `recommend()`, `buildMandate()`, `execute()` (throws until contracts deployed; no accidental onchain demo taps). 9/9 tests; agent suite 162 green.
+   - `/finance` frontend: colosseum-grammar dashboard with client-side deterministic demo engine, all values labeled simulated, no real funds or onchain calls.
 5. **E2E Testing & Browser Harness**:
    - Playwright headless runner with Chromium headless shell using `--single-process --no-sandbox --disable-gpu`.
    - Zero console error enforcement and multi-tier validation.
@@ -60,6 +66,10 @@ Varanasi is a high-assurance agentic commerce and enforcement rail connecting de
 | M2 | Frontend Core Wiring, Bug Fixes & Infrastructure | Fix `ESCROW_ABI` in `frontend/components/HireWizard.tsx` (14 fields), configure `frontend/next.config.js`, install Tailwind v3.4 + PostCSS with Colosseum tokens, setup `lib/utils.ts` and `app/globals.css` | none | DONE |
 | M3 | Frontend Colosseum Design & Grok-Workspace Integration | Port UI primitives (`SiteShell`, `DisplayHeading`, `BrandButton`, `Badge`, `PageHero`, `SectionSep`, `Diamond`), update `layout.tsx` and `page.tsx`, create `/activity`, `/agents`, `/hire`, polish secondary pages, verify Web3 preservation and clean build | M2 | DONE |
 | M4 | Final Milestone: 100% E2E Pass & Adversarial Hardening | Phase 1: Pass 100% of E2E test suite (Tiers 1-4). Phase 2: Adversarial coverage hardening (Tier 5), zero console errors, Gitleaks audit, and git commit | M1, M3, E2E Test Suite | DONE |
+| M5 | Community-Finance Contracts | `SavingsVault`, `ChitPool`, `LoanAgreement`, `CollateralVault` (ICollateral), `GoldRegistry`/`GoldAttestor`/`GoldToken`, `FinancialReputation` + non-breaking `RiskGuard` hook. Forge test suite green (54/54). | none | DONE |
+| M6 | Shared Finance Types & Service APIs | `frontend/finance-types` package (mirrored in `service`/`agent`), `service /v1/finance*` deterministic demo endpoints with 5 tests. | M5 | DONE |
+| M7 | Agent Finance Engine | `agent/src/finance` decision engine (`recommend`/`buildMandate`/`execute`), re-exported from `agent/src/index.ts`, 9 tests. Agent suite 162 green. | M6 | DONE |
+| M8 | Frontend `/finance` Vault Page | Colosseum-grammar demo dashboard (savings/chit/loan/gold/reputation), address-seeded demo engine, NAV entry. Build + typecheck + browser QA green. | M5-M7 | DONE |
 
 *Parallel Track:*
 - **E2E Testing Track**: E2E Testing Orchestrator builds requirement-driven test infrastructure and Tiers 1-4 test suite, publishing `TEST_READY.md`.

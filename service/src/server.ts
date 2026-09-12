@@ -10,6 +10,9 @@
  *   GET  /health     liveness + config snapshot (no secrets)
  *   GET  /402-info   payment requirements preview for agent builders
  *   GET  /v1/receipts recent paid-request receipts (file-backed, data/receipts.json, last 100)
+ *   GET  /v1/finance         demo community-finance portfolio by address (?address=0x...)
+ *   GET  /v1/finance/summary  same, forced to summary mode
+ *   GET  /v1/finance/recommend demo agent recommendations by address (?address=0x...)
  *
  * Flow: client POSTs without payment -> 402 + payment requirements ->
  * client signs a Hedera TransferTransaction -> retries with payment ->
@@ -37,6 +40,8 @@ import {
 import { generateSignal, generateScore } from './signal.js';
 import { buildReceipt, isValidHederaTxId, type PaymentReceipt } from './hashscan.js';
 import { logReceipt as logReceiptToHcs } from './hcs.js';
+import { financeSummary, financeRecommendation, type FinanceEndpointMode } from './finance/index.js';
+import type { Address } from './finance/types.js';
 
 config();
 
@@ -330,6 +335,67 @@ app.get('/v1/receipts', freeRouteLimiter, (_req: Request, res: Response) => {
   res.json({ count: receipts.length, receipts });
 });
 
+// ---- finance (free, demo, address-seeded) --------------------------------
+
+/**
+ * Resolve the address query param + endpoint mode. Returns an error string on
+ * bad input; otherwise the caller gets { ok: true, address, mode }.
+ */
+function resolveFinanceRequest(
+  query: Record<string, unknown>,
+): { ok: true; address: Address; mode: FinanceEndpointMode } | { ok: false; error: string } {
+  const raw = query.address;
+  if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(raw)) {
+    return { ok: false, error: 'invalid address: expected 0x + 40 hex chars' };
+  }
+  const mode: FinanceEndpointMode =
+    (query.mode === 'recommend' || query.mode === 'summary') ? query.mode : 'summary';
+  return { ok: true, address: raw.toLowerCase() as Address, mode };
+}
+
+app.get(
+  '/v1/finance',
+  freeRouteLimiter,
+  (req: Request<Record<string, never>, unknown, unknown, Record<string, unknown>>, res: Response) => {
+    const parsed = resolveFinanceRequest(req.query);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    const body =
+      parsed.mode === 'recommend'
+        ? financeRecommendation(parsed.address)
+        : financeSummary(parsed.address);
+    res.json(body);
+  },
+);
+
+app.get(
+  '/v1/finance/summary',
+  freeRouteLimiter,
+  (req: Request, res: Response) => {
+    const parsed = resolveFinanceRequest(req.query);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    res.json(financeSummary(parsed.address));
+  },
+);
+
+app.get(
+  '/v1/finance/recommend',
+  freeRouteLimiter,
+  (req: Request, res: Response) => {
+    const parsed = resolveFinanceRequest(req.query);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    res.json(financeRecommendation(parsed.address));
+  },
+);
+
 app.listen(PORT, () => {
   console.log(`\n🚀 varanasi signal service on http://localhost:${PORT}`);
   console.log(`   Network:     ${NETWORK}`);
@@ -337,5 +403,7 @@ app.listen(PORT, () => {
   console.log(`   Receiver:    ${SERVICE_ACCOUNT}`);
   console.log(`   Paid:  POST /v1/signal ($0.01 USDC or 0.01 HBAR equiv)`);
   console.log(`   Paid:  POST /v1/score  ($0.001 USDC or 0.001 HBAR equiv)`);
-  console.log(`   Free:  GET  /health, /402-info, /v1/receipts\n`);
+  console.log(`   Free:  GET  /health, /402-info, /v1/receipts`);
+  console.log(`   Free:  GET  /v1/finance?address=0x...  (demo portfolio)`);
+  console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)\n`);
 });
