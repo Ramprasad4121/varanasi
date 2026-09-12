@@ -130,15 +130,16 @@ contract AkshayaTest is Test {
         bytes32 id = _released();
         akshaya.attest(id);
         assertEq(akshaya.scoreOf(agent), 10_000);
-        // Decay counts whole PERIOD buckets since the attestation bucket —
-        // align warps to bucket edges so the assertions are clock-independent.
-        uint256 pAt = block.timestamp / akshaya.PERIOD();
-        uint256 halfAt = (pAt + 90) * akshaya.PERIOD();
-        vm.warp(halfAt - 1);
-        assertEq(akshaya.scoreOf(agent), 10_000, "not yet a full 90 buckets");
-        vm.warp(halfAt);
-        assertEq(akshaya.scoreOf(agent), 5_000, "halved at 90 buckets");
-        vm.warp(halfAt + 180 * akshaya.PERIOD());
+        // score = raw >> whole-PERIOD-buckets-since-attestation (PERIOD *is*
+        // the 90d half-life). The test clock starts at ts=1, not ts=0 —
+        // align warps to the bucket edge or assertions drift by one bucket.
+        uint256 edge = (block.timestamp / akshaya.PERIOD()) * akshaya.PERIOD()
+            + akshaya.PERIOD();
+        vm.warp(edge - 1);
+        assertEq(akshaya.scoreOf(agent), 10_000, "inside the first bucket");
+        vm.warp(edge);
+        assertEq(akshaya.scoreOf(agent), 5_000, "halved on the bucket edge");
+        vm.warp(edge + 2 * akshaya.PERIOD());
         assertEq(akshaya.scoreOf(agent), 1_250, "halved twice more");
     }
 

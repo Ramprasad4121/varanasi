@@ -100,7 +100,15 @@ jobs:
       - run: npm run typecheck
       # No NEXT_PUBLIC_* keys in CI: pages degrade to setup notices by design,
       # so the production build must succeed without them.
-      - run: npm run build
+      - name: npm run build (TEMP diagnose via annotations)
+        run: |
+          set +e
+          npm run build 2>&1 | tee /tmp/fb.log
+          st=${PIPESTATUS[0]}
+          if [ "$st" != "0" ]; then
+            grep -nE "error|Error|EACCES|ENOENT|exited|Cannot" /tmp/fb.log | tail -8 | sed 's/^/::error::/'
+          fi
+          exit $st
 
   secrets:
     name: secrets scan (gitleaks)
