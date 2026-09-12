@@ -10,8 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "analyze": "tsx src/cli.ts analyze"
+    "test": "vitest run"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.62.0",
