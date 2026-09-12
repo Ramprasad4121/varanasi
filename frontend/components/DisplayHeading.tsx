@@ -7,9 +7,18 @@ type Props = {
   as?: "h1" | "h2" | "h3";
   className?: string;
   size?: "hero" | "section" | "page";
+  initial?: boolean;
 };
 
-export function DisplayHeading({ children, as: Tag = "h2", className, size = "section" }: Props) {
+/**
+ * Display serif heading with the Colosseum grammar: pass `initial` to render
+ * the leading character as a blackletter drop-cap (Old London Initials role).
+ */
+export function DisplayHeading({ children, as: Tag = "h2", className, size = "section", initial = false }: Props) {
+  const text = typeof children === "string" ? children : null;
+  const drop = initial && text && text.length > 0 ? text[0] : null;
+  const rest = initial && text && text.length > 1 ? text.slice(1) : text;
+
   return (
     <Tag
       className={cn(
@@ -20,7 +29,16 @@ export function DisplayHeading({ children, as: Tag = "h2", className, size = "se
         className,
       )}
     >
-      {children}
+      {drop ? (
+        <>
+          <span className="drop-cap" aria-hidden="true">
+            {drop}
+          </span>
+          {rest}
+        </>
+      ) : (
+        children
+      )}
     </Tag>
   );
 }

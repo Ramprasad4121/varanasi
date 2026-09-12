@@ -714,7 +714,6 @@ function HireWizardInner({
         } as never)) as unknown as readonly [
           string, string, string, string, bigint, bigint, bigint, bigint, bigint, bigint, string, bigint, string, number
         ];
-        const state = Number(t[13]);
         setTrackDetail(
           `cap ${t[4].toString()} · funded ${t[5].toString()} · score ${t[9].toString()} bps · expiry ${new Date(Number(t[8]) * 1000).toLocaleString()}`
         );

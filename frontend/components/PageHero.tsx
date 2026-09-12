@@ -7,9 +7,10 @@ export interface PageHeroProps {
   eyebrow?: string;
   subtitle?: string;
   image?: string;
+  initial?: boolean;
 }
 
-export function PageHero({ title, lede, eyebrow, subtitle, image }: PageHeroProps) {
+export function PageHero({ title, lede, eyebrow, subtitle, image, initial = true }: PageHeroProps) {
   const text = subtitle || lede;
   return (
     <header className="relative overflow-hidden border-b border-border bg-bg-muted/30">
@@ -21,7 +22,7 @@ export function PageHero({ title, lede, eyebrow, subtitle, image }: PageHeroProp
                 {eyebrow}
               </p>
             )}
-            <DisplayHeading as="h1" size="page">
+            <DisplayHeading as="h1" size="page" initial={initial}>
               {title}
             </DisplayHeading>
             {text && (
