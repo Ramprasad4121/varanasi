@@ -5,7 +5,11 @@ libs = ["lib"]
 solc_version = "0.8.30"
 # v2 hardening grew TaskEscrow.fund's optimizer-inlined frame past legacy
 # codegen's stack limit; via_ir keeps semantics identical (testnet redeploys).
+# runs=1 keeps via_ir's yul optimizer out of the "Cannot swap Slot RET" stack
+# machine (MandateTreeEscrow's fund/delegate decode a wide mandate struct);
+# all runtime bytecodes stay far under the 24,576 EIP-170 cap.
 via_ir = true
+optimizer_runs = 1
 
 [rpc_endpoints]
 sepolia = "${SEPOLIA_RPC_URL}"

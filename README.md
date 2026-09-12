@@ -136,14 +136,17 @@ prompt, one hallucinated address, and the treasury drains.
 ## Map
 
 - `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
-  (Uniswap v4), community finance (`SavingsVault`, `ChitPool`, `LoanAgreement`,
-  `FinancialReputation`, `CollateralVault`, gold stack), deploy scripts, forge tests
+  (Uniswap v4), mandate delegation trees + verdict network
+  (`MandateTreeEscrow`), community finance (`SavingsVault`, `ChitPool`,
+  `LoanAgreement`, `FinancialReputation`, `CollateralVault`, gold stack),
+  deploy scripts, forge tests
 - `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
   finance decision engine, demo workers (scout / analyst / freelancer), CLI
 - `service/` — x402-gated alpha API, financial demo APIs, HCS audit log
 - `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury,
   `/finance` vault, shared `finance-types`
-- `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
+- `cre/` — confidential workflows (pool-risk ACT/SKIP **and** the verdict
+  network `quorum.ts`/`reportDigest`) · `bazantic/` — gateway + recipe
 - Docs — see [`docs/INDEX.md`](docs/INDEX.md): [`MANDATE.md`](docs/MANDATE.md)
   (spec) · [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (flows, data ownership) ·
   [`REFERENCE.md`](docs/REFERENCE.md) (facts: addresses, ports, commands, tests) ·
