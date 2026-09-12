@@ -32,7 +32,19 @@ jobs:
           version: stable
       - run: forge --version
       - run: forge build
-      - run: forge test
+      # --- TEMP DIAGNOSTIC: per-suite steps (step names reveal failures; revert me) ---
+      - name: suite TaskEscrow
+        run: forge test --match-path 'test/TaskEscrow.t.sol'
+      - name: suite Aegis
+        run: forge test --match-path 'test/Aegis.t.sol'
+      - name: suite Akshaya
+        run: forge test --match-path 'test/Akshaya.t.sol'
+      - name: suite GhatStream
+        run: forge test --match-path 'test/GhatStream.t.sol'
+      - name: suite finance
+        run: forge test --match-path 'test/finance/*'
+      - name: full forge test
+        run: forge test
 
   agent:
     name: agent (typecheck + tests)
