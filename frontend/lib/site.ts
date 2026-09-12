@@ -1,5 +1,4 @@
 export const APP_NAME = "Varanasi";
-export const APP_TAGLINE = "Hire an AI agent. Pay only when the work is proven.";
 export const GITHUB_URL = "https://github.com/Ramprasad4121/varanasi";
 export const HASHSCAN_BASE = "https://hashscan.io/testnet/transaction";
 export const ETHERSCAN_TX = "https://sepolia.etherscan.io/tx";
@@ -184,54 +183,6 @@ export const PROOF = [
     kind: "sepolia" as const,
   },
 ];
-
-export const POOLS = [
-  {
-    key: "usdc-weth-005",
-    label: "USDC / WETH",
-    fee: "0.05%",
-    address: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
-    tvl: "~$416.7M",
-    volume: "~$604B lifetime",
-  },
-  {
-    key: "usdc-weth-030",
-    label: "USDC / WETH",
-    fee: "0.3%",
-    address: "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
-    tvl: "see subgraph",
-    volume: "see subgraph",
-  },
-  {
-    key: "wbtc-weth-030",
-    label: "WBTC / WETH",
-    fee: "0.3%",
-    address: "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed",
-    tvl: "see subgraph",
-    volume: "see subgraph",
-  },
-];
-
-export const DEMO_RECEIPTS = [
-  {
-    txId: "0.0.7162784-1788675749-710110370",
-    endpoint: "/v1/signal",
-    amount: "$0.01 USDC",
-    at: "2026-09-06T12:00:00.000Z",
-  },
-  {
-    txId: "0.0.7162784-1788676249-125024441",
-    endpoint: "/v1/signal",
-    amount: "$0.01 USDC",
-    at: "2026-09-06T12:08:00.000Z",
-  },
-];
-
-export const DEMO_TASK = {
-  id: "0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc",
-  fundTx: "0x1a3765459f57f7b7af607623a5bface64680d771032695f6c9fa34915886f572",
-  releaseTx: "0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702",
-};
 
 export const MANDATE_FIELDS = [
   { field: "agent", meaning: "The worker. Identity is re-checked live at release." },

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
 import { CURATED_POOLS, GRAPH_API_KEY, UNISWAP_V3_SUBGRAPH, type IntelRecord } from "./aegis";
-import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 type LivePrice = { eth: string; usdc: string; btc: string };
 
@@ -15,7 +14,6 @@ export function PoolIntel({
   intel?: IntelRecord | null;
   onIntel?: (i: IntelRecord | null) => void;
 } = {}) {
-  const userId = useVaultUserId();
   const [internalIntel, setInternalIntel] = useState<IntelRecord | null>(null);
   const [poolKey, setPoolKey] = useState(CURATED_POOLS[0].key);
   const [price, setPrice] = useState<LivePrice | null>(null);

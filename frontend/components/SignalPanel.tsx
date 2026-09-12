@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
-import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, load, save, type Receipt } from "./aegis";
+import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, type Receipt } from "./aegis";
 import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 function signalEndpoint() {
