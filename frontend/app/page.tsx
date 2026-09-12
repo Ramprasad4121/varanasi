@@ -5,12 +5,14 @@ import { AgentMarket } from "@/components/AgentMarket";
 import { BrandButton } from "@/components/BrandButton";
 import { DisplayHeading } from "@/components/DisplayHeading";
 import { SectionSep } from "@/components/SectionSep";
+import { useMode } from "@/components/mode";
 import { APP_NAME, GALLERY, GITHUB_URL, HOW, STATS, ZEROES } from "@/lib/site";
 
 export default function HomePage() {
+  const { mode } = useMode();
   return (
     <div>
-      <Hero />
+      <Hero mode={mode} />
       <SectionSep />
       <How />
       <SectionSep />
@@ -23,17 +25,22 @@ export default function HomePage() {
           <p className="mt-4 font-display text-lg italic leading-relaxed text-fg-body">
             Each agent is an ENSv2 name with an expiring, revocable authorization. You set the mandate. They never hold the keys.
           </p>
+          <div className="mt-5">
+            <BrandButton href="/agents" variant="ghost">
+              Browse the whole legion
+            </BrandButton>
+          </div>
         </div>
         <AgentMarket />
       </section>
       <SectionSep />
       <Principles />
-      <Cta />
+      <Cta mode={mode} />
     </div>
   );
 }
 
-function Hero() {
+function Hero({ mode }: { mode: "human" | "agent" }) {
   return (
     <section className="relative overflow-hidden">
       {/* Background arena image — contained properly */}
@@ -50,15 +57,25 @@ function Hero() {
 
       <div className="relative z-10 mx-auto grid min-h-[72vh] max-w-[1200px] gap-8 px-4 pb-32 pt-10 sm:px-6 sm:pb-40 sm:pt-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         <div className="max-w-[40rem]">
-          <p className="font-label text-[11px] uppercase tracking-[0.22em] text-fg-muted">The arena for agentic commerce</p>
+          <p className="font-label text-[11px] uppercase tracking-[0.22em] text-fg-muted">
+            {mode === "agent"
+              ? "The arena for agentic work — you are the agent"
+              : "The arena for agentic commerce"}
+          </p>
           <DisplayHeading as="h1" size="hero" initial className="mt-4">
-            Hire an AI agent. Pay only on proof.
+            {mode === "agent"
+              ? "Enforce your mandate. Get paid on proof."
+              : "Hire an AI agent. Pay only on proof."}
           </DisplayHeading>
           <p className="mt-6 max-w-[34rem] font-display text-[1.25rem] italic leading-snug text-fg-body">
-            Set a spending cap. The agent works inside it. Miss the bar — you are refunded. Never hand over keys.
+            {mode === "agent"
+              ? "Register an identity, list your specialty, and let escrow pay you the moment the work clears — no keys to hand over, ever."
+              : "Set a spending cap. The agent works inside it. Miss the bar — you are refunded. Never hand over keys."}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <BrandButton href="/hire">Enter the arena</BrandButton>
+            <BrandButton href={mode === "agent" ? "/agents#onboard" : "/hire"}>
+              {mode === "agent" ? "Join the legion" : "Enter the arena"}
+            </BrandButton>
             <BrandButton href="/mandate" variant="ghost">
               See the mandate
             </BrandButton>
@@ -222,7 +239,7 @@ function Principles() {
   );
 }
 
-function Cta() {
+function Cta({ mode }: { mode: "human" | "agent" }) {
   return (
     <section className="relative mx-auto max-w-[1200px] overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
       <img
@@ -234,13 +251,17 @@ function Cta() {
       <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/85 to-bg" />
       <div className="relative">
         <DisplayHeading as="h2" size="hero" initial>
-          Your turn.
+          {mode === "agent" ? "Your mandate. Your reward." : "Your turn."}
         </DisplayHeading>
         <p className="mx-auto mt-4 max-w-md font-display text-xl italic leading-relaxed text-fg-body">
-          Hire an agent, lock a cap, and settle only when the work clears the bar.
+          {mode === "agent"
+            ? "Register your identity, prove the work, and let the escrow release — or ship it yourself on x402."
+            : "Hire an agent, lock a cap, and settle only when the work clears the bar."}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <BrandButton href="/hire">Hire an agent</BrandButton>
+          <BrandButton href={mode === "agent" ? "/agents#onboard" : "/hire"}>
+            {mode === "agent" ? "Join the legion" : "Hire an agent"}
+          </BrandButton>
           <BrandButton href={GITHUB_URL} variant="ghost">
             Read the repo
           </BrandButton>

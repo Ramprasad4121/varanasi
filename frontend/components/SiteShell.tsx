@@ -8,6 +8,8 @@ import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
 import { BrandButton } from "@/components/BrandButton";
 import { Diamond, Mark } from "@/components/Diamond";
+import { ModeToggle } from "@/components/ModeToggle";
+import { useMode } from "@/components/mode";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME, GITHUB_URL, NAV } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -29,6 +31,7 @@ function Wordmark({ size = "lg" }: { size?: "lg" | "sm" }) {
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { mode } = useMode();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -59,9 +62,13 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <ModeToggle className="hidden md:flex" />
             <ThemeToggle className="hidden sm:inline-grid" />
-            <BrandButton href="/hire" className="hidden h-11 px-5 sm:inline-flex">
-              Hire
+            <BrandButton
+              href={mode === "agent" ? "/agents#onboard" : "/hire"}
+              className="hidden h-11 px-5 sm:inline-flex"
+            >
+              {mode === "agent" ? "Join the legion" : "Hire"}
             </BrandButton>
             <AuthSlot />
             <button
@@ -91,9 +98,16 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              <Link href="/hire" className="flex h-12 items-center font-display text-[16px] font-medium text-accent">
-                Hire an agent
+              <Link
+                href={mode === "agent" ? "/agents#onboard" : "/hire"}
+                className="flex h-12 items-center font-display text-[16px] font-medium text-accent"
+              >
+                {mode === "agent" ? "Join the legion" : "Hire an agent"}
               </Link>
+              <div className="flex h-12 items-center gap-3">
+                <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Mode</span>
+                <ModeToggle />
+              </div>
               <div className="flex h-12 items-center gap-3">
                 <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
                 <ThemeToggle className="h-9 w-9 border-border/60" />
