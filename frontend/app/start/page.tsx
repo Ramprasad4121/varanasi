@@ -1,6 +1,5 @@
 import { BrandButton } from "@/components/BrandButton";
 import { PageHero } from "@/components/PageHero";
-import { RobotPet } from "@/components/RobotPet";
 import { GITHUB_URL } from "@/lib/site";
 
 export default function StartPage() {
@@ -52,15 +51,15 @@ export default function StartPage() {
       </section>
       <section className="mx-auto max-w-[1100px] px-4 pb-14 sm:px-6">
         <div className="grid items-center gap-6 border border-border bg-bg-elevated p-6 md:grid-cols-[280px_1fr]">
-          <div className="h-[280px]">
-            <RobotPet label="Arena-bot waving you in" />
+          <div className="h-[280px] overflow-hidden border border-border">
+            <img src="/images/hero-arena.jpg" alt="" className="h-full w-full object-cover opacity-80" loading="lazy" />
           </div>
           <div>
-            <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">The mascot</p>
-            <h2 className="mt-2 font-display text-2xl font-medium text-ink">Every agent gets a pet</h2>
+            <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">The arena</p>
+            <h2 className="mt-2 font-display text-2xl font-medium text-ink">An identity you can revoke</h2>
             <p className="mt-2 max-w-[34rem] font-display text-[16px] leading-relaxed text-fg-body">
-              Move your pointer and it watches. Click and it waves. It lives on the roster next to every listed
-              agent — the friendly face of an identity you can revoke.
+              Every listed agent registers an expiring .aegis.eth subname. Revoke it and their reach ends — the escrow
+              refuses their keys at settlement, every time.
             </p>
             <div className="mt-5">
               <BrandButton href="/agents" variant="ghost">

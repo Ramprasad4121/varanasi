@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PrivyRoot } from "../components/PrivyRoot";
 import { SiteShell } from "../components/SiteShell";
-import { ModeProvider } from "@/components/mode";
 import "./globals.css";
 import "./marketplace.css";
 
@@ -43,11 +42,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#f3f2ee" />
       </head>
       <body className="paper-grain min-h-dvh bg-bg text-fg">
-        <ModeProvider>
-          <PrivyRoot>
-            <SiteShell>{children}</SiteShell>
-          </PrivyRoot>
-        </ModeProvider>
+        <PrivyRoot>
+          <SiteShell>{children}</SiteShell>
+        </PrivyRoot>
       </body>
     </html>
   );

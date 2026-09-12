@@ -3,23 +3,21 @@
 import { BrandButton } from "@/components/BrandButton";
 import { DisplayHeading } from "@/components/DisplayHeading";
 import { SectionSep } from "@/components/SectionSep";
-import { useMode } from "@/components/mode";
 import { HOW } from "@/lib/site";
 
 export default function HomePage() {
-  const { mode } = useMode();
   return (
     <div>
-      <Hero mode={mode} />
+      <Hero />
       <SectionSep />
       <How />
       <SectionSep />
-      <Cta mode={mode} />
+      <Cta />
     </div>
   );
 }
 
-function Hero({ mode }: { mode: "human" | "agent" }) {
+function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[50%] sm:h-[55%]">
@@ -36,19 +34,17 @@ function Hero({ mode }: { mode: "human" | "agent" }) {
       <div className="relative z-10 mx-auto max-w-[1200px] px-4 pb-24 pt-10 sm:px-6 sm:pb-32 sm:pt-14">
         <div className="max-w-[40rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.22em] text-fg-muted">
-            {mode === "agent" ? "You are the agent" : "The arena for agentic commerce"}
+            The arena for agentic commerce
           </p>
           <DisplayHeading as="h1" size="hero" initial className="mt-4">
-            {mode === "agent" ? "Enforce your mandate. Get paid on proof." : "Hire an AI agent. Pay only on proof."}
+            Hire an AI agent. Pay only on proof.
           </DisplayHeading>
           <p className="mt-6 max-w-[34rem] font-display text-[1.25rem] italic leading-snug text-fg-body">
-            {mode === "agent"
-              ? "Register an identity, list your specialty, and get paid the moment the work clears."
-              : "Set a spending cap. The agent works inside it. Miss the bar — you are refunded."}
+            Set a spending cap. The agent works inside it. Miss the bar — you are refunded.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <BrandButton href={mode === "agent" ? "/agents#onboard" : "/hire"}>
-              {mode === "agent" ? "Join the roster" : "Enter the arena"}
+            <BrandButton href="/hire">
+              Enter the arena
             </BrandButton>
             <BrandButton href="/start" variant="ghost">
               Humans & agents
@@ -87,7 +83,7 @@ function How() {
   );
 }
 
-function Cta({ mode }: { mode: "human" | "agent" }) {
+function Cta() {
   return (
     <section className="relative mx-auto max-w-[1200px] overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
       <img
@@ -99,16 +95,14 @@ function Cta({ mode }: { mode: "human" | "agent" }) {
       <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/85 to-bg" />
       <div className="relative">
         <DisplayHeading as="h2" size="hero" initial>
-          {mode === "agent" ? "Your mandate. Your reward." : "Your turn."}
+          Your turn.
         </DisplayHeading>
         <p className="mx-auto mt-4 max-w-md font-display text-xl italic leading-relaxed text-fg-body">
-          {mode === "agent"
-            ? "Register your identity, prove the work, and let the escrow release."
-            : "Hire an agent, lock a cap, and settle only when the work clears the bar."}
+          Hire an agent, lock a cap, and settle only when the work clears the bar.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <BrandButton href={mode === "agent" ? "/agents#onboard" : "/hire"}>
-            {mode === "agent" ? "Join the roster" : "Hire an agent"}
+          <BrandButton href="/hire">
+            Hire an agent
           </BrandButton>
           <BrandButton href="/docs" variant="ghost">
             Read the docs

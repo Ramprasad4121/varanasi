@@ -1,18 +1,14 @@
 "use client";
-// Author: Ramprasad — the Agent Library: the full legion with plate art,
-// specialty filters, open mandates, and an agent-side onboarding surface.
+// Author: Ramprasad — the Agent Library: the full legion with Greek-art
+// cards, specialty filters, open mandates, and an agent-side onboarding surface.
 
 import { useMemo, useState } from "react";
 import React from "react";
 import { PageHero } from "@/components/PageHero";
-import { RobotPet } from "@/components/RobotPet";
 import { SectionSep } from "@/components/SectionSep";
 import { AgentMarket } from "@/components/AgentMarket";
-import { SoldierPlate } from "@/components/SoldierPlate";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
-import { ModeToggle } from "@/components/ModeToggle";
-import { useMode } from "@/components/mode";
 import { LEGION, type Legionnaire } from "@/lib/legion";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +27,6 @@ const SPECIALTY_CHIPS = [
 ] as const;
 
 export default function AgentsLibraryPage() {
-  const { mode } = useMode();
   const [filter, setFilter] = useState<string>("all");
   const [q, setQ] = useState("");
 
@@ -51,37 +46,10 @@ export default function AgentsLibraryPage() {
     <div>
       <PageHero
         title="The Legion"
-        eyebrow={mode === "agent" ? "Agent mode" : "Human mode"}
-        subtitle={
-          mode === "agent"
-            ? "You are the agent. Register an identity, list your specialty, claim open mandates, and get paid on proof."
-            : "A roster of agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
-        }
+        eyebrow="The roster"
+        subtitle="A roster of agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
         image="/images/figure-builder.jpg"
       />
-
-      {/* persona switch strip */}
-      <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="grid items-center gap-6 border border-border bg-bg-elevated p-4 sm:p-5 lg:grid-cols-[1fr_300px]">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">
-                Viewing as
-              </p>
-              <p className="mt-1 font-display text-lg text-ink">
-                {mode === "agent" ? "An agent scouting for work" : "A principal commissioning work"}
-              </p>
-              <p className="mt-1 font-display text-[15px] italic text-fg-muted">
-                Move your pointer — the bot watches. Click it and it waves.
-              </p>
-            </div>
-            <ModeToggle />
-          </div>
-          <div className="h-[240px]">
-            <RobotPet label="Arena-bot mascot for the agent roster" />
-          </div>
-        </div>
-      </section>
 
       {/* featured live agents */}
       <section className="mx-auto mt-12 max-w-[1200px] px-4 sm:px-6">
@@ -96,7 +64,7 @@ export default function AgentsLibraryPage() {
         </div>
         <ul className="grid gap-6 md:grid-cols-3">
           {featured.map((a) => (
-            <AgentCard key={a.id} a={a} mode={mode} />
+            <AgentCard key={a.id} a={a} />
           ))}
         </ul>
       </section>
@@ -143,7 +111,7 @@ export default function AgentsLibraryPage() {
         ) : (
           <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((a) => (
-              <AgentCard key={a.id} a={a} mode={mode} />
+              <AgentCard key={a.id} a={a} />
             ))}
           </ul>
         )}
@@ -235,20 +203,11 @@ export default function AgentsLibraryPage() {
   );
 }
 
-function AgentCard({ a, mode }: { a: Legionnaire; mode: "human" | "agent" }) {
+function AgentCard({ a }: { a: Legionnaire }) {
   return (
     <li className="flex flex-col border border-border bg-bg-elevated overflow-hidden">
       <div className="relative h-44 overflow-hidden border-b border-border bg-bg-muted">
-        <div className="absolute inset-0 grid place-items-center p-6 opacity-90">
-          <SoldierPlate
-            helm={a.soldier.helm}
-            weapon={a.soldier.weapon}
-            pose={a.soldier.pose}
-            tone={a.soldier.tone}
-            emblem={a.soldier.emblem}
-            className="max-h-full"
-          />
-        </div>
+        <img src={a.image} alt={a.name} className="h-full w-full object-cover opacity-80" loading="lazy" />
         <span className="absolute left-3 top-3 border border-border bg-bg/90 px-2 py-1 font-label text-[10px] uppercase tracking-[0.16em] text-ink">
           {a.ens}
         </span>
@@ -288,13 +247,7 @@ function AgentCard({ a, mode }: { a: Legionnaire; mode: "human" | "agent" }) {
             href={a.live ? `/hire?agent=${a.id}` : `/docs#mandate`}
             className={cn("h-11 w-full px-4", !a.live && "border border-border bg-transparent text-ink hover:bg-ink hover:text-bg")}
           >
-            {mode === "agent"
-              ? a.live
-                ? `Contract as ${a.name}`
-                : "Preview the bar"
-              : a.live
-                ? `Hire ${a.name}`
-                : "See the mandate"}
+            {a.live ? `Hire ${a.name}` : "See the mandate"}
           </BrandButton>
         </div>
       </div>
