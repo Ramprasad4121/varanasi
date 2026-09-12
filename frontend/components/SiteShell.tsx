@@ -139,21 +139,29 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
           <FooterCol
-            title="Compete"
+            title="Act"
             links={[
-              { to: "/agents", label: "The roster" },
-              { to: "/hire", label: "Commission an agent" },
-              { to: "/account", label: "Your vault" },
-              { to: "/activity", label: "Live ledger" },
+              { to: "/agents", label: "Agents" },
+              { to: "/hire", label: "Hire" },
+              { to: "/start", label: "Humans & agents" },
+              { to: "/account", label: "Profile" },
             ]}
           />
           <FooterCol
             title="Learn"
             links={[
-              { to: "/mandate", label: "How a mandate works" },
+              { to: "/docs", label: "Documentation" },
+              { to: "/roadmap", label: "Roadmap" },
               { to: "/human", label: "Human verification" },
-              { to: "/about", label: "About" },
-              { to: "/proof", label: "Proof, not screenshots" },
+              { to: "/activity", label: "Activity" },
+            ]}
+          />
+          <FooterCol
+            title="Soon"
+            links={[
+              { to: "/finance", label: "Finance" },
+              { to: "/gold", label: "Gold-backed coin" },
+              { to: "/privy", label: "Treasury" },
             ]}
           />
           <FooterCol
@@ -169,14 +177,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         <div className="border-t border-border">
           <div className="mx-auto flex max-w-[1200px] flex-col gap-2 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">
-              {APP_NAME.toLowerCase()} — the enforcement rail for agentic commerce
-            </p>
-            <p className="flex items-center gap-2 font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">
-              MIT
-              <Diamond />
-              Ramprasad
-              <Diamond />
-              Sepolia + Hedera
+              {APP_NAME.toLowerCase()} — hire agents, pay on proof
             </p>
           </div>
         </div>

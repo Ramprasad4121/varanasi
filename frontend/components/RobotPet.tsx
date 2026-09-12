@@ -18,17 +18,18 @@ export function RobotPet({ className = "", label = "Varanasi arena-bot mascot" }
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const el: HTMLDivElement = host;
     const reduceMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const width = host.clientWidth || 320;
-    const height = host.clientHeight || 320;
+    const width = el.clientWidth || 320;
+    const height = el.clientHeight || 320;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height);
-    host.appendChild(renderer.domElement);
+    el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
@@ -141,8 +142,8 @@ export function RobotPet({ className = "", label = "Varanasi arena-bot mascot" }
     renderer.domElement.addEventListener("click", onClick);
 
     function onResize() {
-      const w = host.clientWidth || 320;
-      const h = host.clientHeight || 320;
+      const w = el.clientWidth || 320;
+      const h = el.clientHeight || 320;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -208,7 +209,7 @@ export function RobotPet({ className = "", label = "Varanasi arena-bot mascot" }
         }
       });
       renderer.dispose();
-      if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
+      if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
   }, []);
 
