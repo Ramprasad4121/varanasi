@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
-import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, load, save, type Receipt } from "./aegis";
+import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, type Receipt } from "./aegis";
 import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 function signalEndpoint() {
@@ -27,6 +27,7 @@ export function SignalPanel({
 } = {}) {
   const userId = useVaultUserId();
   const [internalReceipts, setInternalReceipts] = useState<Receipt[]>([]);
+  const [feed, setFeed] = useState<Receipt[]>([]);
   const [status, setStatus] = useState("");
   const loadedRef = useRef(false);
 
@@ -71,11 +72,13 @@ export function SignalPanel({
             at: String(r.at ?? r.timestamp ?? new Date().toISOString()),
           }))
           .filter((r) => r.txId.length >= 3);
-        if (cancelled || normalized.length === 0) return;
-        const seen = new Set(normalized.map((r) => r.txId));
-        const cached = isControlled ? propReceipts : loadScoped<Receipt[]>(userId, LS_RECEIPTS, []);
-        handleSetReceipts([...normalized, ...cached.filter((r) => !seen.has(r.txId))]);
-        setStatus(`${normalized.length} receipt(s) loaded.`);
+        if (cancelled) return;
+        setFeed(normalized.slice(0, 24));
+        setStatus(
+          normalized.length > 0
+            ? `Public service feed: ${normalized.length} receipt(s). Settled purchases in this vault stay scoped to your account.`
+            : "Service reachable — no receipts yet."
+        );
       } catch {
         // Service unreachable — props/localStorage cache stands as fallback.
       }
@@ -100,8 +103,28 @@ export function SignalPanel({
           "Payment required ($0.01 x402) — run the agent loop (agent/ CLI) to pay and settle, then Refresh receipts."
         );
       } else if (res.status === 200) {
+        // A 200 means *you* settled this one — keep its receipt in your own
+        // vault. (The public feed stays view-only; never merged in.)
+        try {
+          const body = (await res.json()) as {
+            receipt?: { txId?: string; amount?: string; servedAt?: string };
+          };
+          const rc = body.receipt;
+          if (rc?.txId) {
+            handleSetReceipts([
+              {
+                txId: String(rc.txId),
+                endpoint: url,
+                amount: String(rc.amount ?? "$0.01"),
+                at: String(rc.servedAt ?? new Date().toISOString()),
+              },
+              ...receipts,
+            ]);
+          }
+        } catch {
+          /* body shape drifted — nothing to record; the panel still reports status */
+        }
         setStatus("Signal paid and settled on Hedera via x402. See receipts below.");
-        void fetchReceipts();
       } else {
         setStatus(`Signal request returned HTTP ${res.status} — is the service running?`);
       }
@@ -130,8 +153,12 @@ export function SignalPanel({
           at: String(r.at ?? r.timestamp ?? new Date().toISOString()),
         }))
         .filter((r) => r.txId.length >= 3);
-      handleSetReceipts(normalized);
-      setStatus(`${normalized.length} receipt(s) on the service.`);
+      setFeed(normalized.slice(0, 24));
+      setStatus(
+        normalized.length > 0
+          ? `Public service feed: ${normalized.length} receipt(s).`
+          : "Service reachable — no receipts yet."
+      );
     } catch (err) {
       setStatus(`Receipts endpoint unreachable. ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -192,6 +219,34 @@ export function SignalPanel({
             </li>
           ))}
         </ul>
+      )}
+
+      {feed.filter((r) => !receipts.some((m) => m.txId === r.txId)).length > 0 && (
+        <div className="mt-6">
+          <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">
+            Public service feed — anyone's settled requests, not yours alone
+          </p>
+          <ul className="mt-2 divide-y divide-border border border-border overflow-hidden opacity-70">
+            {feed
+              .filter((r) => !receipts.some((m) => m.txId === r.txId))
+              .slice(0, 6)
+              .map((r) => (
+                <li key={`feed-${r.txId}-${r.at}`} className="p-3 bg-bg flex items-center justify-between gap-2">
+                  <p className="font-label text-[11px] text-fg-muted">
+                    {r.txId} · {r.amount}
+                  </p>
+                  <a
+                    href={hashscanTx(r.txId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted underline underline-offset-4"
+                  >
+                    ↗
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </div>
       )}
 
       {status && <p className="mt-4 font-label text-xs text-fg-muted">{status}</p>}

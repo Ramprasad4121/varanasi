@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
 import { PageHero } from "@/components/PageHero";
+import { useVaultUserId, loadScoped, saveScoped, removeScoped } from "@/lib/vault";
 
 type Tier = "verified" | "guest";
 
@@ -12,41 +13,49 @@ const POLICY: Record<Tier, { maxAgents: number; allowance: string; label: string
   guest: { maxAgents: 1, allowance: "5%", label: "Guest" },
 };
 
-const LS_NULLIFIER = "aegis.humanNullifier";
-const LS_TIER = "aegis.humanTier";
+// Scoped to the signed-in account (lib/vault): one browser, many users — no bleed.
+const LS_HUMAN = "aegis.humanProof";
+const LEGACY_NULLIFIER = "aegis.humanNullifier";
+const LEGACY_TIER = "aegis.humanTier";
+
+type HumanProof = { tier: Tier | null; nullifier: string | null };
 
 export default function HumanPage() {
+  const userId = useVaultUserId();
   const [tier, setTier] = useState<Tier | null>(null);
   const [nullifier, setNullifier] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    try {
-      const savedTier = localStorage.getItem(LS_TIER) as Tier | null;
-      const savedNullifier = localStorage.getItem(LS_NULLIFIER);
-      if (savedTier && POLICY[savedTier]) {
-        setTier(savedTier);
-        setNullifier(savedNullifier);
+    const stored = loadScoped<HumanProof | null>(userId, LS_HUMAN, null);
+    if (stored) {
+      if (stored.tier && POLICY[stored.tier]) {
+        setTier(stored.tier);
+        setNullifier(stored.nullifier ?? null);
       }
+      return;
+    }
+    // One-time migration from the pre-scoping shared keys, then clear them.
+    try {
+      const rawTier = localStorage.getItem(LEGACY_TIER) as Tier | null;
+      if (rawTier && POLICY[rawTier]) {
+        const rawNullifier = localStorage.getItem(LEGACY_NULLIFIER);
+        setTier(rawTier);
+        setNullifier(rawNullifier);
+        saveScoped(userId, LS_HUMAN, { tier: rawTier, nullifier: rawNullifier });
+      }
+      localStorage.removeItem(LEGACY_TIER);
+      localStorage.removeItem(LEGACY_NULLIFIER);
     } catch {
       // ignore
     }
-  }, []);
+  }, [userId]);
 
   function apply(next: Tier, n: string | null, via: string) {
     setTier(next);
     setNullifier(n);
     setNote(via);
-    try {
-      localStorage.setItem(LS_TIER, next);
-      if (n) {
-        localStorage.setItem(LS_NULLIFIER, n);
-      } else {
-        localStorage.removeItem(LS_NULLIFIER);
-      }
-    } catch {
-      // ignore
-    }
+    saveScoped(userId, LS_HUMAN, { tier: next, nullifier: n });
   }
 
   const policy = tier ? POLICY[tier] : null;
@@ -116,9 +125,10 @@ export default function HumanPage() {
                   setTier(null);
                   setNullifier(null);
                   setNote("");
+                  removeScoped(userId, LS_HUMAN);
                   try {
-                    localStorage.removeItem(LS_TIER);
-                    localStorage.removeItem(LS_NULLIFIER);
+                    localStorage.removeItem(LEGACY_TIER);
+                    localStorage.removeItem(LEGACY_NULLIFIER);
                   } catch {}
                 }}
               >

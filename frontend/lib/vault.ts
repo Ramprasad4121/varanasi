@@ -1,8 +1,9 @@
 "use client";
 
 // Author: Ramprasad — per-user vault. Keys never stored. Guest data migrates on first sign-in.
+// Every personal record lives under a key scoped to the signed-in Privy user id, so accounts
+// sharing one browser never read each other's data. See frontend/README.md → "Vault".
 import { usePrivy } from "@privy-io/react-auth";
-import { load, save } from "../components/aegis";
 
 export const HAS_PRIVY = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID);
 export const LS_TASKS = "aegis.tasks";
@@ -30,15 +31,27 @@ function loadMaybe<T>(key: string): T | undefined {
   }
 }
 
+function saveMaybe(key: string, value: unknown) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private-mode: ignore */
+  }
+}
+
+/**
+ * Read a personal record. When signed in, the per-account key wins; legacy
+ * unscoped (guest) data is migrated into the account once and the shared key
+ * is deleted, so a sign-out or the next person on this machine cannot see it.
+ */
 export function loadScoped<T>(userId: string | undefined, base: string, fallback: T): T {
   if (userId) {
     const own = loadMaybe<T>(scopeKey(userId, base));
     if (own !== undefined) return own;
     const guest = loadMaybe<T>(base);
     if (guest !== undefined) {
-      save(scopeKey(userId, base), guest);
-      // Guest data moved — clear the unscoped key so sign-out doesn't
-      // resurrect it and shared machines don't keep a copy.
+      saveMaybe(scopeKey(userId, base), guest);
       try {
         localStorage.removeItem(base);
       } catch {
@@ -48,11 +61,23 @@ export function loadScoped<T>(userId: string | undefined, base: string, fallback
     }
     return fallback;
   }
-  return load<T>(base, fallback);
+  return loadMaybe<T>(base) ?? fallback;
 }
 
+/** Write a personal record under the caller's scope (guest key when signed out). */
 export function saveScoped(userId: string | undefined, base: string, value: unknown) {
-  save(scopeKey(userId, base), value);
+  saveMaybe(scopeKey(userId, base), value);
+}
+
+/** Remove a personal record from both the scoped key and the legacy guest key. */
+export function removeScoped(userId: string | undefined, base: string) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.removeItem(scopeKey(userId, base));
+    localStorage.removeItem(base);
+  } catch {
+    /* private-mode: ignore */
+  }
 }
 
 export function rememberHire(userId: string | undefined, task: HireRecord) {

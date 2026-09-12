@@ -31,6 +31,20 @@ coordination, file a GitHub private vulnerability report
   strict ECDSA (malleability rejected). Cross-implementation parity
   (viem ↔ Solidity digests) is checked in CI.
 
+## User-data isolation (browser vault)
+
+- Every personal record (hires, listed agents, receipts cache, human-proof
+  state) is written under a key namespaced by the signed-in Privy user id
+  (`varanasi.<userId>.*`). Accounts sharing a browser cannot read each other;
+  legacy unscoped guest data is migrated on first sign-in and deleted.
+- The service's `GET /v1/receipts` is a **public** feed of paid requests
+  (txId + amount — everything on HashScan is public anyway). The UI renders it
+  view-only and never merges it into a user's vault.
+- On-chain state (escrow, Akshaya scores, registry) is deliberately public and
+  address-scoped: privacy there comes from your key discipline, not the UI.
+- On a shared machine, signed-out users see an empty vault; clearing site data
+  removes any local cache entirely.
+
 ## Known accepted risks (testnet, read before mainnet)
 
 | Risk | Why accepted today | Before mainnet |

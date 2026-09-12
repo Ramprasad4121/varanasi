@@ -46,6 +46,13 @@ domains, typehashes, ABIs) as the public API.
   `contracts/README.md`; v1 sets documented as superseded history in
   `docs/DEMO.md`.
 - Hero proofs updated to verified counts (204 local checks).
+- Frontend vault rigor: every personal store is scoped per signed-in user —
+  `/human` proof state moved under the account namespace (with a one-time
+  migration of the legacy shared keys), and the service's public receipt feed
+  is displayed view-only on `/activity`, never merged into any vault.
+  `components/aegis.ts` dropped its raw `load`/`save` helpers; all
+  persistence flows through `lib/vault.ts`. README states the honest contract
+  (per-browser account scoping; on-chain state is the cross-device truth).
 
 ### Removed
 - `AegisHook` + DemoPool experiment with their docs (`UNISWAP.md`,
@@ -67,6 +74,11 @@ domains, typehashes, ABIs) as the public API.
 - Escrow + stream views no longer depend on caller-writable state for money
   routing; harness regression coverage added for post-revert journal staleness
   and block-tick accrual drift.
+- `/activity` receipts leak across accounts (shared-browser case): the global
+  `GET /v1/receipts` feed was merged into — and "Refresh receipts" overwrote —
+  the local per-user list, so another user's testnet receipts could appear as
+  yours. The feed is now a separate view-only section; only a receipt you
+  settled in-session is recorded, in your scoped vault.
 
 ## [0.2.0] — 2026-09-08
 

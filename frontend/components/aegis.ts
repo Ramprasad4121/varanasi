@@ -159,27 +159,9 @@ export type Verdict = {
 };
 
 export const LS_AGENTS = "aegis.agents";
-export const LS_INTEL = "aegis.intel";
 export const LS_RECEIPTS = "aegis.receipts";
-export const LS_VERDICTS = "aegis.verdicts";
-
-export function load<T>(key: string, fallback: T): T {
-  try {
-    if (typeof localStorage === "undefined") return fallback;
-    const v = localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-export function save(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* private-mode: ignore */
-  }
-}
+// Personal reads/writes go through lib/vault (per-account scoped keys) — the
+// old shared load()/save() helpers were removed so nothing can leak unscoped.
 
 export function seedVerdicts(): Verdict[] {
   return [
