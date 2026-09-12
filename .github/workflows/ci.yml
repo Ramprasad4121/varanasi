@@ -32,17 +32,18 @@ jobs:
           version: stable
       - run: forge --version
       - run: forge build
-      # --- TEMP DIAGNOSTIC: per-suite steps (step names reveal failures; revert me) ---
-      - name: suite TaskEscrow
-        run: forge test --match-path 'test/TaskEscrow.t.sol'
-      - name: suite Aegis
-        run: forge test --match-path 'test/Aegis.t.sol'
-      - name: suite Akshaya
-        run: forge test --match-path 'test/Akshaya.t.sol'
-      - name: suite GhatStream
-        run: forge test --match-path 'test/GhatStream.t.sol'
-      - name: suite finance
-        run: forge test --match-path 'test/finance/*'
+      # --- TEMP DIAGNOSTIC v2: publish failures as annotations (revert me) ---
+      - name: forge test (diagnose via annotations)
+        continue-on-error: true
+        run: |
+          forge test -vv 2>&1 | tee /tmp/ft.log || true
+          grep -E "^\s*\[FAIL" /tmp/ft.log | head -12 | while IFS= read -r l; do
+            echo "::error::FAIL ${l}"
+          done
+          grep -nE "assertion|panic|Fail:" /tmp/ft.log | head -10 | while IFS= read -r l; do
+            echo "::error::CTX ${l:0:180}"
+          done
+          exit 0
       - name: full forge test
         run: forge test
 
