@@ -48,14 +48,6 @@ export const STATS: Array<{
     proof: "Etherscan",
     image: "/images/figure-builder.jpg",
   },
-  {
-    value: "333",
-    suffix: "/333",
-    label: "Tests green",
-    href: GITHUB_URL,
-    proof: "GitHub",
-    image: "/images/scales.jpg",
-  },
 ];
 
 export const HOW = [
