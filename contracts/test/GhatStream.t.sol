@@ -63,8 +63,10 @@ contract GhatStreamTest is Test {
 
     function test_Open_EscrowsCapAndRequiresIdentity() public {
         GhatStream.StreamMandate memory m = _mandate(noIdAgent, STREAM_TTL);
+        bytes memory sig = _sign(m); // computed OUTSIDE the expectRevert window:
+        // its digest helper self-calls ghat and would consume the expectation.
         vm.expectRevert(abi.encodeWithSelector(GhatStream.UnauthorizedAgent.selector, noIdAgent));
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
 
         bytes32 id = _opened();
         assertEq(usdc.balanceOf(address(ghat)), CAP, "cap locked");
@@ -144,12 +146,15 @@ contract GhatStreamTest is Test {
         skip(600); // a full minute of idleness must earn NOTHING
         assertEq(ghat.accruedOf(id), frozen, "frozen");
 
-        // agent still owns what it earned before the stop; claimable closes the gap
-        assertEq(ghat.claimableOf(id), frozen - first);
+        // the earnings were claimed before the stop; freezing the meter means
+        // nothing new accrued — so the tail claim is provably empty (and the
+        // payer's unearned remainder stays escrowed for expiry refund).
+        assertEq(ghat.claimableOf(id), 0, "nothing earned while frozen");
         vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(GhatStream.NothingToClaim.selector, id));
         ghat.claim(id);
-        assertEq(usdc.balanceOf(agent), frozen);
-        assertEq(usdc.balanceOf(address(ghat)), CAP - frozen, "unearned still escrowed");
+        assertEq(usdc.balanceOf(agent), first, "pre-stop earnings kept");
+        assertEq(usdc.balanceOf(address(ghat)), CAP - first, "unearned still escrowed");
 
         vm.expectRevert(abi.encodeWithSelector(GhatStream.NotExpiredYet.selector, id, block.timestamp, uint64(block.timestamp + 2980)));
         ghat.close(id);
@@ -178,23 +183,27 @@ contract GhatStreamTest is Test {
     function test_BadParamsRevert() public {
         GhatStream.StreamMandate memory m = _mandate(agent, STREAM_TTL);
         m.ratePerSecond = 0;
+        bytes memory sig = _sign(m);
         vm.expectRevert(GhatStream.ZeroRate.selector);
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
 
         m = _mandate(agent, STREAM_TTL);
         m.cap = 0;
+        sig = _sign(m);
         vm.expectRevert(GhatStream.ZeroCap.selector);
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
 
         m = _mandate(agent, 0);
+        sig = _sign(m);
         vm.expectRevert(); // expiry must be in the future (MandateExpired)
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
 
         m = _mandate(agent, STREAM_TTL);
         m.maxDuration = type(uint64).max;
         m.ratePerSecond = type(uint256).max;
+        sig = _sign(m);
         vm.expectRevert(abi.encodeWithSelector(GhatStream.RateOverflowsCap.selector, m.ratePerSecond, m.maxDuration));
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
     }
 
     function test_UnknownAndZeroStreamPaths() public {
@@ -219,7 +228,8 @@ contract GhatStreamTest is Test {
         assertEq(usdc.balanceOf(agent), 30 * RATE);
         // but opening a new stream for the revoked agent must fail
         GhatStream.StreamMandate memory m = _mandate(agent, STREAM_TTL);
+        bytes memory sig = _sign(m); // outside the expect window (self-call would consume it)
         vm.expectRevert(abi.encodeWithSelector(GhatStream.UnauthorizedAgent.selector, agent));
-        ghat.open(m, _sign(m));
+        ghat.open(m, sig);
     }
 }

@@ -130,11 +130,15 @@ contract AkshayaTest is Test {
         bytes32 id = _released();
         akshaya.attest(id);
         assertEq(akshaya.scoreOf(agent), 10_000);
-        vm.warp(block.timestamp + 90 days - 1);
-        assertEq(akshaya.scoreOf(agent), 10_000, "not yet a full period");
-        vm.warp(block.timestamp + 1);
-        assertEq(akshaya.scoreOf(agent), 5_000, "halved at 90d");
-        vm.warp(block.timestamp + 180 days);
+        // Decay counts whole PERIOD buckets since the attestation bucket —
+        // align warps to bucket edges so the assertions are clock-independent.
+        uint256 pAt = block.timestamp / akshaya.PERIOD();
+        uint256 halfAt = (pAt + 90) * akshaya.PERIOD();
+        vm.warp(halfAt - 1);
+        assertEq(akshaya.scoreOf(agent), 10_000, "not yet a full 90 buckets");
+        vm.warp(halfAt);
+        assertEq(akshaya.scoreOf(agent), 5_000, "halved at 90 buckets");
+        vm.warp(halfAt + 180 * akshaya.PERIOD());
         assertEq(akshaya.scoreOf(agent), 1_250, "halved twice more");
     }
 
