@@ -54,7 +54,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     return (
       <span
         aria-hidden="true"
-        className={`inline-grid h-11 w-11 place-items-center border border-border font-label text-sm text-fg-muted ${className ?? ""}`}
+        className={`grid place-items-center rounded-full font-label text-sm text-fg-muted ${className ?? ""}`}
       >
         ·
       </span>
@@ -67,7 +67,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       aria-label={theme === DARK ? "Switch to light theme" : "Switch to dark theme"}
       title={theme === DARK ? "Switch to light theme" : "Switch to dark theme"}
-      className={`group inline-grid h-11 w-11 place-items-center border border-border font-label text-sm transition-colors hover:border-accent hover:text-accent ${className ?? ""}`}
+      className={`m-0 grid place-items-center rounded-full border-0 bg-transparent p-0 text-fg-body transition-colors duration-150 hover:bg-bg-hover hover:text-ink ${className ?? ""}`}
     >
       {theme === DARK ? (
         <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">

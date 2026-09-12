@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import React from "react";
+import { UserRound } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
-import { cn } from "@/lib/utils";
 
 const HAS_PRIVY = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID);
 
@@ -31,17 +31,32 @@ export function AuthSlot({ variant = "nav" }: { variant?: "nav" | "menu" }) {
 function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
 
+  const label =
+    user?.email?.address ??
+    user?.google?.email ??
+    user?.github?.username ??
+    "Account";
+
   if (!ready) {
+    if (variant === "menu") {
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex h-12 items-center font-display text-[16px] text-fg-muted text-left"
+        >
+          Sign in
+        </button>
+      );
+    }
     return (
       <button
         type="button"
         disabled
-        className={cn(
-          "inline-flex items-center border border-border px-4 font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted",
-          variant === "menu" ? "h-12 w-full justify-start" : "h-11"
-        )}
+        aria-label="Account"
+        className="grid h-10 w-10 place-items-center rounded-full border border-border text-fg-muted"
       >
-        Sign in
+        <UserRound className="h-[1.15rem] w-[1.15rem]" />
       </button>
     );
   }
@@ -69,18 +84,11 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
     );
   }
 
-  const label =
-    user?.email?.address ??
-    user?.google?.email ??
-    user?.github?.username ??
-    "Account";
-  const short = label.includes("@") ? label.split("@")[0] : label;
-
   if (variant === "menu") {
     return (
       <div className="flex flex-col gap-1 py-2">
         <Link href="/account" className="flex h-12 items-center font-display text-[16px] font-medium text-accent">
-          Account ({short})
+          Account
         </Link>
         <button
           type="button"
@@ -94,14 +102,13 @@ function AuthSlotInner({ variant }: { variant: "nav" | "menu" }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Link
-        href="/account"
-        title={label}
-        className="inline-flex h-11 items-center border border-ink/80 px-4 font-label text-[11px] uppercase tracking-[0.14em] text-ink hover:bg-ink hover:text-bg transition-colors"
-      >
-        {short}
-      </Link>
-    </div>
+    <Link
+      href="/account"
+      title={label}
+      aria-label="Account"
+      className="grid h-10 w-10 place-items-center rounded-full border border-ink/70 text-ink transition-colors hover:border-accent hover:text-accent"
+    >
+      <UserRound className="h-[1.15rem] w-[1.15rem]" />
+    </Link>
   );
 }
