@@ -11,6 +11,9 @@ verified/settled via an x402 facilitator. Adapted from the reference PoC
 |---|---|---|
 | `POST /v1/signal` | **$0.01** USDC *or* 0.01 HBAR equiv | `{signal, confidence, features, txHint}` + `receipt` |
 | `POST /v1/score` | **$0.001** USDC *or* 0.001 HBAR equiv | `{riskScore, riskBand, factors}` + `receipt` |
+| `GET /v1/finance?address=0x…` | free | demo community-finance portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
+| `GET /v1/finance/summary` | free | same, forced summary |
+| `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
 | `GET /health`, `GET /402-info`, `GET /v1/receipts` | free | status / pay-preview / receipt log |
 
 Each paid route accepts **two** payment options (USDC leg + HBAR leg) — the
@@ -44,6 +47,29 @@ npm run dev    # tsx watch, port 4021
 # or
 npm run build && npm start
 ```
+
+## 2a. Tests
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm test            # tsx --test — 5 tests (finance + receipts), no keys needed
+```
+
+## 2b. Community finance API (demo)
+
+`/v1/finance*` is free, **address-seeded and deterministic** — the same
+address always returns the same portfolio (no database, no randomness).
+Semantics mirror `contracts/src/finance/*.sol`; shared types come from
+`frontend/finance-types/` (mirror of the single source of truth).
+
+```bash
+curl -s "localhost:4021/v1/finance?address=0x70997970C51812dc3A010C7d01b50e0d17dc79C8" | python3 -m json.tool
+curl -s "localhost:4021/v1/finance/recommend?address=<same-addr>" | python3 -m json.tool
+```
+
+Every figure is `simulated` — the agent's `execute()` (`agent/src/finance`)
+throws until the finance contracts are deployed, so no demo state ever
+broadcasts.
 
 ## 3. Smoke tests — proving 402, then the paid flow
 
@@ -198,8 +224,10 @@ service/
   src/server.ts    Express app, x402 gate, paid + free routes, receipt log
   src/pricing.ts   price table ($0.01 signal / $0.001 score) + USDC/HBAR switch
   src/signal.ts    DEMO deterministic mock alpha (TODO: real Graph-fed model)
-   src/hashscan.ts  HashScan link builders + PaymentReceipt shape
-   src/hcs.ts       HCS audit trail: topic auto-create + best-effort logReceipt
-   src/x402.ts      resource-server factory + facilitator URL resolution
-   .env.example     HEDERA_SERVICE_ACCOUNT_ID, HEDERA_NETWORK, X402_* , PORT, HCS_*
+  src/finance/     DEMO address-seeded portfolio + recommendations (v1/finance*)
+  src/hashscan.ts  HashScan link builders + PaymentReceipt shape
+  src/hcs.ts       HCS audit trail: topic auto-create + best-effort logReceipt
+  src/x402.ts      resource-server factory + facilitator URL resolution
+  test/            node:test suites (finance.test.ts, …)
+  .env.example     HEDERA_SERVICE_ACCOUNT_ID, HEDERA_NETWORK, X402_* , PORT, HCS_*
 ```

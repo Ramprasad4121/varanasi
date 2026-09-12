@@ -34,7 +34,7 @@ jobs:
       - run: forge test
 
   agent:
-    name: agent (typecheck + 132 tests)
+    name: agent (typecheck + tests)
     runs-on: ubuntu-latest
     defaults:
       run:

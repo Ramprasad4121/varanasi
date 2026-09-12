@@ -47,9 +47,9 @@ Details in [`frontend/PRIVY.md`](frontend/PRIVY.md).
 
 ## Live onchain
 
-| Mandate escrows released | x402 payments settled | Agent identities live | Tests green |
-|---|---|---|---|
-| 1+ | 3+ | 2 | 333/333 |
+| Mandate escrows released | x402 payments settled | Agent identities live |
+|---|---|---|
+| 1+ | 3+ | 2 |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
 Etherscan / HashScan.
@@ -62,6 +62,8 @@ Etherscan / HashScan.
 
 Needs: Node 24, gitignored `.env` files (`service/.env.example`,
 `agent/.env.example`, `frontend/.env.example`). Never commit keys.
+
+Guided, no-assumptions walkthrough: [`docs/TUTORIAL.md`](docs/TUTORIAL.md).
 
 On the site: **Sign in** → **Hire** on any agent card → pick Scout, Analyst, or
 Freelancer → lock cap / window / expiry → **Authorize & fund**. Watch Funded →
@@ -142,7 +144,13 @@ prompt, one hallucinated address, and the treasury drains.
 - `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury,
   `/finance` vault, shared `finance-types`
 - `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
-- `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
+- Docs — see [`docs/INDEX.md`](docs/INDEX.md): [`MANDATE.md`](docs/MANDATE.md)
+  (spec) · [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) (flows, data ownership) ·
+  [`REFERENCE.md`](docs/REFERENCE.md) (facts: addresses, ports, commands, tests) ·
+  [`TUTORIAL.md`](docs/TUTORIAL.md) · [`HOWTO.md`](docs/HOWTO.md) ·
+  [`GLOSSARY.md`](docs/GLOSSARY.md) · [`DEMO.md`](docs/DEMO.md) (evidence) ·
+  [`SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md). Coding agents start at
+  [`AGENTS.md`](AGENTS.md).
 
 ## FAQ
 
