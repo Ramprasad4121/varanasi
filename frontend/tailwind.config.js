@@ -1,4 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+// Author: Ramprasad — single source of truth: CSS custom properties in globals.css.
+// Every color here is `rgb(var(--token) / <alpha-value>)` so light + dark themes
+// (data-theme on <html>) both resolve through the same utility classes.
 module.exports = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx}",
@@ -9,48 +12,48 @@ module.exports = {
     extend: {
       colors: {
         bg: {
-          DEFAULT: "#f3f2ee",
-          elevated: "#f7f6f2",
-          muted: "#ebe9e3",
-          hover: "#e4e1d9",
+          DEFAULT: "rgb(var(--paper) / <alpha-value>)",
+          elevated: "rgb(var(--white) / <alpha-value>)",
+          muted: "rgb(var(--hairline-soft) / <alpha-value>)",
+          hover: "rgb(var(--bg-hover) / <alpha-value>)",
         },
-        ink: "#1c1b18",
+        ink: "rgb(var(--ink) / <alpha-value>)",
         fg: {
-          DEFAULT: "#1c1b18",
-          body: "#5a564e",
-          muted: "#7a756b",
-          secondary: "#5a564e",
-          inverse: "#f3f2ee",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          body: "rgb(var(--ink-soft) / <alpha-value>)",
+          muted: "rgb(var(--muted) / <alpha-value>)",
+          secondary: "rgb(var(--ink-soft) / <alpha-value>)",
+          inverse: "rgb(var(--paper) / <alpha-value>)",
         },
         border: {
-          DEFAULT: "#d8d3c6",
-          subtle: "#e6e2d8",
-          strong: "#bdb6a6",
+          DEFAULT: "rgb(var(--hairline) / <alpha-value>)",
+          subtle: "rgb(var(--hairline-soft) / <alpha-value>)",
+          strong: "rgb(var(--hairline-strong) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#c01010",
-          strong: "#9a0c0c",
-          hover: "#9a0c0c",
-          link: "#c01010",
-          soft: "#f4e4e0",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          strong: "rgb(var(--accent-deep) / <alpha-value>)",
+          hover: "rgb(var(--accent-deep) / <alpha-value>)",
+          link: "rgb(var(--accent) / <alpha-value>)",
+          soft: "rgb(var(--accent-wash) / <alpha-value>)",
         },
-        "on-accent": "#f3f2ee",
+        "on-accent": "rgb(var(--paper) / <alpha-value>)",
         ok: {
-          DEFAULT: "#2f6a38",
-          soft: "#e6f0e7",
+          DEFAULT: "rgb(var(--leaf) / <alpha-value>)",
+          soft: "rgb(var(--leaf-wash) / <alpha-value>)",
         },
         warn: {
-          DEFAULT: "#8a6100",
-          soft: "#f6edd6",
+          DEFAULT: "rgb(var(--warn) / <alpha-value>)",
+          soft: "rgb(var(--warn-wash) / <alpha-value>)",
         },
         bad: {
-          DEFAULT: "#c01010",
-          soft: "#f4e4e0",
+          DEFAULT: "rgb(var(--red) / <alpha-value>)",
+          soft: "rgb(var(--red-wash) / <alpha-value>)",
         },
         footer: {
-          DEFAULT: "#f3f2ee",
-          border: "#d8d3c6",
-          muted: "#7a756b",
+          DEFAULT: "rgb(var(--paper) / <alpha-value>)",
+          border: "rgb(var(--hairline) / <alpha-value>)",
+          muted: "rgb(var(--muted) / <alpha-value>)",
         },
       },
       fontFamily: {
@@ -69,7 +72,7 @@ module.exports = {
         pill: "0px",
       },
       boxShadow: {
-        lift: "0 18px 40px #1c1b1812",
+        lift: "0 18px 40px rgb(var(--ink) / 0.07)",
       },
     },
   },

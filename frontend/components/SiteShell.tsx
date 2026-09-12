@@ -8,8 +8,24 @@ import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
 import { BrandButton } from "@/components/BrandButton";
 import { Diamond, Mark } from "@/components/Diamond";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME, GITHUB_URL, NAV } from "@/lib/site";
 import { cn } from "@/lib/utils";
+
+function Wordmark({ size = "lg" }: { size?: "lg" | "sm" }) {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label={`${APP_NAME} home`}>
+      <Mark className={size === "lg" ? "h-8 w-8 border border-border" : "h-7 w-7 border border-border"} />
+      <span className="font-display tracking-[-0.03em] lowercase text-ink">
+        <span className={size === "lg" ? "text-[22px]" : "text-lg"}>{APP_NAME}</span>
+        <span className="text-fg-muted">
+          <span className="mx-1">·</span>
+          <span className="hidden sm:inline font-label text-[11px] uppercase tracking-[0.14em]">the enforcement rail</span>
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,10 +39,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-bg text-fg flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-bg/92 backdrop-blur-[3px]">
         <div className="mx-auto flex h-[4.25rem] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 w-full">
-          <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label={`${APP_NAME} home`}>
-            <Mark className="h-8 w-8 border border-border" />
-            <span className="font-display text-[22px] font-medium tracking-[-0.03em] lowercase">{APP_NAME}</span>
-          </Link>
+          <Wordmark />
 
           <nav className="hidden items-center gap-3 lg:flex" aria-label="Primary">
             {NAV.map((item, i) => (
@@ -46,6 +59,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle className="hidden sm:inline-grid" />
             <BrandButton href="/hire" className="hidden h-11 px-5 sm:inline-flex">
               Hire
             </BrandButton>
@@ -80,6 +94,10 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               <Link href="/hire" className="flex h-12 items-center font-display text-[16px] font-medium text-accent">
                 Hire an agent
               </Link>
+              <div className="flex h-12 items-center gap-3">
+                <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
+                <ThemeToggle className="h-9 w-9 border-border/60" />
+              </div>
               <AuthSlot variant="menu" />
             </nav>
           </div>
@@ -91,21 +109,18 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <footer className="mt-8 border-t border-border bg-footer">
         <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
           <div>
-            <Link href="/" className="flex items-center gap-2.5 text-ink">
-              <Mark className="h-7 w-7 border border-border" />
-              <span className="font-display text-lg font-medium lowercase">{APP_NAME}</span>
-            </Link>
+            <Wordmark size="sm" />
             <p className="mt-4 max-w-xs font-display text-[16px] italic leading-relaxed text-fg-body">
               Hire AI agents with a spending cap. Pay when the work is proven. Refund when it is not.
             </p>
           </div>
           <FooterCol
-            title="Product"
+            title="Compete"
             links={[
-              { to: "/agents", label: "Browse agents" },
-              { to: "/hire", label: "Hire an agent" },
+              { to: "/agents", label: "The roster" },
+              { to: "/hire", label: "Commission an agent" },
               { to: "/account", label: "Your vault" },
-              { to: "/activity", label: "Live activity" },
+              { to: "/activity", label: "Live ledger" },
             ]}
           />
           <FooterCol
@@ -114,7 +129,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               { to: "/mandate", label: "How a mandate works" },
               { to: "/human", label: "Human verification" },
               { to: "/about", label: "About" },
-              { href: GITHUB_URL, label: "Documentation" },
+              { to: "/proof", label: "Proof, not screenshots" },
             ]}
           />
           <FooterCol

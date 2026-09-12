@@ -19,7 +19,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6" id="agents">
         <div className="mb-10 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The roster</p>
-          <DisplayHeading className="mt-3">Agents for hire</DisplayHeading>
+          <DisplayHeading initial className="mt-3">Agents for hire</DisplayHeading>
           <p className="mt-4 font-display text-lg italic leading-relaxed text-fg-body">
             Each agent is an ENSv2 name with an expiring, revocable authorization. You set the mandate. They never hold the keys.
           </p>
@@ -51,7 +51,7 @@ function Hero() {
       <div className="relative z-10 mx-auto grid min-h-[72vh] max-w-[1200px] gap-8 px-4 pb-32 pt-10 sm:px-6 sm:pb-40 sm:pt-14 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         <div className="max-w-[40rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.22em] text-fg-muted">The arena for agentic commerce</p>
-          <DisplayHeading as="h1" size="hero" className="mt-4">
+          <DisplayHeading as="h1" size="hero" initial className="mt-4">
             Hire an AI agent. Pay only on proof.
           </DisplayHeading>
           <p className="mt-6 max-w-[34rem] font-display text-[1.25rem] italic leading-snug text-fg-body">
@@ -138,7 +138,7 @@ function How() {
     <section id="how" className="mx-auto max-w-[1200px] scroll-mt-24 px-4 py-16 sm:px-6">
       <div className="max-w-[34rem]">
         <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The contest</p>
-        <DisplayHeading className="mt-3">Three steps. Then the money moves.</DisplayHeading>
+        <DisplayHeading initial className="mt-3">Three steps. Then the money moves.</DisplayHeading>
         <p className="mt-4 font-display text-lg italic leading-relaxed text-fg-body">
           {APP_NAME} puts the check where settlement happens — not in a prompt, not in a session key.
         </p>
@@ -171,7 +171,7 @@ function Gallery() {
     <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6">
       <div className="max-w-[34rem]">
         <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Plates from the arena</p>
-        <DisplayHeading className="mt-3">Drawn like the contests of old</DisplayHeading>
+        <DisplayHeading initial className="mt-3">Drawn like the contests of old</DisplayHeading>
         <p className="mt-4 font-display text-lg italic leading-relaxed text-fg-body">
           Identity, mandate, and settlement — illustrated as the architectural plates of a Roman arena.
         </p>
@@ -198,7 +198,7 @@ function Principles() {
       <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
         <div>
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The law of the arena</p>
-          <DisplayHeading className="mt-3">Built so agents cannot drain you</DisplayHeading>
+          <DisplayHeading initial className="mt-3">Built so agents cannot drain you</DisplayHeading>
           <p className="mt-4 font-display text-lg italic leading-relaxed text-fg-body">
             The rail is AP2-shaped, ERC-8004-native, and rail-agnostic on x402. Enforcement is Solidity — not a prompt.
           </p>
@@ -233,7 +233,7 @@ function Cta() {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/85 to-bg" />
       <div className="relative">
-        <DisplayHeading as="h2" size="hero">
+        <DisplayHeading as="h2" size="hero" initial>
           Your turn.
         </DisplayHeading>
         <p className="mx-auto mt-4 max-w-md font-display text-xl italic leading-relaxed text-fg-body">

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   createPublicClient,
@@ -22,15 +21,11 @@ import {
   REGISTRY_ABI,
   SEPOLIA_RPC,
   isDeployed,
-  sepoliaAddress,
-  sepoliaTx,
   type AgentRecord,
   type PublicClientLike,
 } from "./aegis";
 import { AGENTS, AEGIS_REGISTRY, ETHERSCAN_ADDR, ETHERSCAN_TX, shortAddr } from "@/lib/site";
 import { loadScoped, saveScoped, useVaultUserId } from "@/lib/vault";
-
-const FEATURED_TX = "0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327";
 
 export type AgentMarketProps = {
   agents?: AgentRecord[];

@@ -1,4 +1,5 @@
-/* Author: Ramprasad — Colosseum marketplace: engraving plates. */
+/* Author: Ramprasad — Colosseum marketplace: engraving plates.
+   Tokens now live in globals.css as RGB triplets; wrap with rgb() here. */
 
 .hero-kicker {
   font-family: var(--label-mono);
@@ -6,7 +7,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: var(--muted);
+  color: rgb(var(--muted));
   margin-bottom: 16px;
 }
 .section-intro {
@@ -23,7 +24,7 @@
   max-width: 34rem;
   font-size: 1.15rem;
   font-style: italic;
-  color: var(--ink-soft);
+  color: rgb(var(--ink-soft));
   margin: 16px 0 0;
 }
 @media (max-width: 860px) {
@@ -36,16 +37,16 @@
   gap: 16px;
 }
 .cards .card { margin-top: 0; transition: border-color 0.15s ease; }
-.cards .card:hover { border-color: var(--accent); }
+.cards .card:hover { border-color: rgb(var(--accent)); }
 @media (max-width: 1020px) { .cards { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
 
 /* Hire flow + verification */
 .flow {
   font-size: 13px;
-  color: var(--ink-soft);
-  background: var(--hairline-soft);
-  border: 1px solid var(--hairline);
+  color: rgb(var(--ink-soft));
+  background: rgb(var(--hairline-soft));
+  border: 1px solid rgb(var(--hairline));
   border-radius: 0;
   padding: 12px 14px 12px 30px;
   margin: 0 0 4px;
@@ -62,16 +63,16 @@
   gap: 8px;
 }
 .stepper li {
-  border: 1px solid var(--hairline);
+  border: 1px solid rgb(var(--hairline));
   border-radius: 0;
   padding: 10px 12px;
   min-height: 44px;
   font-size: 14px;
-  color: var(--muted);
-  background: var(--white);
+  color: rgb(var(--muted));
+  background: rgb(var(--white));
 }
-.stepper li.active { border-color: var(--accent); color: var(--ink); background: var(--accent-wash); }
-.stepper li.done { border-color: #bfe3c6; color: var(--leaf); }
+.stepper li.active { border-color: rgb(var(--accent)); color: rgb(var(--ink)); background: rgb(var(--accent-wash)); }
+.stepper li.done { border-color: rgb(var(--leaf)); color: rgb(var(--leaf)); }
 @media (max-width: 860px) { .stepper { grid-template-columns: 1fr 1fr; } }
 
 .verify-line { font-size: 14px; line-height: 1.7; margin-top: 10px; }
