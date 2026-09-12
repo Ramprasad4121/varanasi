@@ -50,8 +50,8 @@ export const STATS: Array<{
     image: "/images/figure-builder.jpg",
   },
   {
-    value: "243",
-    suffix: "/243",
+    value: "333",
+    suffix: "/333",
     label: "Tests green",
     href: GITHUB_URL,
     proof: "GitHub",

@@ -49,7 +49,7 @@ Details in [`frontend/PRIVY.md`](frontend/PRIVY.md).
 
 | Mandate escrows released | x402 payments settled | Agent identities live | Tests green |
 |---|---|---|---|
-| 1+ | 3+ | 2 | 243/243 |
+| 1+ | 3+ | 2 | 333/333 |
 
 Proof, not screenshots: [`docs/DEMO.md`](docs/DEMO.md) — every row links to
 Etherscan / HashScan.
@@ -88,6 +88,28 @@ npx tsx src/cli.ts hire --agent scout --cap 10 --window-hours 24
 
 Lending intel: `npx tsx src/cli.ts lending markets --symbols USDC,WETH`.
 
+## Community finance
+
+Varanasi extends the enforcement rail into a programmable treasury your agent
+can steward — demo-first, contracts-as-source-of-truth:
+
+- **Contracts** (`contracts/src/finance/`, `collateral/`, `gold/`): `SavingsVault`,
+  `ChitPool`, `LoanAgreement`, `FinancialReputation`, `CollateralVault`, gold-backed
+  `GoldRegistry`/`GoldAttestor`/`GoldToken`, and a non-breaking
+  `RiskGuard` authorization hook. 54/54 protocol tests green.
+- **Service** (`service /v1/finance*`): deterministic demo portfolio +
+  recommendation APIs, seeded by wallet address (5/5 tests).
+- **Agent engine** (`agent/src/finance`): `recommend()`, `buildMandate()`,
+  `execute()` — the latter throws until the contracts go live, so no demo state
+  ever broadcasts (9/9 tests).
+- **Frontend** (`/finance`): colosseum-grammar vault — savings vault, chit
+  fund, term loan, gold-backed collateral, credit score, and "what your
+  steward recommends". Every figure is labeled **simulated**; no real funds
+  move.
+
+Shared types live in `frontend/finance-types/` (mirrored into `service` and
+`agent`), so the three surfaces can never drift apart.
+
 ## The old way vs the varanasi way
 
 **Old way** — agent gets a private key and standing approvals. One injected
@@ -112,11 +134,13 @@ prompt, one hallucinated address, and the treasury drains.
 ## Map
 
 - `contracts/` — `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`
-  (Uniswap v4), deploy scripts, forge tests
+  (Uniswap v4), community finance (`SavingsVault`, `ChitPool`, `LoanAgreement`,
+  `FinancialReputation`, `CollateralVault`, gold stack), deploy scripts, forge tests
 - `agent/` — mandate signing, escrow client, ENS + Graph + x402 + Aave MCP,
-  demo workers (scout / analyst / freelancer), CLI
-- `service/` — x402-gated alpha API, HCS audit log
-- `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury
+  finance decision engine, demo workers (scout / analyst / freelancer), CLI
+- `service/` — x402-gated alpha API, financial demo APIs, HCS audit log
+- `frontend/` — marketplace, Hire wizard, `/account` vault, `/privy` treasury,
+  `/finance` vault, shared `finance-types`
 - `cre/` — confidential risk workflow · `bazantic/` — gateway + recipe
 - `docs/` — `MANDATE.md` (spec) · `DEMO.md` (evidence) · `SECURITY_REVIEW.md`
 
