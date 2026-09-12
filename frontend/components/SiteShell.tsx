@@ -8,20 +8,30 @@ import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
 import { BrandButton } from "@/components/BrandButton";
 import { Diamond, Mark } from "@/components/Diamond";
+import { ModeToggle } from "@/components/ModeToggle";
+import { useMode } from "@/components/mode";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME, GITHUB_URL, NAV } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-function Wordmark({ size = "lg" }: { size?: "lg" | "sm" }) {
+function Wordmark({ size = "lg", tagline = true }: { size?: "lg" | "sm"; tagline?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 text-ink" aria-label={`${APP_NAME} home`}>
+    <Link
+      href="/"
+      className="flex shrink-0 items-center gap-2.5 text-ink"
+      aria-label={`${APP_NAME} home`}
+    >
       <Mark className={size === "lg" ? "h-8 w-8 border border-border" : "h-7 w-7 border border-border"} />
-      <span className="font-display tracking-[-0.03em] lowercase text-ink">
-        <span className={size === "lg" ? "text-[22px]" : "text-lg"}>{APP_NAME}</span>
-        <span className="text-fg-muted">
-          <span className="mx-1">·</span>
-          <span className="hidden sm:inline font-label text-[11px] uppercase tracking-[0.14em]">the enforcement rail</span>
-        </span>
+      <span className="font-display lowercase tracking-[-0.03em] text-ink whitespace-nowrap">
+        <span className={size === "lg" ? "text-[22px] align-baseline" : "text-lg align-baseline"}>{APP_NAME}</span>
+        {tagline ? (
+          <span className="text-fg-muted">
+            <span className="mx-1.5 align-baseline">·</span>
+            <span className="hidden align-baseline font-label text-[11px] uppercase tracking-[0.14em] sm:inline">
+              the enforcement rail
+            </span>
+          </span>
+        ) : null}
       </span>
     </Link>
   );
@@ -29,6 +39,7 @@ function Wordmark({ size = "lg" }: { size?: "lg" | "sm" }) {
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { mode } = useMode();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -41,7 +52,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-[4.25rem] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 w-full">
           <Wordmark />
 
-          <nav className="hidden items-center gap-3 lg:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-3 xl:flex" aria-label="Primary">
             {NAV.map((item, i) => (
               <span key={item.to} className="flex items-center gap-3">
                 {i > 0 ? <Diamond className="text-fg-muted" /> : null}
@@ -59,14 +70,20 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <div className="hidden xl:flex">
+              <ModeToggle />
+            </div>
             <ThemeToggle className="hidden sm:inline-grid" />
-            <BrandButton href="/hire" className="hidden h-11 px-5 sm:inline-flex">
-              Hire
+            <BrandButton
+              href={mode === "agent" ? "/agents#onboard" : "/hire"}
+              className="hidden h-11 px-5 sm:inline-flex"
+            >
+              {mode === "agent" ? "Join the legion" : "Hire"}
             </BrandButton>
             <AuthSlot />
             <button
               type="button"
-              className="grid h-11 w-11 place-items-center text-ink lg:hidden border border-border"
+              className="grid h-11 w-11 place-items-center text-ink xl:hidden border border-border"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
@@ -77,7 +94,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {open ? (
-          <div className="border-t border-border bg-bg lg:hidden">
+          <div className="border-t border-border bg-bg xl:hidden">
             <nav className="flex flex-col px-4 py-2" aria-label="Mobile">
               {NAV.map((item) => (
                 <Link
@@ -91,9 +108,16 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              <Link href="/hire" className="flex h-12 items-center font-display text-[16px] font-medium text-accent">
-                Hire an agent
+              <Link
+                href={mode === "agent" ? "/agents#onboard" : "/hire"}
+                className="flex h-12 items-center font-display text-[16px] font-medium text-accent"
+              >
+                {mode === "agent" ? "Join the legion" : "Hire an agent"}
               </Link>
+              <div className="flex h-12 items-center gap-3">
+                <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Mode</span>
+                <ModeToggle />
+              </div>
               <div className="flex h-12 items-center gap-3">
                 <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
                 <ThemeToggle className="h-9 w-9 border-border/60" />
@@ -109,7 +133,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <footer className="mt-8 border-t border-border bg-footer">
         <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
           <div>
-            <Wordmark size="sm" />
+            <Wordmark size="sm" tagline={false} />
             <p className="mt-4 max-w-xs font-display text-[16px] italic leading-relaxed text-fg-body">
               Hire AI agents with a spending cap. Pay when the work is proven. Refund when it is not.
             </p>
