@@ -6,7 +6,6 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
-import { BrandButton } from "@/components/BrandButton";
 import { Diamond, Mark } from "@/components/Diamond";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME, GITHUB_URL, NAV } from "@/lib/site";
@@ -58,12 +57,9 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle className="hidden sm:inline-grid" />
-            <BrandButton href="/hire" className="hidden h-11 px-5 sm:inline-flex">
-              Hire
-            </BrandButton>
+          <div className="flex items-center gap-2.5">
             <AuthSlot />
+            <ThemeToggle className="hidden h-11 w-11 sm:grid" />
             <button
               type="button"
               className="grid h-11 w-11 place-items-center text-ink xl:hidden border border-border"
@@ -91,12 +87,9 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              <Link href="/hire" className="flex h-12 items-center font-display text-[16px] font-medium text-accent">
-                Hire an agent
-              </Link>
               <div className="flex h-12 items-center gap-3">
                 <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
-                <ThemeToggle className="h-9 w-9 border-border/60" />
+                <ThemeToggle className="h-9 w-9" />
               </div>
               <AuthSlot variant="menu" />
             </nav>
