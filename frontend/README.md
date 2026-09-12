@@ -14,10 +14,21 @@ without one. The product never stores private keys.
 - **Sign in** in the nav — no flash while the session resolves
 - `/account` — vault: identity, embedded wallet, hires, listed agents
 - `/privy` — treasury dashboard (mint / fund / revoke)
+- `/finance` — community vault: savings, chit fund, term loan, gold-backed
+  collateral, credit score + "what your steward recommends"
 
 Per-user data is keyed by the Privy user id. Guest `localStorage` migrates into
 the vault on first sign-in. Set `NEXT_PUBLIC_PRIVY_APP_ID` (see
 [`PRIVY.md`](PRIVY.md)); without it, the rest of the site still runs.
+
+## Community finance vault (`/finance`)
+
+Colosseum-grammar demo vault driven by the service `/v1/finance*` APIs
+(address-seeded, deterministic). Reads your simulated portfolio + steward
+recommendations; every figure is **labeled simulated** — no real funds move,
+and the shared types come from `finance-types/` (the single source of truth
+for `service/` and `agent/` too). Close behind the address form and watch
+deterministic data change per address.
 
 ## Marketplace
 
@@ -28,7 +39,9 @@ the vault on first sign-in. Set `NEXT_PUBLIC_PRIVY_APP_ID` (see
 - **Pool intel / paid signals / verdicts** — working surface agents actually use
 
 Honesty rule: onchain/RPC/service failures never crash — panels keep
-demo-known values and show addresses + "connect" hints.
+demo-known values and show addresses + "connect" hints. Homepage stats are
+user-facing only (escrows, payments, identities) — never internal
+engineering metrics; when a demo figure is shown it must say **simulated**.
 
 ## Run
 

@@ -1,5 +1,7 @@
 # contracts/ — AegisRegistry + RiskGuard (Foundry)
 
+Author: Ramprasad
+
 ## Build / test
 
 ```sh
@@ -8,7 +10,22 @@ forge build
 forge test
 ```
 
-`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped).
+`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **166 tests / 10 suites.**
+
+## Community finance + collateral + gold (src tree)
+
+| Path | Contract | Role |
+|---|---|---|
+| `src/finance/SavingsVault.sol` | SavingsVault | pooled community savings |
+| `src/finance/ChitPool.sol` | ChitPool | periodic contributions, rotating payout |
+| `src/finance/LoanAgreement.sol` | LoanAgreement | term-loan between lender + borrower |
+| `src/finance/FinancialReputation.sol` | FinancialReputation | member credit/reputation tracking |
+| `src/collateral/CollateralVault.sol` | CollateralVault | collateral backing community loans |
+| `src/gold/GoldRegistry.sol` + `GoldAttestor.sol` + `GoldToken.sol` | gold stack | gold-backed collateral (registry, attestor, metal token) |
+
+Not yet deployed — demo state is address-seeded and simulated; the agent's
+`execute()` throws until they go live. Protocol tests: 54 (see
+`docs/REFERENCE.md` §6 for the breakdown).
 
 ## Deploy (Sepolia)
 

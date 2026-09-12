@@ -218,3 +218,22 @@ CLI: `npx tsx src/cli.ts hire --agent scout|analyst|freelancer --pool <id> [--ta
 prints machine-readable JSON (exit 0 with receipt/verdict, non-zero with
 error JSON). Freelancer caller key via `FREELANCER_PRIVATE_KEY` env (fallback
 `OWNER_PRIVATE_KEY` / `AEGIS_OWNER_KEY`) or `--key-stdin` pipe.
+
+## 8. Community finance engine (demo vault)
+
+Same decision pipeline as the other workers, applied to the community vault
+(`contracts/src/finance/`, `service /v1/finance*`, `frontend /finance`):
+
+```ts
+import { recommend } from "./src/finance/finance.js";
+const recs = await recommend({ address, portfolio }); // steward recommendations
+```
+
+- `recommend(portfolio)` → what the steward suggests (e.g. contribute more
+  this month, ladder a chit).
+- `buildMandate(decisions)` → mandate-shaped objects the human can sign.
+- `execute(mandate)` → **throws** until the finance contracts are deployed.
+  This is deliberate: no demo state ever broadcasts to Sepolia.
+
+Shared types mirror `frontend/finance-types/` — edit them there, never inline
+in `agent/`.
