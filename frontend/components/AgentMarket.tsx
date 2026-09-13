@@ -25,7 +25,7 @@ import {
   type PublicClientLike,
 } from "./aegis";
 import { AGENTS, AEGIS_REGISTRY, ETHERSCAN_ADDR, ETHERSCAN_TX, shortAddr } from "@/lib/site";
-import { loadScoped, saveScoped, useVaultUserId } from "@/lib/vault";
+import { loadScoped, saveScoped, useVaultUserId, useVaultWallets } from "@/lib/vault";
 
 export type AgentMarketProps = {
   agents?: AgentRecord[];
@@ -41,7 +41,22 @@ export function AgentMarket({
   onUpdate: propOnUpdate,
 }: AgentMarketProps = {}) {
   const userId = useVaultUserId();
+  const wallets = useVaultWallets();
   const [internalAgents, setInternalAgents] = useState<AgentRecord[]>([]);
+
+  async function getProvider(): Promise<unknown> {
+    const w = (wallets?.[0] ?? null) as unknown as {
+      getEthereumProvider?: () => Promise<unknown>;
+    } | null;
+    if (w?.getEthereumProvider) {
+      try {
+        return await w.getEthereumProvider();
+      } catch {
+        /* fall through to window.ethereum */
+      }
+    }
+    return (window as unknown as { ethereum?: unknown }).ethereum;
+  }
   const [status, setStatus] = useState("");
   const [liveCheck, setLiveCheck] = useState("");
   const [open, setOpen] = useState(false);
@@ -62,7 +77,7 @@ export function AgentMarket({
     () =>
       createPublicClient({
         chain: sepolia,
-        transport: SEPOLIA_RPC ? http(SEPOLIA_RPC) : http(),
+        transport: http(SEPOLIA_RPC),
       }),
     []
   );
@@ -146,16 +161,16 @@ export function AgentMarket({
       setStatus("Registry not deployed yet — marked revoked locally.");
       return;
     }
-    const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-    if (!eth) {
+    const provider = await getProvider();
+    if (!provider) {
       handleUpdate({ ...a, revoked: true });
-      setStatus("No window.ethereum found — marked revoked locally.");
+      setStatus("No wallet found — connect a wallet or sign in with Privy to revoke onchain.");
       return;
     }
     try {
       const walletClient = createWalletClient({
         chain: sepolia,
-        transport: custom(eth as never),
+        transport: custom(provider as never),
       });
       const [account] = await walletClient.getAddresses();
       if (!account) throw new Error("No account — unlock your wallet first.");
@@ -190,12 +205,12 @@ export function AgentMarket({
     }
     const expirySec = Math.floor(Date.now() / 1000) + Math.max(1, Number(days) || 90) * 86400;
 
-    const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-    if (eth && isDeployed) {
+    const provider = await getProvider();
+    if (provider && isDeployed) {
       try {
         const walletClient = createWalletClient({
           chain: sepolia,
-          transport: custom(eth as never),
+          transport: custom(provider as never),
         });
         const [account] = await walletClient.getAddresses();
         if (account) {

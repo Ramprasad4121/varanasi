@@ -1,7 +1,7 @@
 "use client";
 
 // Author: Ramprasad — per-user vault. Keys never stored. Guest data migrates on first sign-in.
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { load, save } from "../components/aegis";
 
 export const HAS_PRIVY = Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID);
@@ -70,4 +70,11 @@ export function useVaultUserId(): string | undefined {
   const { ready, authenticated, user } = usePrivy();
   if (!ready || !authenticated || !user) return undefined;
   return user.id;
+}
+
+export function useVaultWallets(): unknown[] {
+  if (!HAS_PRIVY) return [];
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- HAS_PRIVY is fixed at build time
+  const { wallets } = useWallets();
+  return wallets ?? [];
 }

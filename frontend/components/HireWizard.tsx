@@ -207,7 +207,7 @@ export function HireWizard({
     () =>
       createPublicClient({
         chain: sepolia,
-        transport: SEPOLIA_RPC ? http(SEPOLIA_RPC) : http(),
+        transport: http(SEPOLIA_RPC),
       }),
     []
   );
@@ -719,9 +719,18 @@ function HireWizardInner({
         } as never)) as unknown as readonly [
           string, string, string, string, bigint, bigint, bigint, bigint, bigint, bigint, string, bigint, string, number
         ];
-        setTrackDetail(
-          `cap ${t[4].toString()} · funded ${t[5].toString()} · score ${t[9].toString()} bps · expiry ${new Date(Number(t[8]) * 1000).toLocaleString()}`
-        );
+        const tAny = t as unknown as Record<string, unknown> | readonly unknown[];
+        const cap = (tAny as readonly unknown[])?.[4] ?? (tAny as Record<string, unknown>)?.cap;
+        const funded = (tAny as readonly unknown[])?.[5] ?? (tAny as Record<string, unknown>)?.fundedAmount;
+        const score = (tAny as readonly unknown[])?.[9] ?? (tAny as Record<string, unknown>)?.scoreBps;
+        const expiry = (tAny as readonly unknown[])?.[8] ?? (tAny as Record<string, unknown>)?.expiry;
+        if (cap !== undefined && funded !== undefined) {
+          setTrackDetail(
+            `cap ${String(cap)} · funded ${String(funded)} · score ${String(score ?? 0)} bps · expiry ${expiry ? new Date(Number(expiry) * 1000).toLocaleString() : "none"}`
+          );
+        } else {
+          setTrackDetail("");
+        }
       } catch {
         setTrackDetail("");
       }

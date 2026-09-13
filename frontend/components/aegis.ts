@@ -10,7 +10,7 @@ export const REGISTRY =
 export const TASK_ESCROW = "0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24";
 export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
 export const SEPOLIA_CHAIN_ID = 11155111;
-export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "";
+export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || "https://rpc.sepolia.org";
 export const SIGNAL_URL =
   process.env.NEXT_PUBLIC_SIGNAL_URL ?? "http://localhost:4021";
 export const GRAPH_API_KEY = process.env.NEXT_PUBLIC_GRAPH_API_KEY ?? "";
