@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Author: Ramprasad — guided Hire wizard: pick archetype → terms → Authorize & fund (sign + mint + approve + fund in one click, Sepolia TaskEscrow, Privy/window.ethereum signer) → track; live deps Sepolia RPC/escrow/vUSD; degrades with saved values + connect hints, never crashes.
 "use client";
 
@@ -13,6 +14,7 @@ import {
   isAddress,
   keccak256,
   parseUnits,
+  formatUnits,
   type Address,
   type Hash,
 } from "viem";
@@ -21,6 +23,8 @@ import {
   usePrivy as usePrivyHook,
   useWallets as useWalletsHook,
 } from "@privy-io/react-auth";
+import { BrandButton } from "@/components/BrandButton";
+import { AlertCircle, Check, Coins, ExternalLink, Wallet } from "lucide-react";
 import {
   REGISTRY,
   REGISTRY_ABI,
@@ -161,6 +165,33 @@ const ERC20_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "mint",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
 
 const MANDATE_TYPES: Record<string, { name: string; type: string }[]> = {
@@ -211,7 +242,7 @@ export function HireWizard({
       }),
     []
   );
-  const client = publicClient || (defaultClient as unknown as HireClient);
+  const client = publicClient || (defaultClient as any as HireClient);
   // Layout mounts PrivyProvider when an App ID is set. Without one we skip
   // the hooks entirely and use the MetaMask-only path.
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
@@ -246,8 +277,8 @@ function HireWizardWithPrivy({
   externalAgent?: AgentRecord | null;
   initialAgent?: string | null;
 }) {
-  const privy = usePrivyHook() as unknown as PrivySoft;
-  const { wallets } = useWalletsHook() as unknown as { wallets?: unknown[] };
+  const privy = usePrivyHook() as any as PrivySoft;
+  const { wallets } = useWalletsHook() as any as { wallets?: any[] };
   return (
     <HireWizardInner
       publicClient={publicClient}
@@ -276,7 +307,7 @@ function HireWizardInner({
   externalAgent?: AgentRecord | null;
   initialAgent?: string | null;
   privy: PrivySoft;
-  wallets: unknown[];
+  wallets: any[];
 }) {
 
   const [step, setStep] = useState(1);
@@ -312,6 +343,9 @@ function HireWizardInner({
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState("");
   const [status, setStatus] = useState("");
+  const [hasMetaMask, setHasMetaMask] = useState(false);
+  const [vusdBalance, setVusdBalance] = useState<string | null>(null);
+  const [needsVusdMint, setNeedsVusdMint] = useState(false);
 
   // A Hire button on a market card pre-fills agent wallet + sublabel.
   useEffect(() => {
@@ -422,11 +456,8 @@ function HireWizardInner({
     setStep(3);
   }
 
-  async function getProvider(): Promise<unknown> {
-    // Privy integration order (docs): switch the wallet to the target chain
-    // FIRST, then read its EIP-1193 provider — the provider is only usable on
-    // the wallet's currently active network.
-    const w = (wallets?.[0] ?? null) as unknown as {
+  async function getProvider(): Promise<any> {
+    const w = (wallets?.[0] ?? null) as any as {
       getEthereumProvider?: () => Promise<unknown>;
       switchChain?: (id: number) => Promise<void>;
     } | null;
@@ -438,11 +469,101 @@ function HireWizardInner({
         /* fall through to window.ethereum */
       }
     }
-    const eth = (window as unknown as { ethereum?: unknown }).ethereum;
-    if (eth) return eth;
-    throw new Error(
-      "No wallet found — connect a wallet or log in with Privy first."
-    );
+    const eth = (window as any as { ethereum?: any }).ethereum;
+    if (eth) {
+      return eth;
+    }
+    throw new Error("No wallet found — connect a wallet or log in with Privy first.");
+  }
+
+  async function ensureSepoliaNetwork(provider: any) {
+    if (!provider || typeof provider.request !== "function") return;
+    try {
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0xaa36a7" }],
+      });
+    } catch (err: any) {
+      if (err.code === 4902) {
+        await provider.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0xaa36a7",
+              chainName: "Sepolia Test Network",
+              nativeCurrency: { name: "SepoliaETH", symbol: "SEP", decimals: 18 },
+              rpcUrls: ["https://rpc.sepolia.org"],
+            },
+          ],
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  async function getActiveAccount(wc: any, provider: any) {
+    if (provider && typeof provider.request === "function") {
+      try {
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        if (accounts && accounts.length > 0) return accounts[0];
+      } catch (e) {
+        // ignore
+      }
+    }
+    const addresses = await wc.getAddresses();
+    return addresses[0];
+  }
+
+  async function refreshVusdBalance(acct: string) {
+    try {
+      const bal = await publicClient.readContract({
+        address: VUSD as Address,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [acct as Address],
+      } as never) as bigint;
+      setVusdBalance(formatUnits(bal, 6));
+      let cap = BigInt(0);
+      try { cap = parseUnits(capVusd.trim() || "0", 6); } catch {}
+      setNeedsVusdMint(bal < cap);
+    } catch (err) {
+      console.error("Failed to read vUSD balance", err);
+    }
+  }
+
+  async function claimVusdTokens() {
+    setStatus("");
+    setBusy(true);
+    try {
+      const provider = await getProvider();
+      await ensureSepoliaNetwork(provider);
+      const wc = createWalletClient({
+        chain: sepolia,
+        transport: custom(provider as never),
+      });
+      const acct = await getActiveAccount(wc, provider);
+      if (!acct) throw new Error("No account — unlock your wallet first.");
+      const data = encodeFunctionData({
+        abi: ERC20_ABI,
+        functionName: "mint",
+        args: [acct as Address, parseUnits("100", 6)],
+      });
+      const hash = await wc.sendTransaction({
+        account: acct as Address,
+        to: VUSD as Address,
+        data,
+        chain: sepolia,
+      });
+      setStatus(`Minting 100 vUSD... tx: ${hash.slice(0, 18)}`);
+      await waitReceipt(hash);
+      setStatus("100 vUSD claimed successfully!");
+      await refreshVusdBalance(acct);
+    } catch (err) {
+      setStatus(`Mint failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function waitReceipt(hash: Hash) {
@@ -450,7 +571,7 @@ function HireWizardInner({
       await publicClient.waitForTransactionReceipt?.({ hash });
       return true;
     } catch {
-      return false; // submitted; receipt unreadable (RPC unreachable?)
+      return false;
     }
   }
 
@@ -459,12 +580,14 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
+      await ensureSepoliaNetwork(provider);
       const wc = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await wc.getAddresses();
+      const acct = await getActiveAccount(wc, provider);
       if (!acct) throw new Error("No account — unlock your wallet first.");
+      await refreshVusdBalance(acct);
       const signature = await wc.signTypedData({
         account: acct,
         domain: {
@@ -522,11 +645,12 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
+      await ensureSepoliaNetwork(provider);
       const wc = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await wc.getAddresses();
+      const acct = await getActiveAccount(wc, provider);
       if (!acct) throw new Error("No account — unlock your wallet first.");
       const data = encodeFunctionData({
         abi: REGISTRY_ABI,
@@ -575,11 +699,12 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
+      await ensureSepoliaNetwork(provider);
       const wc = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await wc.getAddresses();
+      const acct = await getActiveAccount(wc, provider);
       if (!acct) throw new Error("No account — unlock your wallet first.");
       const data = encodeFunctionData({
         abi: ERC20_ABI,
@@ -621,12 +746,12 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
-      // Deposit and lock funds into TaskEscrow via walletClient
+      await ensureSepoliaNetwork(provider);
       const walletClient = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await walletClient.getAddresses();
+      const acct = await getActiveAccount(walletClient, provider);
       if (!acct) throw new Error("No account — unlock your wallet first.");
       const data = encodeFunctionData({
         abi: ESCROW_ABI,
@@ -671,7 +796,7 @@ function HireWizardInner({
   // The fresh signature threads through as a local (React state lags a
   // render behind, so fund never reads a stale closure).
   async function authorizeAndFund() {
-    const hasExtensionWallet = !!(window as unknown as { ethereum?: unknown })
+    const hasExtensionWallet = !!(window as any as { ethereum?: any })
       .ethereum;
     if (
       wallets?.length === 0 &&
@@ -732,10 +857,10 @@ function HireWizardInner({
           abi: ESCROW_ABI,
           functionName: "tasks",
           args: [id],
-        } as never)) as unknown as readonly [
+        } as never)) as any as readonly [
           string, string, string, string, bigint, bigint, bigint, bigint, bigint, bigint, string, bigint, string, number
         ];
-        const tAny = t as unknown as Record<string, unknown> | readonly unknown[];
+        const tAny = t as any as Record<string, unknown> | readonly unknown[];
         const cap = (tAny as readonly unknown[])?.[4] ?? (tAny as Record<string, unknown>)?.cap;
         const funded = (tAny as readonly unknown[])?.[5] ?? (tAny as Record<string, unknown>)?.fundedAmount;
         const score = (tAny as readonly unknown[])?.[9] ?? (tAny as Record<string, unknown>)?.scoreBps;
@@ -769,11 +894,12 @@ function HireWizardInner({
     setBusy(true);
     try {
       const provider = await getProvider();
+      await ensureSepoliaNetwork(provider);
       const wc = createWalletClient({
         chain: sepolia,
         transport: custom(provider as never),
       });
-      const [acct] = await wc.getAddresses();
+      const acct = await getActiveAccount(wc, provider);
       if (!acct) throw new Error("No account — unlock your wallet first.");
       const data = encodeFunctionData({
         abi: ESCROW_ABI,
@@ -781,7 +907,7 @@ function HireWizardInner({
         args: [id as Hash],
       });
       const hash = await wc.sendTransaction({
-        account: acct,
+        account: acct as Address,
         to: TASK_ESCROW as Address,
         data,
         chain: sepolia,
@@ -953,24 +1079,41 @@ function HireWizardInner({
               </pre>
             </div>
           </details>
-          {!privy.authenticated && (
-            <div className="status">
-              No embedded wallet here —{" "}
+          {!privy.authenticated && !account && (
+            <div className="status" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              No embedded wallet here —
               {typeof privy.login === "function" ? (
                 <button type="button" onClick={() => privy.login?.()}>
                   Log in with Privy
                 </button>
               ) : (
-                <span>
-                  connect a wallet, or{" "}
-                  <a href="/privy">log in with Privy →</a>
-                </span>
+                <button type="button" onClick={async () => {
+                  try {
+                    const eth = (window as any).ethereum;
+                    if (!eth) throw new Error("No wallet extension found.");
+                    const accounts = await eth.request({ method: "eth_requestAccounts" });
+                    setAccount(accounts[0]);
+                    await refreshVusdBalance(accounts[0]);
+                  } catch (e: any) {
+                    setStatus("Connect failed: " + e.message);
+                  }
+                }}>
+                  Connect Wallet
+                </button>
               )}
             </div>
           )}
           {account && (
             <div className="status">
               Signing as <code>{account}</code>
+              {vusdBalance !== null && (
+                <span> · Balance: {vusdBalance} vUSD</span>
+              )}
+              {needsVusdMint && (
+                <button type="button" style={{ marginLeft: 8 }} disabled={busy} onClick={claimVusdTokens}>
+                  Claim 100 vUSD
+                </button>
+              )}
             </div>
           )}
           <label style={{ marginTop: 12 }}>
