@@ -423,19 +423,17 @@ function HireWizardInner({
   }
 
   async function getProvider(): Promise<unknown> {
+    // Privy integration order (docs): switch the wallet to the target chain
+    // FIRST, then read its EIP-1193 provider — the provider is only usable on
+    // the wallet's currently active network.
     const w = (wallets?.[0] ?? null) as unknown as {
       getEthereumProvider?: () => Promise<unknown>;
       switchChain?: (id: number) => Promise<void>;
     } | null;
-    if (w?.getEthereumProvider) {
+    if (w?.getEthereumProvider && w?.switchChain) {
       try {
-        const p = await w.getEthereumProvider();
-        try {
-          await w.switchChain?.(SEPOLIA_CHAIN_ID);
-        } catch {
-          /* chain UX: proceed, writes pin Sepolia */
-        }
-        return p;
+        await w.switchChain(SEPOLIA_CHAIN_ID);
+        return await w.getEthereumProvider();
       } catch {
         /* fall through to window.ethereum */
       }
@@ -556,9 +554,16 @@ function HireWizardInner({
       );
       return true;
     } catch (err) {
-      setStatus(
-        `Mint failed: ${err instanceof Error ? err.message : String(err)}`
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/LabelTaken|already\s+minted|already\s+registered/i.test(msg)) {
+        // Identity already exists onchain (this sublabel or agent wallet was
+        // minted before) — treat as minted and continue the funding flow.
+        setSkipMint(true);
+        setMintOk(true);
+        setStatus(`${sublabel.trim().toLowerCase()}.aegis.eth already minted — continuing.`);
+        return true;
+      }
+      setStatus(`Mint failed: ${msg}`);
       return false;
     } finally {
       setBusy(false);
@@ -666,6 +671,17 @@ function HireWizardInner({
   // The fresh signature threads through as a local (React state lags a
   // render behind, so fund never reads a stale closure).
   async function authorizeAndFund() {
+    const hasExtensionWallet = !!(window as unknown as { ethereum?: unknown })
+      .ethereum;
+    if (
+      wallets?.length === 0 &&
+      !hasExtensionWallet &&
+      typeof privy.login === "function"
+    ) {
+      setStatus("Sign in with Privy to authorize & fund — opening login…");
+      void privy.login();
+      return;
+    }
     setBusy(true);
     try {
       let signature = sig;
