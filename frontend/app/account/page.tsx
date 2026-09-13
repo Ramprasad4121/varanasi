@@ -192,7 +192,7 @@ function AccountInner() {
                 rel="noreferrer"
                 className="font-label text-xs text-accent underline underline-offset-4"
               >
-                View transaction ↗
+                View on Etherscan ↗
               </a>
             </p>
           ) : null}

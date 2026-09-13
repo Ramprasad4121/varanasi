@@ -72,7 +72,7 @@ export function PoolIntel({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            query: `{ pool(id: "${pool.address.toLowerCase()}") { id totalValueLockedUSD volumeUSD feesUSD txCount } }`,
+            query: `{ pool(id: "${pool.address.toLowerCase()}") { id feeTier totalValueLockedUSD volumeUSD txCount } }`,
           }),
         }
       );
@@ -82,7 +82,7 @@ export function PoolIntel({
           pool?: {
             totalValueLockedUSD?: string;
             volumeUSD?: string;
-            feesUSD?: string;
+            feeTier?: string;
             txCount?: string;
           } | null;
         };
@@ -90,9 +90,9 @@ export function PoolIntel({
       const p = j.data?.pool;
       setGraphNote(
         p
-          ? `Live: TVL $${Number(p.totalValueLockedUSD).toLocaleString()} · vol $${Number(
-              p.volumeUSD
-            ).toLocaleString()} · fees $${Number(p.feesUSD).toLocaleString()} · txs ${p.txCount}`
+          ? `Live: TVL $${Number(p.totalValueLockedUSD || 0).toLocaleString()} · vol $${Number(
+              p.volumeUSD || 0
+            ).toLocaleString()} · fee ${(Number(p.feeTier || 0) / 10000).toFixed(2)}% · txs ${p.txCount ?? 0}`
           : "Live query returned no pool — check the pool address."
       );
     } catch (err) {

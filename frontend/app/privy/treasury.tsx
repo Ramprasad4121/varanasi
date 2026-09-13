@@ -21,8 +21,8 @@ import { loadScoped, saveScoped } from "../../lib/vault";
 // ---------------------------------------------------------------------------
 // Env + constants
 // ---------------------------------------------------------------------------
-const REGISTRY = (process.env.NEXT_PUBLIC_AEGIS_REGISTRY ?? "") as string;
-const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "";
+const REGISTRY = (process.env.NEXT_PUBLIC_AEGIS_REGISTRY || "0x3913f1E6A0Be93180363aBd01Df7968d494033A8") as string;
+const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC || "https://rpc.sepolia.org";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const registryDeployed = Boolean(REGISTRY) && REGISTRY.toLowerCase() !== ZERO;
 const SEPOLIA_ID = 11155111;
@@ -152,7 +152,7 @@ export default function Treasury() {
     () =>
       createPublicClient({
         chain: sepolia,
-        transport: SEPOLIA_RPC ? http(SEPOLIA_RPC) : http(),
+        transport: http(SEPOLIA_RPC),
       }),
     []
   );

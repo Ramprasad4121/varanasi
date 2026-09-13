@@ -219,7 +219,7 @@ button:not([class]) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-button:hover { border-color: rgb(var(--accent)); color: rgb(var(--accent-deep)); }
+button:not([class]):hover { border-color: rgb(var(--accent)); color: rgb(var(--accent-deep)); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
   outline: 2px solid rgb(var(--accent));
