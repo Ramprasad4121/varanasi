@@ -82,3 +82,30 @@
   min-height: 44px;
   min-width: 44px;
 }
+
+.cta-primary {
+  background: rgb(var(--accent)) !important;
+  color: rgb(var(--on-accent)) !important;
+  border: 1px solid rgb(var(--accent)) !important;
+  padding: 12px 24px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  font-family: var(--label-mono) !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  min-height: 48px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.cta-primary:hover:not(:disabled) {
+  opacity: 0.9 !important;
+}
+
+.cta-primary:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
