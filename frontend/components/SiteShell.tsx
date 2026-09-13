@@ -40,7 +40,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-[4.25rem] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 w-full">
           <Wordmark />
 
-          <nav className="hidden items-center gap-3 xl:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-3 lg:flex" aria-label="Primary">
             {NAV.map((item, i) => (
               <span key={item.to} className="flex items-center gap-3">
                 {i > 0 ? <Diamond className="text-fg-muted" /> : null}
@@ -58,38 +58,50 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2.5">
+            <Link
+              href="/hire"
+              className="hidden sm:inline-flex h-9 items-center justify-center border border-accent bg-accent text-bg px-3.5 font-label text-[11px] uppercase tracking-[0.14em] font-medium transition-colors hover:bg-accent/90 shrink-0"
+            >
+              Hire agent
+            </Link>
             <AuthSlot />
-            <ThemeToggle className="hidden h-11 w-11 sm:grid" />
+            <ThemeToggle className="hidden sm:grid h-9 w-9 border border-border" />
             <button
               type="button"
-              className="grid h-11 w-11 m-0 place-items-center border border-border text-ink xl:hidden"
+              className="grid h-9 w-9 m-0 place-items-center border border-border text-ink lg:hidden"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
         {open ? (
-          <div className="border-t border-border bg-bg xl:hidden">
-            <nav className="flex flex-col px-4 py-2" aria-label="Mobile">
+          <div className="border-t border-border bg-bg lg:hidden">
+            <nav className="flex flex-col px-4 py-3 gap-1" aria-label="Mobile">
+              <Link
+                href="/hire"
+                className="flex h-10 items-center justify-center border border-accent bg-accent text-bg font-label text-[12px] uppercase tracking-[0.14em] font-medium mb-2"
+              >
+                Hire an agent
+              </Link>
               {NAV.map((item) => (
                 <Link
                   key={item.to}
                   href={item.to}
                   className={cn(
-                    "flex h-12 items-center font-display text-[16px] text-fg border-b border-border/40 last:border-0",
+                    "flex h-11 items-center font-display text-[16px] text-fg border-b border-border/40 last:border-0",
                     pathname === item.to && "text-accent font-medium"
                   )}
                 >
                   {item.label}
                 </Link>
               ))}
-              <div className="flex h-12 items-center gap-3">
+              <div className="flex h-11 items-center justify-between pt-2">
                 <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
-                <ThemeToggle className="h-9 w-9" />
+                <ThemeToggle className="h-9 w-9 border border-border" />
               </div>
               <AuthSlot variant="menu" />
             </nav>

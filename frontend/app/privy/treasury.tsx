@@ -415,7 +415,7 @@ export default function Treasury() {
           </span>
         </div>
       )}
-      <div className="grid" style={{ marginTop: 24 }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5" style={{ marginTop: 24 }}>
         <section className="panel">
           <h2>1 · Sign in</h2>
           <p className="desc">
