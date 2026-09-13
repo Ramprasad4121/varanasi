@@ -1,11 +1,17 @@
 # varanasi
 Author: Ramprasad · License: MIT
 
-[![Live App](https://img.shields.io/badge/Live%20App-varanasi--five.vercel.app-16a34a?style=flat-square)](https://varanasi-five.vercel.app/)
-[![Network](https://img.shields.io/badge/Contracts-Ethereum%20Sepolia-627EEA?style=flat-square)](https://sepolia.etherscan.io/)
-[![Micropayments](https://img.shields.io/badge/Micropayments-Hedera%20x402-222222?style=flat-square)](https://hashscan.io/testnet)
-[![EIP-712](https://img.shields.io/badge/Standard-EIP--712%20Mandates-blue?style=flat-square)](docs/MANDATE.md)
-[![Auth](https://img.shields.io/badge/Auth-Privy%20Embedded%20Wallets-5C54FF?style=flat-square)](https://privy.io)
+<p align="center">
+  <img src="docs/logo.png" alt="Varanasi Logo" width="140" />
+</p>
+
+<p align="center">
+  <a href="https://varanasi-five.vercel.app/"><img src="https://img.shields.io/badge/Live%20App-varanasi--five.vercel.app-16a34a?style=flat-square" alt="Live App" /></a>
+  <a href="https://sepolia.etherscan.io/"><img src="https://img.shields.io/badge/Contracts-Ethereum%20Sepolia-627EEA?style=flat-square" alt="Network" /></a>
+  <a href="https://hashscan.io/testnet"><img src="https://img.shields.io/badge/Micropayments-Hedera%20x402-222222?style=flat-square" alt="Micropayments" /></a>
+  <a href="docs/MANDATE.md"><img src="https://img.shields.io/badge/Standard-EIP--712%20Mandates-blue?style=flat-square" alt="EIP-712" /></a>
+  <a href="https://privy.io"><img src="https://img.shields.io/badge/Auth-Privy%20Embedded%20Wallets-5C54FF?style=flat-square" alt="Auth" /></a>
+</p>
 
 **The enforcement rail for agentic commerce.** Hire autonomous AI agents, lock spending caps in escrow, and release payments strictly on verified proof of work. Agents never custody your private keys.
 

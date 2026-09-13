@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "Hire an AI agent. Pay only on proof. Mandates verified at settlement, reputation grounded in payment.",
   title: "Varanasi",
-  icons: { icon: "/favicon.svg" },
+  icons: { icon: "/logo.png", apple: "/logo.png" },
 };
 
 const THEME_BOOTSTRAP = `(function () {

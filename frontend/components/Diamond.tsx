@@ -11,8 +11,8 @@ export function Diamond({ className = "text-border-strong" }: { className?: stri
 export function Mark({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <img
-      src="/images/emblem.jpg"
-      alt=""
+      src="/logo.png"
+      alt="Varanasi Logo"
       className={`${className} rounded-none object-cover`}
       width={32}
       height={32}
