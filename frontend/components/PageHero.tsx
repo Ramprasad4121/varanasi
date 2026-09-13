@@ -10,7 +10,7 @@ export interface PageHeroProps {
   initial?: boolean;
 }
 
-export function PageHero({ title, lede, eyebrow, subtitle, image, initial = true }: PageHeroProps) {
+export function PageHero({ title, lede, eyebrow, subtitle, image, initial = false }: PageHeroProps) {
   const text = subtitle || lede;
   return (
     <header className="relative overflow-hidden border-b border-border bg-bg-muted/30">

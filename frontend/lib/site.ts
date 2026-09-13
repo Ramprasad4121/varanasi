@@ -12,9 +12,9 @@ export const VUSD = "0x6169A84cD7430042fb697c2cC131F663212E8b30";
 
 export const NAV = [
   { to: "/agents" as const, label: "Agents" },
+  { to: "/activity" as const, label: "Activity" },
   { to: "/docs" as const, label: "Documentation" },
   { to: "/roadmap" as const, label: "Roadmap" },
-  { to: "/account" as const, label: "Profile" },
 ];
 
 export const STATS: Array<{
