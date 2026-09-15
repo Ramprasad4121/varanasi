@@ -7,16 +7,16 @@ export function ComingSoon({
   title,
   eyebrow,
   what,
-  image = "/images/gate.jpg",
 }: {
   title: string;
   eyebrow: string;
   what: string;
+  /** @deprecated imagery removed — accepted and ignored. */
   image?: string;
 }) {
   return (
     <div>
-      <PageHero title={title} eyebrow={eyebrow} subtitle="Coming soon." image={image} />
+      <PageHero title={title} eyebrow={eyebrow} subtitle="Coming soon." />
       <section className="mx-auto max-w-[680px] px-4 py-14 text-center sm:px-6">
         <Diamond className="mx-auto text-accent" />
         <p className="mt-6 font-display text-xl italic leading-relaxed text-fg-body">{what}</p>

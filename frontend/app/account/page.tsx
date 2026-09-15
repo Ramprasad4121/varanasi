@@ -22,20 +22,18 @@ function SetupNotice() {
         title="Profile"
         eyebrow="Authentication"
         subtitle="Sign in to manage your wallet and mandates."
-        image="/images/scales.jpg"
-        initial={false}
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
-        <div className="border border-border bg-bg-elevated p-8">
+        <div className="rounded-xl border border-border bg-bg-elevated p-8 shadow-lift">
           <Badge tone="warn">Privy Setup Required</Badge>
           <h2 className="mt-4 font-display text-2xl font-medium text-ink">
             Configure embedded wallet authentication
           </h2>
-          <p className="mt-3 font-display text-base leading-relaxed text-fg-body">
+          <p className="mt-3 font-sans text-[15px] leading-relaxed text-fg-body">
             Varanasi uses Privy so a community member can sign in with email, Google, GitHub, or a
             wallet — and get a self-custodial wallet without installing anything.
           </p>
-          <ol className="mt-6 space-y-3 font-display text-base text-fg-body list-decimal list-inside">
+          <ol className="mt-6 space-y-3 font-sans text-[15px] text-fg-body list-decimal list-inside">
             <li>
               Create an app at <code className="font-label text-sm text-ink bg-bg p-1 border border-border">dashboard.privy.io</code>.
             </li>
@@ -91,11 +89,9 @@ function AccountInner() {
           title="Profile"
           eyebrow="Profile"
           subtitle="Loading identity…"
-          image="/images/scales.jpg"
-          initial={false}
         />
         <section className="mx-auto max-w-[960px] px-4 py-12 sm:px-6">
-          <div className="h-44 animate-pulse bg-bg-muted border border-border" />
+          <div className="h-44 animate-pulse rounded-xl bg-bg-muted border border-border" />
         </section>
       </div>
     );
@@ -108,13 +104,11 @@ function AccountInner() {
           title="Profile"
           eyebrow="Profile"
           subtitle="Email, Google, GitHub, or a wallet you already have. A wallet is created for you."
-          image="/images/scales.jpg"
-          initial={false}
         />
         <section className="mx-auto max-w-[960px] px-4 py-12 sm:px-6">
-          <div className="border border-border bg-bg-elevated p-8 sm:p-10">
+          <div className="rounded-xl border border-border bg-bg-elevated p-8 shadow-lift sm:p-10">
             <h2 className="font-display text-2xl sm:text-3xl font-medium text-ink">Sign in to access your vault</h2>
-            <p className="mt-3 font-display text-base leading-relaxed text-fg-body max-w-xl">
+            <p className="mt-3 font-sans text-[15px] leading-relaxed text-fg-body max-w-xl">
               A self-custodial wallet is initialized for you upon sign-in. Varanasi never stores private keys.
               Hire autonomous agents, enforce spending caps, and audit proofs directly from your vault.
             </p>
@@ -152,8 +146,6 @@ function AccountInner() {
         title="Profile"
         eyebrow="Profile & Vault"
         subtitle="Kept with your account. Never the keys. Hires and listed agents follow this identity across browsers."
-        image="/images/scales.jpg"
-        initial={false}
       />
       <section className="mx-auto flex flex-col max-w-[960px] gap-8 px-4 py-12 sm:px-6">
         {/* Account & Treasury Card */}
@@ -250,11 +242,11 @@ function AccountInner() {
                 </div>
               </div>
             ) : (
-              <p className="font-display italic text-fg-muted">
+              <p className="font-sans text-[14px] italic text-fg-muted">
                 Wallet is being created — refresh in a moment.
               </p>
             )}
-            <p className="mt-3 font-display text-sm text-fg-body">
+            <p className="mt-3 font-sans text-[14px] leading-relaxed text-fg-body">
               Fund this self-custodial address before authorizing live mandates. The agent acts strictly within your signed cap.
             </p>
           </div>
@@ -273,8 +265,8 @@ function AccountInner() {
           </div>
 
           {hires.length === 0 ? (
-            <div className="mt-6 border border-dashed border-border p-6 text-center">
-              <p className="font-display italic text-fg-muted">
+            <div className="mt-6 rounded-xl border border-dashed border-border p-6 text-center">
+              <p className="font-sans text-[15px] italic text-fg-muted">
                 No hires yet. Authorize an agent mandate and it will appear here.
               </p>
               <div className="mt-4">
@@ -315,8 +307,8 @@ function AccountInner() {
           </div>
 
           {agents.length === 0 ? (
-            <div className="mt-6 border border-dashed border-border p-6 text-center">
-              <p className="font-display italic text-fg-muted">
+            <div className="mt-6 rounded-xl border border-dashed border-border p-6 text-center">
+              <p className="font-sans text-[15px] italic text-fg-muted">
                 No listed agents yet. Register subnames under aegis.eth to build your agent portfolio.
               </p>
               <div className="mt-4">

@@ -57,7 +57,6 @@ export default function HumanPage() {
         title="Verify humanity"
         eyebrow="Human Verification"
         subtitle="One verified human can run more agents at a higher allowance. Guests stay capped. This stops one person minting an army."
-        image="/images/scales.jpg"
       />
       <section className="mx-auto max-w-[680px] px-4 py-12 sm:px-6">
         <p className="font-display text-lg leading-relaxed text-fg-body">

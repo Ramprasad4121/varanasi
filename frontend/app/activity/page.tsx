@@ -16,7 +16,6 @@ export default function ActivityPage() {
         title="The Ledger"
         eyebrow="Receipts & Signals"
         subtitle="Every paid signal, recorded with its receipt. Pick a pool, buy intel, watch the verdict."
-        image="/images/mandate-scroll.jpg"
       />
       <section className="mx-auto grid max-w-[1200px] gap-6 px-4 py-12 sm:px-6 lg:grid-cols-2">
         <PoolIntel intel={intel} onIntel={setIntel} />
