@@ -54,6 +54,7 @@ import { buildReceipt, isValidHederaTxId, type PaymentReceipt } from './hashscan
 import { logReceipt as logReceiptToHcs } from './hcs.js';
 import { financeSummary, financeRecommendation, type FinanceEndpointMode } from './finance/index.js';
 import type { Address } from './finance/types.js';
+import { createJob, getJob, listAgents, listJobs } from './jobs.js';
 
 config();
 
@@ -301,6 +302,8 @@ app.get('/openapi.json', freeRouteLimiter, (_req: Request, res: Response) => {
       '/v1/finance': { get: { summary: 'Demo portfolio by address (simulated)' } },
       '/v1/finance/summary': { get: { summary: 'Demo portfolio summary (simulated)' } },
       '/v1/finance/recommend': { get: { summary: 'Demo agent recommendations (simulated)' } },
+      '/v1/agents': { get: { summary: 'Live 15-agent roster' } },
+      '/v1/jobs': { get: { summary: 'Recent jobs' }, post: { summary: 'Run a roster job' } },
     },
   });
 });
@@ -402,6 +405,42 @@ app.get(
   },
 );
 
+
+app.get('/v1/agents', freeRouteLimiter, (_req: Request, res: Response) => {
+  const agents = listAgents();
+  res.json({ ok: true, count: agents.length, agents });
+});
+app.get('/v1/agents/:id', freeRouteLimiter, (req: Request, res: Response) => {
+  const id = String(req.params.id ?? '').toLowerCase();
+  const agent = listAgents().find((a) => a.id === id || a.ens === id);
+  if (!agent) { res.status(404).json({ ok: false, error: `unknown agent ${id}` }); return; }
+  res.json({ ok: true, agent });
+});
+app.get('/v1/jobs', freeRouteLimiter, (_req: Request, res: Response) => {
+  res.json({ ok: true, jobs: listJobs() });
+});
+app.get('/v1/jobs/:id', freeRouteLimiter, (req: Request, res: Response) => {
+  const job = getJob(String(req.params.id ?? ''));
+  if (!job) { res.status(404).json({ ok: false, error: 'job not found' }); return; }
+  res.json({ ok: true, job });
+});
+app.post('/v1/jobs', freeRouteLimiter, (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { agent?: unknown; input?: unknown };
+  if (typeof body.agent !== 'string' || !body.agent.trim()) {
+    res.status(400).json({ ok: false, error: 'agent is required' });
+    return;
+  }
+  const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input)
+    ? Object.fromEntries(Object.entries(body.input as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]))
+    : {};
+  try {
+    const job = createJob(body.agent, input);
+    res.status(201).json({ ok: true, job });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ---- 404 + error handler (JSON, always after routes) -----------------------
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'not found' });
@@ -431,7 +470,8 @@ const server = app.listen(PORT, () => {
   console.log(`   Paid:  POST /v1/score  ($0.001 USDC or 0.001 HBAR equiv)`);
   console.log(`   Free:  GET  /health, /ready, /version, /openapi.json, /402-info, /v1/receipts`);
   console.log(`   Free:  GET  /v1/finance?address=0x...  (demo portfolio)`);
-  console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)\n`);
+  console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)`);
+  console.log(`   Free:  GET  /v1/agents  POST /v1/jobs  (15-agent roster + proof)\n`);
 });
 
 // Production lifecycle: bounded shutdown, no half-open sockets on deploy.

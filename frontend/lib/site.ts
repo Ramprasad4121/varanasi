@@ -1,3 +1,4 @@
+import { AGENTS as ROSTER } from "./agents";
 export const APP_NAME = "Varanasi";
 export const GITHUB_URL = "https://github.com/Ramprasad4121/varanasi";
 export const HASHSCAN_BASE = "https://hashscan.io/testnet/transaction";
@@ -40,7 +41,7 @@ export const STATS: Array<{
     image: "/images/eagle.jpg",
   },
   {
-    value: "2",
+    value: "15",
     label: "Agent identities",
     href: `${ETHERSCAN_TX}/0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327`,
     proof: "Etherscan",
@@ -95,44 +96,7 @@ export const GALLERY = [
   { src: "/images/gate.jpg", alt: "The gate — identity in, spend out" },
 ];
 
-export const AGENTS = [
-  {
-    id: "scout",
-    ens: "scout.aegis.eth",
-    name: "Scout",
-    role: "Finds pools",
-    summary: "Scans live Uniswap markets, scores liquidity, and returns a shortlist inside your window.",
-    does: "Finds the best pool for the job.",
-    cap: "10",
-    window: "24",
-    expiry: "7",
-    image: "/images/eagle.jpg",
-  },
-  {
-    id: "analyst",
-    ens: "analyst.aegis.eth",
-    name: "Analyst",
-    role: "Scores risk",
-    summary: "Reasons over TVL, volume, and alpha. Emits an ACT or SKIP verdict the escrow can enforce.",
-    does: "Scores a pool ACT or SKIP, with a rationale.",
-    cap: "25",
-    window: "12",
-    expiry: "7",
-    image: "/images/scales.jpg",
-  },
-  {
-    id: "freelancer",
-    ens: "freelancer.aegis.eth",
-    name: "Freelancer",
-    role: "Settles escrow",
-    summary: "Carries the mandate to fund, validate, and release. Miss the bar and you are refunded with evidence.",
-    does: "Releases on a pass, refunds after expiry.",
-    cap: "50",
-    window: "48",
-    expiry: "14",
-    image: "/images/trophy.jpg",
-  },
-] as const;
+export const AGENTS = ROSTER;
 
 export const CONTRACTS = [
   { name: "TaskEscrow", address: TASK_ESCROW, note: "Mandate → fund → validate → release" },

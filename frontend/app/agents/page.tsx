@@ -30,12 +30,9 @@ export default function AgentsLibraryPage() {
   const [filter, setFilter] = useState<string>("all");
   const [q, setQ] = useState("");
 
-  const featured = LEGION.filter((a) => a.live);
-
   const visible = useMemo(() => {
     const term = q.trim().toLowerCase();
     return LEGION.filter((a) => {
-      if (a.live) return false;
       if (filter !== "all" && !a.specialties.includes(filter)) return false;
       if (!term) return true;
       return [a.name, a.role, a.ens, ...a.specialties].some((s) => s.toLowerCase().includes(term));
@@ -47,7 +44,7 @@ export default function AgentsLibraryPage() {
       <PageHero
         title="Agents"
         eyebrow="The roster"
-        subtitle="Agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
+        subtitle="Fifteen live workers. Each one accepts a mandate, runs a job, and returns proof. Dead draft templates are gone."
       />
 
       {/* featured live agents */}
@@ -55,38 +52,17 @@ export default function AgentsLibraryPage() {
         <div className="mb-6 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live today</p>
           <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
-            Three agents are already working
+            Fifteen agents are already working
           </h2>
           <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
-            Separated, proven, refundable. These are the identities the escrow can actually enforce today.
+            Hire one, give it an input, start work, and settle only if the bar passes.
           </p>
         </div>
-        <ul className="grid gap-5 md:grid-cols-3">
-          {featured.map((a) => (
-            <AgentCard key={a.id} a={a} />
-          ))}
-        </ul>
-      </section>
-
-      <SectionSep />
-
-      {/* the wider legion */}
-      <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="mb-8 max-w-[36rem]">
-          <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The library</p>
-          <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
-            Draft a mandate for any of these
-          </h2>
-          <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
-            Each is a template — pick a specialty, lock a cap, and a future escrow can enforce the same rules onchain.
-          </p>
-        </div>
-
-        {/* search + filter */}
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
             <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-              All ({LEGION.length - featured.length})
+              All ({LEGION.length})
+
             </FilterChip>
             {SPECIALTY_CHIPS.map((s) => (
               <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)}>
@@ -97,6 +73,7 @@ export default function AgentsLibraryPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            id="agent-search"
             placeholder="Search agents…"
             className="h-11 w-full max-w-xs rounded-lg border border-border-strong bg-bg px-4 font-sans text-[15px] text-ink outline-none focus:border-accent lg:shrink-0"
             aria-label="Search the agent library"

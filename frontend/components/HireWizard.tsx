@@ -38,6 +38,8 @@ import {
   type AgentRecord,
 } from "./aegis";
 import { rememberHire } from "../lib/vault";
+import { AGENTS as ROSTER, agentById, type CatalogAgent } from "../lib/agents";
+import { JobRunner } from "./JobRunner";
 const DEMO_TASK_ID =
   "0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc";
 const DEMO_FUND_TX =
@@ -53,35 +55,18 @@ export type HireClient = {
   }) => Promise<unknown>;
 };
 
-// --- Step-1 archetypes (mirror agent/src/workers/*) ---
-const ARCHETYPES = [
-  {
-    key: "scout",
-    label: "Scout",
-    does: "Scans pools for turnover + TVL and picks the best target.",
-    cost: "Suggested cap 10 vUSD",
-    defaultCap: "10",
-    demoWallet: "0x1111111111111111111111111111111111111111",
-  },
-  {
-    key: "analyst",
-    label: "Analyst",
-    does: "Scores a pool ACT / SKIP vs the threshold with a rationale.",
-    cost: "Suggested cap 25 vUSD",
-    defaultCap: "25",
-    demoWallet: "0x2222222222222222222222222222222222222222",
-  },
-  {
-    key: "freelancer",
-    label: "Freelancer",
-    does: "Settles a funded task — release on pass, refund after expiry.",
-    cost: "Suggested cap 50 vUSD",
-    defaultCap: "50",
-    demoWallet: "0x3333333333333333333333333333333333333333",
-  },
-] as const;
+const ARCHETYPES = ROSTER.map((a) => ({
+  key: a.id,
+  label: a.name,
+  does: a.does,
+  cost: `Suggested cap ${a.cap} vUSD`,
+  defaultCap: a.cap,
+  defaultWindow: a.window,
+  defaultExpiry: a.expiry,
+  demoWallet: a.demoWallet,
+}));
 
-type ArchKey = (typeof ARCHETYPES)[number]["key"];
+type ArchKey = string;
 
 // --- Minimal ABIs (mirror agent/src/escrow.ts TaskEscrow subset) ---
 const ESCROW_ABI = [
@@ -360,8 +345,9 @@ function HireWizardInner({
   useEffect(() => {
     if (!initialAgent) return;
     const lower = initialAgent.toLowerCase();
-    if (["scout", "analyst", "freelancer"].includes(lower)) {
-      pickArch(lower as ArchKey);
+    const found = agentById(lower);
+    if (found) {
+      pickArch(found.id);
     } else {
       setSublabel(lower.slice(0, 32));
     }
@@ -373,6 +359,8 @@ function HireWizardInner({
     const a = ARCHETYPES.find((x) => x.key === key);
     if (!a) return;
     setCapVusd(a.defaultCap);
+    setWindowHours(a.defaultWindow);
+    setExpiryDays(a.defaultExpiry);
     setSublabel(`hire-${key}`);
     if (!agentTouched) setAgentAddr(a.demoWallet);
   }
@@ -1291,6 +1279,7 @@ function HireWizardInner({
         Escrow <code>{TASK_ESCROW}</code> · vUSD{" "}
         <code>{VUSD}</code> (6dp)
       </p>
+      <JobRunner agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
     </section>
   );
 }

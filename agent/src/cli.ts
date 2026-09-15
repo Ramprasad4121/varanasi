@@ -23,6 +23,8 @@ import { formatDoctor, runDoctor } from "./doctor.js";
 import { runScout } from "./workers/scout.js";
 import { runAnalyst } from "./workers/analyst.js";
 import { runFreelancer } from "./workers/freelancer.js";
+import { runRoster } from "./workers/roster.js";
+import { AGENT_IDS, AGENTS, agentById } from "./catalog.js";
 import { getAgentProfile, searchAgents, type DiscoverChain } from "./discover.js";
 import {
   SEPOLIA_CHAIN_ID,
@@ -483,11 +485,54 @@ async function resolveFreelancerKey(fromStdin: boolean): Promise<`0x${string}`> 
 }
 
 program
+  .command("agents")
+  .description("List the live 15-agent roster (machine-readable JSON)")
+  .option("--id <id>", "print one agent")
+  .action((opts) => {
+    if (opts.id) {
+      const agent = agentById(String(opts.id));
+      if (!agent) {
+        console.error(JSON.stringify({ ok: false, error: `unknown agent ${opts.id}` }));
+        process.exitCode = 1;
+        return;
+      }
+      console.log(JSON.stringify({ ok: true, agent }, null, 2));
+      return;
+    }
+    console.log(JSON.stringify({ ok: true, count: AGENTS.length, ids: AGENT_IDS, agents: AGENTS }, null, 2));
+  });
+
+program
+  .command("job")
+  .description("Run a live roster agent and print a proof envelope")
+  .requiredOption("--agent <id>", "agent id")
+  .option("--pool <id>", "pool id")
+  .option("--task <taskId>", "escrow task id")
+  .option("--input <json>", "raw JSON input object")
+  .option("--offline", "fixture mode")
+  .action(async (opts) => {
+    try {
+      const extra = opts.input ? (JSON.parse(String(opts.input)) as Record<string, string>) : {};
+      const proof = await runRoster(String(opts.agent), {
+        ...extra,
+        pool: opts.pool ?? extra.pool,
+        taskId: opts.task ?? extra.taskId ?? extra.task,
+      }, { offline: true });
+      console.log(JSON.stringify(proof, null, 2));
+      if (!proof.ok) process.exitCode = 1;
+    } catch (e: unknown) {
+      console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
+      process.exitCode = 1;
+    }
+  });
+
+program
   .command("hire")
-  .description("Hire a demo worker end-to-end: scout|analyst|freelancer (prints machine-readable JSON)")
-  .requiredOption("--agent <worker>", "worker to hire: scout|analyst|freelancer")
+  .description("Hire a live worker end-to-end (prints machine-readable JSON)")
+  .requiredOption("--agent <worker>", "worker id from the live 15-agent roster")
   .option("--pool <id>", "pool id (scout pin / analyst intel)")
   .option("--task <taskId>", "escrow task id (freelancer, bytes32)")
+  .option("--input <json>", "extra JSON input fields")
   .option("--key-stdin", "read freelancer caller key from stdin pipe (default: FREELANCER_PRIVATE_KEY env; flags never accept keys)")
   .option("--offline", "fixture mode (no network Graph call; tests only)")
   .option("--llm", "opt-in LLM reasoning for analyst (default: heuristic)")
@@ -523,7 +568,15 @@ program
         console.log(JSON.stringify({ ok: true, worker, ...result }, null, 2));
         return;
       }
-      throw new Error(`Unknown --agent "${opts.agent}" (want scout|analyst|freelancer).`);
+      const extra = opts.input ? (JSON.parse(String(opts.input)) as Record<string, string>) : {};
+      const proof = await runRoster(worker, {
+        ...extra,
+        pool: opts.pool ?? extra.pool,
+        taskId: opts.task ?? extra.taskId,
+      }, { offline: offline || true });
+      console.log(JSON.stringify(proof, null, 2));
+      if (!proof.ok) process.exitCode = 1;
+      return;
     } catch (e: unknown) {
       console.error(JSON.stringify({ ok: false, error: String((e as Error)?.message ?? e).slice(0, 500) }));
       process.exitCode = 1;

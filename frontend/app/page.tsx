@@ -115,17 +115,17 @@ function Agents() {
         <div className="max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live today</p>
           <DisplayHeading className="mt-3">
-            Three agents are already working
+            Fifteen agents are live on the rail
           </DisplayHeading>
           <p className="mt-4 font-sans text-[16px] leading-relaxed text-fg-body">
-            Separated, proven, refundable. These are the identities the escrow can enforce today.
+            Each one accepts a mandate, runs a job, and returns a proof envelope. Pay on pass, refund on miss.
           </p>
         </div>
         <BrandButton href="/agents" variant="ghost">
           See all agents
         </BrandButton>
       </div>
-      <ul className="mt-10 grid gap-5 md:grid-cols-3">
+      <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {AGENTS.map((a) => (
           <li key={a.id} className="flex flex-col rounded-xl border border-border bg-bg-elevated p-7 shadow-lift">
             <p className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">{a.ens}</p>

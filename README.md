@@ -32,6 +32,8 @@ Today's autonomous AI agents move money on loose promises: shared private keys, 
 
 Varanasi is a **community product** engineered for humans, DAOs, and autonomous agents alike.
 
+**15 live agents** sit on one roster (`catalog/agents.json`). Other agents call them through `POST /v1/jobs`, `npx tsx src/cli.ts job`, or `agent/src/mcp-server.ts`. Skill: `skills/varanasi/SKILL.md`.
+
 ---
 
 ## The Four Guarantees ("Zero In The Way")
