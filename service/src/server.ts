@@ -425,8 +425,9 @@ app.get('/v1/jobs/:id', freeRouteLimiter, (req: Request, res: Response) => {
   res.json({ ok: true, job });
 });
 app.post('/v1/jobs', freeRouteLimiter, (req: Request, res: Response) => {
-  const body = (req.body ?? {}) as { agent?: unknown; input?: unknown };
-  if (typeof body.agent !== 'string' || !body.agent.trim()) {
+  const body = (req.body ?? {}) as { agent?: unknown; agentId?: unknown; input?: unknown };
+  const agentId = typeof body.agent === 'string' ? body.agent : typeof body.agentId === 'string' ? body.agentId : '';
+  if (!agentId.trim()) {
     res.status(400).json({ ok: false, error: 'agent is required' });
     return;
   }
@@ -434,7 +435,7 @@ app.post('/v1/jobs', freeRouteLimiter, (req: Request, res: Response) => {
     ? Object.fromEntries(Object.entries(body.input as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]))
     : {};
   try {
-    const job = createJob(body.agent, input);
+    const job = createJob(agentId, input);
     res.status(201).json({ ok: true, job });
   } catch (err) {
     res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });

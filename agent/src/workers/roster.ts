@@ -2,7 +2,7 @@
  * @author Ramprasad — runnable roster for all 15 live agents.
  */
 import { agentById, requireAgent, type CatalogAgent } from "../catalog.js";
-import { makeProof, type ProofResult } from "../proof.js";
+import { makeProof, proofHash, type ProofResult } from "../proof.js";
 import { CURATED_POOLS } from "../graph.js";
 import { runScout } from "./scout.js";
 import { runAnalyst } from "./analyst.js";
@@ -45,6 +45,10 @@ async function runAnalystJob(agent: CatalogAgent, input: RosterInput, opts: Rost
 
 export async function runRoster(id: string, input: RosterInput = {}, opts: RosterOptions = {}): Promise<ProofResult> {
   const agent = requireAgent(id);
+  const missing = agent.input.filter((f) => f.required && !str(input, f.name) && !str(input, f.name === "taskId" ? "task" : f.name));
+  if (missing.length) {
+    return { ok: false, agent: agent.id, error: `required: ${missing.map((f) => f.name).join(", ")}` };
+  }
   const mid = opts.mandateId;
   switch (agent.id) {
     case "scout": return runScoutJob(agent, input, opts);
@@ -93,7 +97,7 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "notary": {
       const artifact = str(input, "artifact");
-      return pass(agent, { artifact: artifact.slice(0, 120) }, { bytes: artifact.length, attested: artifact.length > 0 }, artifact.length > 0, mid);
+      return pass(agent, { artifact: artifact.slice(0, 120) }, { bytes: artifact.length, hash: proofHash(artifact), attested: artifact.length > 0 }, artifact.length > 0, mid);
     }
     case "trader": {
       const order = str(input, "order") || "buy 0.5 ETH with USDC";

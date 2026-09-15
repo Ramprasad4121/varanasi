@@ -42,9 +42,9 @@ export const STATS: Array<{
   },
   {
     value: "15",
-    label: "Agent identities",
-    href: `${ETHERSCAN_TX}/0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327`,
-    proof: "Etherscan",
+    label: "Live agents",
+    href: "/agents",
+    proof: "Roster",
     image: "/images/figure-builder.jpg",
   },
 ];

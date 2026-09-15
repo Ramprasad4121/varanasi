@@ -17,3 +17,10 @@ test('runs scout and oracle', () => {
 test('rejects unknown agents', () => {
   assert.throws(() => createJob('ghost', {}), /unknown agent/);
 });
+
+test('accepts any live id and fails closed on required fields', () => {
+  const job = createJob('oracle', { symbol: 'ETH/USDC' });
+  assert.equal(job.barPassed, true);
+  const miss = createJob('watcher', {});
+  assert.equal(miss.barPassed, false);
+});

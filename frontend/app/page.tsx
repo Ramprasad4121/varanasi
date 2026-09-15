@@ -65,8 +65,8 @@ function StatsBand() {
             <p className="mt-2 font-sans text-[14px] text-fg-body">{stat.label}</p>
             <a
               href={stat.href}
-              target="_blank"
-              rel="noreferrer"
+              target={stat.href.startsWith("/") ? undefined : "_blank"}
+              rel={stat.href.startsWith("/") ? undefined : "noreferrer"}
               className="mt-3 inline-block font-label text-[11px] uppercase tracking-[0.12em] text-accent underline underline-offset-4"
             >
               {stat.proof} ↗
@@ -148,9 +148,12 @@ function Agents() {
                 <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.expiry}d</dd>
               </div>
             </dl>
-            <div className="mt-6">
-              <BrandButton href={`/hire?agent=${a.id}`} className="w-full">
-                Hire {a.name}
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <BrandButton href={`/hire?agent=${a.id}#start-work`} className="w-full">
+                Start work
+              </BrandButton>
+              <BrandButton href={`/hire?agent=${a.id}`} variant="ghost" className="w-full">
+                Hire
               </BrandButton>
             </div>
           </li>

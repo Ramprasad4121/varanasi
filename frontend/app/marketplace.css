@@ -37,7 +37,8 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
-.cards .card { margin-top: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.cards .card.selected { border-color: rgb(var(--accent)); box-shadow: 0 0 0 1px rgb(var(--accent) / 0.35); }
+.cards .card { min-height: 0; }
 .cards .card:hover { border-color: rgb(var(--hairline-strong)); }
 @media (max-width: 1020px) { .cards { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
