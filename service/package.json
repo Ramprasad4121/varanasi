@@ -12,7 +12,7 @@
     "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
-    "@hiero-ledger/sdk": "^2.87.0",
+    "@hiero-ledger/sdk": "^2.88.0",
     "@x402/core": "^2.25.0",
     "@x402/express": "^2.25.0",
     "@x402/hedera": "^2.25.0",
