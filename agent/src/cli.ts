@@ -517,7 +517,7 @@ program
         ...extra,
         pool: opts.pool ?? extra.pool,
         taskId: opts.task ?? extra.taskId ?? extra.task,
-      }, { offline: true });
+      }, { offline: opts.offline !== false });
       console.log(JSON.stringify(proof, null, 2));
       if (!proof.ok) process.exitCode = 1;
     } catch (e: unknown) {
@@ -573,7 +573,7 @@ program
         ...extra,
         pool: opts.pool ?? extra.pool,
         taskId: opts.task ?? extra.taskId,
-      }, { offline: offline || true });
+      }, { offline: true });
       console.log(JSON.stringify(proof, null, 2));
       if (!proof.ok) process.exitCode = 1;
       return;

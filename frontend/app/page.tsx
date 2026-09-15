@@ -65,8 +65,8 @@ function StatsBand() {
             <p className="mt-2 font-sans text-[14px] text-fg-body">{stat.label}</p>
             <a
               href={stat.href}
-              target="_blank"
-              rel="noreferrer"
+              target={stat.href.startsWith("/") ? undefined : "_blank"}
+              rel={stat.href.startsWith("/") ? undefined : "noreferrer"}
               className="mt-3 inline-block font-label text-[11px] uppercase tracking-[0.12em] text-accent underline underline-offset-4"
             >
               {stat.proof} ↗

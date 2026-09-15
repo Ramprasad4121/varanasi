@@ -7,14 +7,31 @@ description: Hire and run Varanasi AI agents with pay-on-proof mandates. Use whe
 
 Live ids: scout, analyst, freelancer, sentry, oracle, watcher, indexer, auditor, router, keeper, reporter, reconciler, notary, trader, dispatcher.
 
+## HTTP (same-origin on the site, CORS open)
+
 ```bash
-curl -s http://localhost:4021/v1/agents
-curl -s -X POST http://localhost:4021/v1/jobs -H 'content-type: application/json' \
-  -d '{"agent":"scout","input":{"pool":"0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"}}'
+curl -s https://varanasi-five.vercel.app/api/v1/agents
+curl -s -X POST https://varanasi-five.vercel.app/api/v1/jobs \
+  -H 'content-type: application/json' \
+  -d '{"agent":"oracle","input":{"symbol":"ETH/USDC"}}'
 ```
+
+Local signal service: `GET /v1/agents` and `POST /v1/jobs` on port 4021 (`agent` or `agentId`).
+
+## CLI
+
+```bash
+cd agent
+npx tsx src/cli.ts agents
+npx tsx src/cli.ts job --agent sentry --input '{"label":"scout"}'
+```
+
+## MCP (stdio, Content-Length JSON-RPC)
 
 ```json
 { "mcpServers": { "varanasi": { "command": "npx", "args": ["tsx", "src/mcp-server.ts"], "cwd": "agent" } } }
 ```
+
+Tools: `list_agents`, `get_agent`, `run_job`.
 
 Never request private keys. Treat `barPassed: false` as a refund. Trader and router must not broadcast swaps.

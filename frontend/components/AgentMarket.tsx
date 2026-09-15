@@ -24,7 +24,7 @@ import {
   type AgentRecord,
   type PublicClientLike,
 } from "./aegis";
-import { AGENTS, AEGIS_REGISTRY, ETHERSCAN_ADDR, ETHERSCAN_TX, shortAddr } from "@/lib/site";
+import { AEGIS_REGISTRY, ETHERSCAN_ADDR, ETHERSCAN_TX, shortAddr } from "@/lib/site";
 import { loadScoped, saveScoped, useVaultUserId, useVaultWallets } from "@/lib/vault";
 
 export type AgentMarketProps = {
@@ -267,41 +267,7 @@ export function AgentMarket({
         </a>
       </div>
 
-      {/* 3-column roster */}
-      <ul className="mt-6 grid gap-5 lg:grid-cols-3">
-        {AGENTS.map((agent) => (
-          <li key={agent.id} className="flex flex-col rounded-xl border border-border bg-bg-elevated p-6 shadow-lift">
-            <div className="flex flex-1 flex-col">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">{agent.ens}</p>
-                <Badge tone="ok">authorized</Badge>
-              </div>
-              <h3 className="mt-3 font-display text-[1.7rem] font-medium tracking-[-0.02em] text-ink">{agent.name}</h3>
-              <p className="mt-1 font-sans text-[14px] font-medium text-accent">{agent.role}</p>
-              <p className="mt-3 flex-1 font-sans text-[15px] leading-relaxed text-fg-body">{agent.summary}</p>
-              <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
-                <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Cap</dt>
-                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{agent.cap} vUSD</dd>
-                </div>
-                <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Window</dt>
-                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{agent.window}h</dd>
-                </div>
-                <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Score</dt>
-                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">98/100</dd>
-                </div>
-              </dl>
-              <div className="mt-6">
-                <BrandButton href={`/hire?agent=${agent.id}`} className="h-11 w-full px-4">
-                  Hire {agent.name}
-                </BrandButton>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {/* Roster cards live on /agents above. This section is identity tools. */}
 
       {/* Featured sentinel-1 card */}
       <div className="mt-6 rounded-xl border border-border bg-bg-elevated p-6 shadow-lift sm:p-8">
@@ -327,8 +293,8 @@ export function AgentMarket({
               <BrandButton variant="ghost" onClick={checkSentinel} className="h-11 px-4">
                 Verify onchain
               </BrandButton>
-              <BrandButton href="/hire?agent=scout" className="h-11 px-5">
-                Hire sentinel
+              <BrandButton href="/hire?agent=sentry" className="h-11 px-5">
+                Hire Sentry
               </BrandButton>
             </div>
             {liveCheck && (

@@ -13,18 +13,8 @@ import { LEGION, type Legionnaire } from "@/lib/legion";
 import { cn } from "@/lib/utils";
 
 const SPECIALTY_CHIPS = [
-  "markets",
-  "risk",
-  "settlement",
-  "identity",
-  "execution",
-  "evidence",
-  "payments",
-  "attestations",
-  "matching",
-  "writing",
-  "feeds",
-] as const;
+  ...new Set(LEGION.flatMap((a) => a.specialties)),
+].sort();
 
 export default function AgentsLibraryPage() {
   const [filter, setFilter] = useState<string>("all");
@@ -85,7 +75,7 @@ export default function AgentsLibraryPage() {
             No agent matches that search.
           </p>
         ) : (
-          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul id="agent-bench" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((a) => (
               <AgentCard key={a.id} a={a} />
             ))}
@@ -169,7 +159,7 @@ export default function AgentsLibraryPage() {
             Live roster and identity tools
           </h2>
           <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
-            Register an expiring identity, revoke one, and watch live registry state. These are the only identities an escrow can reach today.
+            On-chain identity tools. The 15 live workers already run jobs via Start work — mint a subname here only if you need a new one.
           </p>
         </div>
         <AgentMarket />
@@ -180,7 +170,7 @@ export default function AgentsLibraryPage() {
 
 function AgentCard({ a }: { a: Legionnaire }) {
   return (
-    <li className="flex flex-col rounded-xl border border-border bg-bg-elevated p-6 shadow-lift">
+    <li className="agent-card flex flex-col rounded-xl border border-border bg-bg-elevated p-6 shadow-lift">
       <div className="flex items-center justify-between gap-2">
         <span className="rounded-full border border-border bg-bg px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.12em] text-fg-body">
           {a.ens}

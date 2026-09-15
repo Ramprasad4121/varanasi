@@ -35,4 +35,10 @@ describe("live roster", () => {
       }
     }
   });
+
+  it("fails closed on missing required input", async () => {
+    const proof = await runRoster("watcher", {}, { offline: true });
+    expect(proof.ok).toBe(false);
+    if (!proof.ok) expect(proof.error).toMatch(/required/);
+  });
 });

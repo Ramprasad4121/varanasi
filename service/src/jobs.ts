@@ -32,6 +32,10 @@ function s(input: Record<string, string>, key: string, fallback = ''): string {
 }
 
 function execute(agent: CatalogAgent, input: Record<string, string>): { barPassed: boolean; output: Record<string, unknown> } {
+  const missing = agent.input.filter((f) => f.required && !s(input, f.name));
+  if (missing.length) {
+    return { barPassed: false, output: { error: `required: ${missing.map((f) => f.name).join(', ')}` } };
+  }
   switch (agent.id) {
     case 'scout': return { barPassed: true, output: { shortlist: POOLS, pool: s(input, 'pool', POOLS[0].id) } };
     case 'analyst': return { barPassed: true, output: { pool: s(input, 'pool', POOLS[0].id), verdict: { decision: 'ACT', riskScoreBps: 1800 } } };

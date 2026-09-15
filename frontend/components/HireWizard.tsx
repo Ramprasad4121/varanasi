@@ -927,7 +927,10 @@ function HireWizardInner({
         {steps.map((s, i) => (
           <li
             key={s}
+            id={`tab-step-${i + 1}`}
             className={step === i + 1 ? "active" : step > i + 1 ? "done" : ""}
+            onClick={() => setStep(i + 1)}
+            style={{ cursor: "pointer" }}
           >
             {i + 1} · {s}
           </li>
@@ -936,14 +939,18 @@ function HireWizardInner({
 
       {/* STEP 1 — Pick */}
       {step === 1 && (
-        <div>
+        <div id="wizard-step-1">
           <p className="desc">
             Step 1: pick the kind of work — each card says what it does and
             what it costs.
           </p>
           <div className="cards">
             {ARCHETYPES.map((a) => (
-              <div className="card" key={a.key}>
+              <div
+                className={arch === a.key ? "card selected" : "card"}
+                key={a.key}
+                id={`arch-${a.key}`}
+              >
                 <div>
                   <strong>{a.label}</strong>{" "}
                   {arch === a.key && <span className="badge ok">picked</span>}
@@ -971,7 +978,7 @@ function HireWizardInner({
             </div>
           )}
           <div className="row">
-            <button type="button" onClick={() => setStep(2)}>
+            <button type="button" id="btn-next-to-terms" onClick={() => setStep(2)}>
               Continue to terms →
             </button>
           </div>
@@ -980,7 +987,7 @@ function HireWizardInner({
 
       {/* STEP 2 — Terms */}
       {step === 2 && (
-        <div className="card">
+        <div className="card" id="wizard-step-2">
           <strong>
             Terms for {ARCHETYPES.find((a) => a.key === arch)?.label}
           </strong>
@@ -990,6 +997,7 @@ function HireWizardInner({
           </div>
           <label>Max payment — cap (vUSD, 6 decimals)</label>
           <input
+            id="input-cap"
             value={capVusd}
             onChange={(e) => setCapVusd(e.target.value)}
             inputMode="decimal"
@@ -997,6 +1005,7 @@ function HireWizardInner({
           />
           <label>Work window (hours — validators may score in this time)</label>
           <input
+            id="input-window"
             value={windowHours}
             onChange={(e) => setWindowHours(e.target.value)}
             inputMode="numeric"
@@ -1004,6 +1013,7 @@ function HireWizardInner({
           />
           <label>Expiry (days — refunds open after this)</label>
           <input
+            id="input-expiry"
             value={expiryDays}
             onChange={(e) => setExpiryDays(e.target.value)}
             inputMode="numeric"
@@ -1011,6 +1021,7 @@ function HireWizardInner({
           />
           <label>Merchant / payout address (who gets paid on release)</label>
           <input
+            id="input-merchant"
             value={merchant}
             onChange={(e) => setMerchant(e.target.value)}
             placeholder="0x…"
@@ -1035,10 +1046,11 @@ function HireWizardInner({
           )}
           <div className="row">
             <button type="button" onClick={() => setStep(1)}>
-              ← Back
+              ← Back to Archetypes
             </button>
             <button
               type="button"
+              id="btn-lock-terms"
               disabled={errors.length > 0}
               onClick={goStep3}
             >
@@ -1050,7 +1062,7 @@ function HireWizardInner({
 
       {/* STEP 3 — Sign & fund / deposit */}
       {step === 3 && (
-        <div className="card">
+        <div className="card" id="wizard-step-3">
           <strong>Sign & deposit</strong>
           <div className="muted">
             Step 3: one click signs your mandate, mints the agent identity,
@@ -1059,11 +1071,11 @@ function HireWizardInner({
           </div>
           <details>
             <summary className="muted" style={{ cursor: "pointer" }}>
-              Advanced · view the exact mandate your wallet signs
+              Inspect EIP-712 Mandate JSON
             </summary>
             <div className="hero-code" style={{ maxWidth: "100%" }}>
               <pre>
-                <code>{mandateJson}</code>
+                <code id="mandate-json-preview">{mandateJson}</code>
               </pre>
             </div>
           </details>
@@ -1129,6 +1141,7 @@ function HireWizardInner({
           <div className="row" style={{ marginTop: 8 }}>
             <button
               type="button"
+              id="btn-authorize-fund"
               className="cta-primary"
               disabled={busy || fundOk}
               onClick={authorizeAndFund}
@@ -1200,7 +1213,7 @@ function HireWizardInner({
 
       {/* STEP 4 — Track */}
       {step === 4 && (
-        <div className="card">
+        <div className="card" id="wizard-step-4">
           <strong>Track the task</strong>
           <div className="muted">
             Step 4: watch the escrow state live — release pays the merchant,
@@ -1208,12 +1221,13 @@ function HireWizardInner({
           </div>
           <label>Task id (bytes32)</label>
           <input
+            id="track-task-id"
             value={trackId}
             onChange={(e) => setTrackId(e.target.value)}
             placeholder="0x… (funded in step 3, or load the example below)"
           />
           <div className="row">
-            <button type="button" onClick={() => void refreshTrack()}>
+            <button type="button" id="btn-refresh-track" onClick={() => void refreshTrack()}>
               Refresh state
             </button>
             <button
@@ -1227,13 +1241,14 @@ function HireWizardInner({
                 setStatus("Example task loaded (a real task id reads live).");
               }}
             >
-              Load example task
+              Load Example Task
             </button>
           </div>
           {trackLabel && (
             <div className="status">
               State:{" "}
               <span
+                id="task-state-badge"
                 className={`badge ${trackLabel === "Released" ? "ok" : trackLabel === "Refunded" || trackLabel === "Cancelled" ? "bad" : "warn"}`}
               >
                 {trackLabel}
@@ -1279,7 +1294,7 @@ function HireWizardInner({
         Escrow <code>{TASK_ESCROW}</code> · vUSD{" "}
         <code>{VUSD}</code> (6dp)
       </p>
-      <JobRunner agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
+      <JobRunner key={arch} agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
     </section>
   );
 }
