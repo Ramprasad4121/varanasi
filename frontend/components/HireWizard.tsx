@@ -923,6 +923,10 @@ function HireWizardInner({
         Four small steps from browsing to escrowed work. Nothing
         moves funds until you sign and fund in step 3.
       </p>
+      <JobRunner key={arch} agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
+      <p className="desc" style={{ marginTop: 28 }}>
+        Optional — lock a spending cap on Sepolia before the agent works.
+      </p>
       <ol className="stepper">
         {steps.map((s, i) => (
           <li
@@ -1294,7 +1298,6 @@ function HireWizardInner({
         Escrow <code>{TASK_ESCROW}</code> · vUSD{" "}
         <code>{VUSD}</code> (6dp)
       </p>
-      <JobRunner key={arch} agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
     </section>
   );
 }

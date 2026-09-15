@@ -203,12 +203,12 @@ function AgentCard({ a }: { a: Legionnaire }) {
           <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.expiry}d</dd>
         </div>
       </dl>
-      <div className="mt-6">
-        <BrandButton
-          href={a.live ? `/hire?agent=${a.id}` : `/docs#mandate`}
-          className={cn("h-11 w-full px-4", !a.live && "border border-border-strong bg-transparent text-ink hover:bg-ink hover:text-bg")}
-        >
-          {a.live ? `Hire ${a.name}` : "See the mandate"}
+      <div className="mt-6 grid grid-cols-2 gap-2">
+        <BrandButton href={`/hire?agent=${a.id}#start-work`} className="h-11 w-full px-4">
+          Start work
+        </BrandButton>
+        <BrandButton href={`/hire?agent=${a.id}`} variant="ghost" className="h-11 w-full px-4">
+          Hire
         </BrandButton>
       </div>
     </li>

@@ -73,7 +73,7 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
   }
 
   return (
-    <div id="start-work" className="mt-8 rounded-xl border border-border bg-bg-elevated p-6">
+    <div id="start-work" className="mt-8 scroll-mt-24 rounded-xl border border-border bg-bg-elevated p-6">
       <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Use the agent</p>
       <h3 className="mt-2 font-display text-2xl font-medium text-ink">Start work</h3>
       <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">

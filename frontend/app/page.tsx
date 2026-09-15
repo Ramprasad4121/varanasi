@@ -148,9 +148,12 @@ function Agents() {
                 <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.expiry}d</dd>
               </div>
             </dl>
-            <div className="mt-6">
-              <BrandButton href={`/hire?agent=${a.id}`} className="w-full">
-                Hire {a.name}
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <BrandButton href={`/hire?agent=${a.id}#start-work`} className="w-full">
+                Start work
+              </BrandButton>
+              <BrandButton href={`/hire?agent=${a.id}`} variant="ghost" className="w-full">
+                Hire
               </BrandButton>
             </div>
           </li>
