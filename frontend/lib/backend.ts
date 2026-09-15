@@ -49,9 +49,9 @@ export const backendUrls = {
     join(backendRoot(), `/v1/finance/recommend?address=${encodeURIComponent(address)}`),
 };
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<BackendResult<T>> {
+async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs: number = BACKEND_TIMEOUT_MS): Promise<BackendResult<T>> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), BACKEND_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { ...init, signal: ctrl.signal });
     if (!res.ok) {
@@ -64,7 +64,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<BackendRes
     return { ok: true, data };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      return { ok: false, error: { kind: "timeout", message: `Timed out after ${BACKEND_TIMEOUT_MS}ms: ${url}` } };
+      return { ok: false, error: { kind: "timeout", message: `Timed out after ${timeoutMs}ms: ${url}` } };
     }
     return {
       ok: false,
@@ -94,8 +94,8 @@ export type VersionReply = {
   uptimeSeconds: number;
 };
 
-export function getHealth(): Promise<BackendResult<HealthReply>> {
-  return fetchJson<HealthReply>(backendUrls.health());
+export function getHealth(timeoutMs?: number): Promise<BackendResult<HealthReply>> {
+  return fetchJson<HealthReply>(backendUrls.health(), undefined, timeoutMs);
 }
 
 export function getVersion(): Promise<BackendResult<VersionReply>> {
