@@ -13,6 +13,7 @@ version of this page.
 | [`README.md`](../README.md) | What is varanasi? How do I try it / hire an agent / fork it? |
 | [`GLOSSARY.md`](GLOSSARY.md) | What do the terms mean (mandate, x402, vUSD, chit…)? |
 | [`TUTORIAL.md`](TUTORIAL.md) | Walk me through the first full use of the product. |
+| [`AGENTS_ROSTER.md`](AGENTS_ROSTER.md) | The 15 live agents and how other agents call them. |
 | [`REFERENCE.md`](REFERENCE.md) | Give me the exact facts: addresses, ports, env, commands, tests. |
 
 ## Understand

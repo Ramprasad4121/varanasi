@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "mcp": "tsx src/mcp-server.ts"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.88.0",
