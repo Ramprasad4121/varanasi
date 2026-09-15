@@ -394,11 +394,7 @@ export default function Treasury() {
       <div className="section-intro" style={{ padding: 0 }}>
         <p className="hero-kicker">Treasury</p>
         <h2>
-          <span className="sr-only">Manage your agents and funds</span>
-          <span aria-hidden="true">
-            <span className="drop-cap">M</span>
-            anage your agents and funds
-          </span>
+          Manage your agents and funds
         </h2>
         <p>
           Mint identities, set allowances, fund agents, and revoke access —

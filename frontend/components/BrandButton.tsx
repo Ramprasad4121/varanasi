@@ -3,10 +3,12 @@ import type { ComponentProps } from "react";
 import React from "react";
 import { cn } from "@/lib/utils";
 
+// Author: Ramprasad — clean minimal buttons. Primary = solid accent,
+// ghost = outline, quiet = soft fill. Rounded 8px, 48px height.
 const styles = {
-  primary: "bg-accent text-on-accent hover:bg-accent-strong focus-visible:outline-accent",
-  ghost: "bg-transparent text-ink border border-ink/80 hover:bg-ink hover:text-bg focus-visible:outline-accent",
-  quiet: "bg-bg-muted text-fg hover:bg-bg-hover focus-visible:outline-accent",
+  primary: "bg-accent text-white border border-accent hover:bg-accent-strong hover:border-accent-strong focus-visible:outline-accent",
+  ghost: "bg-transparent text-ink border border-border-strong hover:border-ink hover:bg-bg-hover focus-visible:outline-accent",
+  quiet: "bg-bg-muted text-fg hover:bg-bg-hover border border-transparent focus-visible:outline-accent",
 };
 
 type Shared = {
@@ -27,7 +29,7 @@ type ButtonProps = Shared &
   };
 
 const base =
-  "inline-flex h-12 items-center justify-center rounded-none px-6 m-0 font-label text-[12px] font-medium uppercase tracking-[0.16em] transition-[color,background-color,border-color] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex h-12 items-center justify-center rounded-lg px-6 m-0 font-sans text-[14px] font-semibold tracking-[0.01em] transition-[color,background-color,border-color,box-shadow] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function BrandButton(props: LinkProps | ButtonProps) {
   const { children, className, variant = "primary" } = props;

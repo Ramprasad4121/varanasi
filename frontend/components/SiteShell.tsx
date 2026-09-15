@@ -6,21 +6,24 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import React from "react";
 import { AuthSlot } from "@/components/AuthSlot";
-import { Diamond, Mark } from "@/components/Diamond";
+import { BackendStatus } from "@/components/BackendStatus";
+import { Mark } from "@/components/Diamond";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { APP_NAME, GITHUB_URL, NAV } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
+// Author: Ramprasad — clean minimal shell, colosseum grammar:
+// sticky hairline header, centered content, quiet 4-column footer.
 function Wordmark({ size = "lg" }: { size?: "lg" | "sm" }) {
   return (
     <Link
       href="/"
-      className="flex shrink-0 items-center gap-2.5 text-ink"
+      className="flex shrink-0 items-center gap-2 text-ink"
       aria-label={`${APP_NAME} home`}
     >
-      <Mark className={size === "lg" ? "h-8 w-8 border border-border" : "h-7 w-7 border border-border"} />
-      <span className="font-display lowercase tracking-[-0.03em] text-ink whitespace-nowrap">
-        <span className={size === "lg" ? "text-[22px] align-baseline" : "text-lg align-baseline"}>{APP_NAME}</span>
+      <Mark className={size === "lg" ? "h-8 w-8 rounded-lg" : "h-7 w-7 rounded-md"} />
+      <span className="whitespace-nowrap font-display text-ink lowercase tracking-[-0.02em]">
+        <span className={size === "lg" ? "text-[22px]" : "text-lg"}>{APP_NAME}</span>
       </span>
     </Link>
   );
@@ -35,40 +38,38 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className="min-h-dvh bg-bg text-fg flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-bg/92 backdrop-blur-[3px]">
-        <div className="mx-auto flex h-[4.25rem] max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 w-full">
+    <div className="flex min-h-dvh flex-col bg-bg text-fg">
+      <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6">
           <Wordmark />
 
-          <nav className="hidden items-center gap-3 lg:flex" aria-label="Primary">
-            {NAV.map((item, i) => (
-              <span key={item.to} className="flex items-center gap-3">
-                {i > 0 ? <Diamond className="text-fg-muted" /> : null}
-                <Link
-                  href={item.to}
-                  className={cn(
-                    "font-display text-[15px] transition-colors duration-150",
-                    pathname === item.to ? "text-ink font-medium" : "text-fg-body hover:text-ink",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </span>
+          <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary">
+            {NAV.map((item) => (
+              <Link
+                key={item.to}
+                href={item.to}
+                className={cn(
+                  "font-sans text-[14px] transition-colors duration-150",
+                  pathname === item.to ? "font-semibold text-ink" : "text-fg-body hover:text-ink",
+                )}
+              >
+                {item.label}
+              </Link>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Link
               href="/hire"
-              className="hidden sm:inline-flex h-9 items-center justify-center border border-accent bg-accent text-bg px-3.5 font-label text-[11px] uppercase tracking-[0.14em] font-medium transition-colors hover:bg-accent/90 shrink-0"
+              className="hidden h-10 shrink-0 items-center justify-center rounded-lg bg-ink px-4 font-sans text-[13px] font-semibold text-bg transition-opacity hover:opacity-85 sm:inline-flex"
             >
-              Hire agent
+              Hire an agent
             </Link>
             <AuthSlot />
-            <ThemeToggle className="hidden sm:grid h-9 w-9 border border-border" />
+            <ThemeToggle className="hidden h-10 w-10 rounded-lg border border-border sm:grid" />
             <button
               type="button"
-              className="grid h-9 w-9 m-0 place-items-center border border-border text-ink lg:hidden"
+              className="m-0 grid h-10 w-10 place-items-center rounded-lg border border-border text-ink lg:hidden"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
@@ -80,10 +81,10 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
         {open ? (
           <div className="border-t border-border bg-bg lg:hidden">
-            <nav className="flex flex-col px-4 py-3 gap-1" aria-label="Mobile">
+            <nav className="flex flex-col gap-1 px-4 py-4" aria-label="Mobile">
               <Link
                 href="/hire"
-                className="flex h-10 items-center justify-center border border-accent bg-accent text-bg font-label text-[12px] uppercase tracking-[0.14em] font-medium mb-2"
+                className="mb-2 flex h-11 items-center justify-center rounded-lg bg-ink font-sans text-[14px] font-semibold text-bg"
               >
                 Hire an agent
               </Link>
@@ -92,16 +93,16 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
                   key={item.to}
                   href={item.to}
                   className={cn(
-                    "flex h-11 items-center font-display text-[16px] text-fg border-b border-border/40 last:border-0",
-                    pathname === item.to && "text-accent font-medium"
+                    "flex h-11 items-center rounded-lg px-3 font-sans text-[15px] text-fg-body hover:bg-bg-hover",
+                    pathname === item.to && "font-semibold text-ink"
                   )}
                 >
                   {item.label}
                 </Link>
               ))}
-              <div className="flex h-11 items-center justify-between pt-2">
+              <div className="flex h-11 items-center justify-between px-3 pt-2">
                 <span className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Theme</span>
-                <ThemeToggle className="h-9 w-9 border border-border" />
+                <ThemeToggle className="h-9 w-9 rounded-lg border border-border" />
               </div>
               <AuthSlot variant="menu" />
             </nav>
@@ -111,12 +112,12 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="mt-8 border-t border-border bg-footer">
-        <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
+      <footer className="mt-16 border-t border-border bg-bg">
+        <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Wordmark size="sm" />
-            <p className="mt-4 max-w-xs font-display text-[16px] italic leading-relaxed text-fg-body">
-              Hire AI agents with a spending cap. Pay when the work is proven. Refund when it is not.
+            <p className="mt-4 max-w-xs font-sans text-[15px] leading-relaxed text-fg-body">
+              Hire AI agents with a spending cap. Pay when the work is proven. Refunded when it is not.
             </p>
           </div>
           <FooterCol
@@ -125,7 +126,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               { to: "/agents", label: "Agents" },
               { to: "/hire", label: "Hire" },
               { to: "/start", label: "Humans & agents" },
-              { to: "/account", label: "Profile" },
+              { to: "/account", label: "Account" },
             ]}
           />
           <FooterCol
@@ -135,14 +136,6 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               { to: "/roadmap", label: "Roadmap" },
               { to: "/human", label: "Human verification" },
               { to: "/activity", label: "Activity" },
-            ]}
-          />
-          <FooterCol
-            title="Soon"
-            links={[
-              { to: "/finance", label: "Finance" },
-              { to: "/gold", label: "Gold-backed coin" },
-              { to: "/privy", label: "Treasury" },
             ]}
           />
           <FooterCol
@@ -156,10 +149,11 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           />
         </div>
         <div className="border-t border-border">
-          <div className="mx-auto flex max-w-[1200px] flex-col gap-2 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="mx-auto flex max-w-[1200px] flex-col gap-3 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">
               {APP_NAME.toLowerCase()} — hire agents, pay on proof
             </p>
+            <BackendStatus />
           </div>
         </div>
       </footer>
@@ -180,18 +174,18 @@ function FooterCol({
 }) {
   return (
     <div>
-      <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">{title}</p>
+      <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">{title}</p>
       <ul className="mt-4 space-y-2.5">
         {links.map((link) => (
           <li key={link.label}>
             {link.to ? (
-              <Link href={link.to} className="font-display text-[16px] text-fg-body hover:text-accent transition-colors">
+              <Link href={link.to} className="font-sans text-[14px] text-fg-body transition-colors hover:text-ink">
                 {link.label}
               </Link>
             ) : (
               <a
                 href={link.href}
-                className="font-display text-[16px] text-fg-body hover:text-accent transition-colors"
+                className="font-sans text-[14px] text-fg-body transition-colors hover:text-ink"
                 target="_blank"
                 rel="noreferrer"
               >

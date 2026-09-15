@@ -1,10 +1,11 @@
 import React from "react";
 
-export function SectionSep({ className = "my-16 sm:my-20" }: { className?: string }) {
+// Author: Ramprasad — colosseum diamond divider: hairline, diamond, hairline.
+export function SectionSep({ className = "my-16 sm:my-24" }: { className?: string }) {
   return (
-    <div className={`mx-auto flex max-w-[1200px] items-center gap-3.5 px-4 sm:px-6 ${className}`} aria-hidden="true">
+    <div className={`mx-auto flex max-w-[1200px] items-center gap-4 px-4 sm:px-6 ${className}`} aria-hidden="true">
       <span className="h-px flex-1 bg-border" />
-      <span className="text-fg-muted font-display text-xs select-none">◆</span>
+      <span className="select-none font-sans text-[10px] text-fg-muted">◆</span>
       <span className="h-px flex-1 bg-border" />
     </div>
   );

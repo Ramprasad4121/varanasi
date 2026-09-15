@@ -8,6 +8,9 @@
  *
  * Free routes:
  *   GET  /health     liveness + config snapshot (no secrets)
+ *   GET  /ready      readiness (receipt store + config ok)
+ *   GET  /version    build version + git sha + uptime
+ *   GET  /openapi.json machine-readable route catalog
  *   GET  /402-info   payment requirements preview for agent builders
  *   GET  /v1/receipts recent paid-request receipts (file-backed, data/receipts.json, last 100)
  *   GET  /v1/finance         demo community-finance portfolio by address (?address=0x...)
@@ -18,17 +21,26 @@
  * client signs a Hedera TransferTransaction -> retries with payment ->
  * facilitator /verify passes -> handler runs, facilitator settles async.
  *
- * Env deps: PORT, HEDERA_NETWORK (testnet|mainnet), HEDERA_SERVICE_ACCOUNT_ID
- * (required receiver), X402_FACILITATOR_URL / X402_{TESTNET,MAINNET}_FACILITATOR_URL
- * (via facilitatorUrlFor in x402.ts).
+ * Production hardening: helmet headers, gzip, request ids + access logs,
+ * trust-proxy (correct req.ip behind Render/Fly/Vercel), 120 req/min/IP on
+ * free routes, JSON 404 + error handler, graceful shutdown, validated config
+ * (see src/config.ts — fails fast on bad env).
+ *
+ * Env deps: PORT, NODE_ENV, HEDERA_NETWORK (testnet|mainnet),
+ * HEDERA_SERVICE_ACCOUNT_ID (required receiver), X402_FACILITATOR_URL /
+ * X402_{TESTNET,MAINNET}_FACILITATOR_URL (via facilitatorUrlFor in x402.ts),
+ * CORS_ORIGIN, GIT_SHA, SERVICE_VERSION.
  */
 import { config } from 'dotenv';
-import express, { type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
-import fs from 'node:fs';
-import path from 'node:path';
+import helmet from 'helmet';
+import compression from 'compression';
 import { paymentMiddleware } from '@x402/express';
-import { createResourceServer, facilitatorUrlFor } from './x402.js';
+import { createResourceServer } from './x402.js';
+import { loadConfig } from './config.js';
+import { accessLog, rateLimit, requestId } from './middleware.js';
+import { loadReceipts, recordReceipt } from './store.js';
 import {
   PRICE_TABLE,
   acceptsFor,
@@ -45,43 +57,20 @@ import type { Address } from './finance/types.js';
 
 config();
 
-const PORT = parseInt(process.env.PORT ?? '4021', 10);
-const NETWORK: HederaNetwork =
-  (process.env.HEDERA_NETWORK ?? 'testnet').toLowerCase() === 'mainnet'
-    ? 'hedera:mainnet'
-    : 'hedera:testnet';
-const SERVICE_ACCOUNT = process.env.HEDERA_SERVICE_ACCOUNT_ID ?? '';
-const FACILITATOR_URL = facilitatorUrlFor(NETWORK);
+const cfg = loadConfig();
+const PORT = cfg.port;
+const NETWORK: HederaNetwork = cfg.network;
+const SERVICE_ACCOUNT = cfg.serviceAccount;
+const FACILITATOR_URL = cfg.facilitatorUrl;
 
-if (!SERVICE_ACCOUNT) {
-  console.error('✗ HEDERA_SERVICE_ACCOUNT_ID is required (see service/.env.example)');
-  process.exit(1);
+if (cfg.corsOrigins === '*') {
+  console.warn('[cors] CORS_ORIGIN unset — open `*` (non-production only). Set CORS_ORIGIN to restrict.');
+} else if ((process.env.CORS_ORIGIN ?? '').trim().length === 0 && cfg.isProduction) {
+  console.warn('[cors] CORS_ORIGIN unset in production — allowing default local origins only.');
 }
 
 /** File-backed receipt log — last 100 paid requests (data/receipts.json, no secrets stored). */
-const RECEIPTS_FILE = path.join(process.cwd(), 'data', 'receipts.json');
-function loadReceipts(): PaymentReceipt[] {
-  try {
-    fs.mkdirSync(path.dirname(RECEIPTS_FILE), { recursive: true });
-    if (!fs.existsSync(RECEIPTS_FILE)) return [];
-    const raw = fs.readFileSync(RECEIPTS_FILE, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as PaymentReceipt[]).slice(0, 100) : [];
-  } catch {
-    return []; // corrupt/unreadable file → start empty
-  }
-}
 const receipts: PaymentReceipt[] = loadReceipts();
-function recordReceipt(receipt: PaymentReceipt): void {
-  receipts.unshift(receipt);
-  if (receipts.length > 100) receipts.length = 100;
-  try {
-    fs.mkdirSync(path.dirname(RECEIPTS_FILE), { recursive: true });
-    fs.writeFileSync(RECEIPTS_FILE, JSON.stringify(receipts, null, 2));
-  } catch {
-    // best-effort persist — a failed write never fails the paid request
-  }
-}
 
 /**
  * Best-effort extraction of the Hedera txId from the settle response the
@@ -110,75 +99,39 @@ function extractSettleTxId(res: Response): string | null {
 }
 
 const app = express();
-/**
- * Audit fix: CORS allowlist via CORS_ORIGIN (comma-separated).
- * - Always permits default local origins: http://localhost:3000 and http://127.0.0.1:3000.
- * - If CORS_ORIGIN is provided, merges them with default origins.
- * - If CORS_ORIGIN is unset: open `*` in non-production, default origins in production.
- * - Configures x402 and standard headers for frontend requests.
- */
-{
-  const nodeEnv = process.env.NODE_ENV ?? 'development';
-  const defaultOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
-  const envOrigins = (process.env.CORS_ORIGIN ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+app.disable('x-powered-by');
+// Trust the platform proxy (Render/Fly/Vercel) so req.ip + rate limits see
+// the real client. Safe: we only use req.ip for rate limiting + logs.
+app.set('trust proxy', 1);
 
-  const corsOptions = {
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment', 'Payment-Signature', 'X-Payment'],
-    exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'payment-required', 'x-payment-required', 'Retry-After'],
-  };
+app.use(requestId);
+app.use(accessLog);
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(compression());
 
-  if (envOrigins.length > 0) {
-    const allowlist = Array.from(new Set([...defaultOrigins, ...envOrigins]));
-    app.use(cors({ ...corsOptions, origin: allowlist }));
-  } else if (nodeEnv !== 'production') {
-    console.warn(
-      '[cors] CORS_ORIGIN unset — open `*` (non-production only). Set CORS_ORIGIN to restrict.',
-    );
-    app.use(cors({ ...corsOptions, origin: '*' }));
-  } else {
-    console.warn(
-      '[cors] CORS_ORIGIN unset in production — allowing default origins (http://localhost:3000, http://127.0.0.1:3000).',
-    );
-    app.use(cors({ ...corsOptions, origin: defaultOrigins }));
-  }
+/** CORS allowlist (validated in config.ts). Paid routes are unaffected. */
+if (cfg.corsOrigins === '*') {
+  app.use(
+    cors({
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment', 'Payment-Signature', 'X-Payment'],
+      exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'payment-required', 'x-payment-required', 'Retry-After', 'x-request-id'],
+      origin: '*',
+    }),
+  );
+} else {
+  app.use(
+    cors({
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment', 'Payment-Signature', 'X-Payment'],
+      exposedHeaders: ['payment-response', 'x-payment-response', 'payment-settle-response', 'payment-required', 'x-payment-required', 'Retry-After', 'x-request-id'],
+      origin: cfg.corsOrigins,
+    }),
+  );
 }
 
-/**
- * Audit fix: minimal in-memory rate limiter for FREE routes only
- * (GET /health, /402-info, /v1/receipts). No new deps.
- * 120 req/min/IP → 429 + Retry-After. Paid routes untouched.
- */
-const FREE_ROUTE_LIMIT = 120;
-const FREE_ROUTE_WINDOW_MS = 60_000;
-const freeRouteHits = new Map<string, { count: number; resetAt: number }>();
-function freeRouteLimiter(req: Request, res: Response, next: () => void): void {
-  const now = Date.now();
-  const ip = req.ip ?? req.socket?.remoteAddress ?? 'unknown';
-  const key = `${ip}`;
-  let entry = freeRouteHits.get(key);
-  if (!entry || now >= entry.resetAt) {
-    entry = { count: 0, resetAt: now + FREE_ROUTE_WINDOW_MS };
-    freeRouteHits.set(key, entry);
-  }
-  entry.count += 1;
-  // Opportunistic prune so the map can't grow unbounded.
-  if (freeRouteHits.size > 5000) {
-    for (const [k, v] of freeRouteHits) {
-      if (now >= v.resetAt) freeRouteHits.delete(k);
-    }
-  }
-  if (entry.count > FREE_ROUTE_LIMIT) {
-    const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
-    res.setHeader('Retry-After', String(retryAfter));
-    res.status(429).json({ error: 'rate limited: 120 req/min/IP on free routes' });
-    return;
-  }
-  next();
-}
+/** Free-route limiter: 120 req/min/IP → 429 + Retry-After. Paid routes untouched. */
+const freeRouteLimiter = rateLimit({ limit: 120, windowMs: 60_000 });
 app.use(express.json({ limit: '256kb' }));
 
 /**
@@ -253,7 +206,7 @@ app.post('/v1/signal', (req: Request, res: Response) => {
     facilitator: FACILITATOR_URL,
     txId: settleTxId(res),
   });
-  recordReceipt(receipt);
+  recordReceipt(receipts, receipt);
   res.json({ ...alpha, receipt });
   // Best-effort HCS audit trail — fire-and-forget AFTER the paid response;
   // a failure here never fails the paid request (see src/hcs.ts).
@@ -281,7 +234,7 @@ app.post('/v1/score', (req: Request, res: Response) => {
     facilitator: FACILITATOR_URL,
     txId: settleTxId(res),
   });
-  recordReceipt(receipt);
+  recordReceipt(receipts, receipt);
   res.json({ ...score, receipt });
   // Best-effort HCS audit trail — fire-and-forget AFTER the paid response;
   // a failure here never fails the paid request (see src/hcs.ts).
@@ -306,6 +259,49 @@ app.get('/health', freeRouteLimiter, (_req: Request, res: Response) => {
     paidRoutes: PRICE_TABLE.map((p) => p.route),
     receiptsServed: receipts.length,
     port: PORT,
+  });
+});
+
+app.get('/ready', freeRouteLimiter, (_req: Request, res: Response) => {
+  // Readiness: config validated at boot + receipt store readable.
+  // No network calls — safe for k8s/Render health checks at any cadence.
+  res.json({ ready: true, service: 'aegis-signal', receiptsLoaded: receipts.length });
+});
+
+app.get('/version', freeRouteLimiter, (_req: Request, res: Response) => {
+  res.json({
+    service: 'aegis-signal',
+    version: cfg.version,
+    gitSha: cfg.gitSha,
+    nodeEnv: cfg.nodeEnv,
+    network: NETWORK,
+    startedAt: cfg.startedAt,
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
+});
+
+app.get('/openapi.json', freeRouteLimiter, (_req: Request, res: Response) => {
+  res.json({
+    openapi: '3.0.3',
+    info: {
+      title: 'varanasi signal service',
+      version: cfg.version,
+      description:
+        'x402-gated alpha API on Hedera. POST /v1/signal + POST /v1/score are paid ($0.01 / $0.001 USDC or HBAR equiv); everything else is free. Finance routes are simulated demos.',
+    },
+    servers: [{ url: `http://localhost:${PORT}` }],
+    paths: {
+      '/health': { get: { summary: 'Liveness + config snapshot' } },
+      '/ready': { get: { summary: 'Readiness probe' } },
+      '/version': { get: { summary: 'Build version + uptime' } },
+      '/402-info': { get: { summary: 'Payment requirements preview' } },
+      '/v1/signal': { post: { summary: 'Premium alpha signal (x402 paid $0.01)' } },
+      '/v1/score': { post: { summary: 'Risk features (x402 paid $0.001)' } },
+      '/v1/receipts': { get: { summary: 'Recent paid-request receipts (last 100)' } },
+      '/v1/finance': { get: { summary: 'Demo portfolio by address (simulated)' } },
+      '/v1/finance/summary': { get: { summary: 'Demo portfolio summary (simulated)' } },
+      '/v1/finance/recommend': { get: { summary: 'Demo agent recommendations (simulated)' } },
+    },
   });
 });
 
@@ -406,14 +402,59 @@ app.get(
   },
 );
 
-app.listen(PORT, () => {
+// ---- 404 + error handler (JSON, always after routes) -----------------------
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'not found' });
+});
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const id = (req as Request & { requestId?: string }).requestId ?? '-';
+  const message = err instanceof Error ? err.message : 'internal error';
+  // Never leak stacks to clients; log the id so operators can correlate.
+  console.error(`[http-error] id=${id} ${req.method} ${req.path}: ${message}`);
+  if (res.headersSent) return;
+  const status =
+    typeof (err as { status?: unknown }).status === 'number'
+      ? ((err as { status: number }).status as number)
+      : 500;
+  res.status(status >= 400 && status < 600 ? status : 500).json({ error: 'internal error', requestId: id });
+});
+
+const server = app.listen(PORT, () => {
   console.log(`\n🚀 varanasi signal service on http://localhost:${PORT}`);
   console.log(`   Network:     ${NETWORK}`);
   console.log(`   Facilitator: ${FACILITATOR_URL}`);
   console.log(`   Receiver:    ${SERVICE_ACCOUNT}`);
+  console.log(`   Env:         ${cfg.nodeEnv} (version ${cfg.version}, sha ${cfg.gitSha})`);
   console.log(`   Paid:  POST /v1/signal ($0.01 USDC or 0.01 HBAR equiv)`);
   console.log(`   Paid:  POST /v1/score  ($0.001 USDC or 0.001 HBAR equiv)`);
-  console.log(`   Free:  GET  /health, /402-info, /v1/receipts`);
+  console.log(`   Free:  GET  /health, /ready, /version, /openapi.json, /402-info, /v1/receipts`);
   console.log(`   Free:  GET  /v1/finance?address=0x...  (demo portfolio)`);
   console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)\n`);
 });
+
+// Production lifecycle: bounded shutdown, no half-open sockets on deploy.
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
+server.requestTimeout = 30_000;
+
+let shuttingDown = false;
+function shutdown(signal: string): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[${signal}] draining HTTP connections…`);
+  server.close(() => {
+    console.log('[shutdown] closed cleanly.');
+    process.exit(0);
+  });
+  // Hard stop if connections refuse to drain (platforms SIGKILL at ~30s).
+  setTimeout(() => {
+    console.error('[shutdown] forced exit after 10s drain timeout.');
+    process.exit(1);
+  }, 10_000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+export default app;

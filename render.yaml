@@ -1,0 +1,31 @@
+# Author: Ramprasad — Render blueprint for the varanasi signal service.
+# Usage: Render dashboard → New → Blueprint → select this repo.
+# Then set the secret env vars below (values live in service/.env — never commit them).
+services:
+  - type: web
+    name: varanasi-signal
+    runtime: node
+    plan: free
+    rootDir: service
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HEDERA_NETWORK
+        value: testnet
+      - key: HEDERA_SERVICE_ACCOUNT_ID
+        sync: false # receiver 0.0.x — paste from service/.env
+      - key: HEDERA_SERVICE_PRIVATE_KEY
+        sync: false # operator key for HCS trail only — paste from service/.env
+      - key: X402_FACILITATOR_URL
+        value: https://x402.org/facilitator
+      - key: CORS_ORIGIN
+        value: https://varanasi-five.vercel.app
+      - key: HCS_ENABLED
+        value: 1
+      - key: HCS_TOPIC_ID
+        sync: false # optional: reuse existing topic; empty = auto-create
+      - key: SERVICE_VERSION
+        value: 0.1.0

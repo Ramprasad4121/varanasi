@@ -13,7 +13,7 @@ export function Mark({ className = "h-8 w-8" }: { className?: string }) {
     <img
       src="/logo.png"
       alt="Varanasi Logo"
-      className={`${className} rounded-none object-cover`}
+      className={`${className} rounded-md object-cover`}
       width={32}
       height={32}
     />

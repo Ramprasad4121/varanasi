@@ -1,13 +1,13 @@
-/* Author: Ramprasad — Colosseum marketplace: engraving plates.
-   Tokens now live in globals.css as RGB triplets; wrap with rgb() here. */
+/* Author: Ramprasad — marketplace helpers: cards grid, hire flow, stepper.
+   Tokens live in globals.css as RGB triplets; wrap with rgb() here. */
 
 .hero-kicker {
   font-family: var(--label-mono);
   font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.22em;
-  color: rgb(var(--muted));
+  letter-spacing: 0.18em;
+  color: rgb(var(--accent));
   margin-bottom: 16px;
 }
 .section-intro {
@@ -16,16 +16,17 @@
   padding: 0 32px;
 }
 .section-intro h2 {
-  font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+  font-size: clamp(1.9rem, 3.6vw, 2.9rem);
   font-weight: 500;
   margin: 12px 0 0;
+  letter-spacing: -0.02em;
 }
 .section-intro p {
-  max-width: 34rem;
-  font-size: 1.15rem;
-  font-style: italic;
+  max-width: 36rem;
+  font-size: 1.05rem;
   color: rgb(var(--ink-soft));
   margin: 16px 0 0;
+  line-height: 1.65;
 }
 @media (max-width: 860px) {
   .section-intro { padding: 0 16px; }
@@ -34,23 +35,23 @@
 .cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
-.cards .card { margin-top: 0; transition: border-color 0.15s ease; }
-.cards .card:hover { border-color: rgb(var(--accent)); }
+.cards .card { margin-top: 0; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.cards .card:hover { border-color: rgb(var(--hairline-strong)); }
 @media (max-width: 1020px) { .cards { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
 
 /* Hire flow + verification */
 .flow {
-  font-size: 13px;
+  font-size: 14px;
   color: rgb(var(--ink-soft));
   background: rgb(var(--hairline-soft));
   border: 1px solid rgb(var(--hairline));
-  border-radius: 0;
-  padding: 12px 14px 12px 30px;
+  border-radius: 8px;
+  padding: 14px 16px 14px 32px;
   margin: 0 0 4px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 .flow li { margin: 3px 0; }
 
@@ -64,8 +65,8 @@
 }
 .stepper li {
   border: 1px solid rgb(var(--hairline));
-  border-radius: 0;
-  padding: 10px 12px;
+  border-radius: 8px;
+  padding: 12px 14px;
   min-height: 44px;
   font-size: 14px;
   color: rgb(var(--muted));
@@ -85,14 +86,14 @@
 
 .cta-primary {
   background: rgb(var(--accent)) !important;
-  color: rgb(var(--on-accent)) !important;
+  color: #fff !important;
   border: 1px solid rgb(var(--accent)) !important;
+  border-radius: 8px !important;
   padding: 12px 24px !important;
   font-weight: 600 !important;
-  font-size: 13px !important;
-  font-family: var(--label-mono) !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase !important;
+  font-size: 14px !important;
+  font-family: var(--body-sans) !important;
+  letter-spacing: 0.01em !important;
   min-height: 48px !important;
   cursor: pointer !important;
   display: inline-flex !important;

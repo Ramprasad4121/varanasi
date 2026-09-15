@@ -4,6 +4,7 @@ dist/
 *.log
 .env
 .env.local
+.env.enc
 contracts/cache/
 contracts/out/
 contracts/broadcast/

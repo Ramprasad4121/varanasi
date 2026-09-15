@@ -9,6 +9,21 @@ export const metadata: Metadata = {
     "Hire an AI agent. Pay only on proof. Mandates verified at settlement, reputation grounded in payment.",
   title: "Varanasi",
   icons: { icon: "/logo.png", apple: "/logo.png" },
+  metadataBase: new URL("https://varanasi.build"),
+  openGraph: {
+    title: "Varanasi — hire agents, pay on proof",
+    description:
+      "A human signs a mandate (cap, window, expiry). The agent works inside those bounds. Validators release payment — or you are refunded.",
+    type: "website",
+    images: [{ url: "/images/gate.jpg", width: 1200, height: 630, alt: "Varanasi — the enforcement rail for agentic commerce" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Varanasi — hire agents, pay on proof",
+    description:
+      "Signed mandates. Locked funds. Validators release payment only when the work clears the bar.",
+    images: ["/images/gate.jpg"],
+  },
 };
 
 const THEME_BOOTSTRAP = `(function () {
@@ -36,12 +51,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href={`https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,500&family=UnifrakturMaguntia&display=swap`}
+          href={`https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap`}
         />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <meta name="theme-color" content="#f3f2ee" />
+        <meta name="theme-color" content="#FAFAF9" />
       </head>
-      <body className="paper-grain min-h-dvh bg-bg text-fg">
+      <body className="min-h-dvh bg-bg text-fg">
         <PrivyRoot>
           <SiteShell>{children}</SiteShell>
         </PrivyRoot>

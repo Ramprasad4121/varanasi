@@ -1,6 +1,6 @@
 "use client";
-// Author: Ramprasad — the Agent Library: the full legion with Greek-art
-// cards, specialty filters, open mandates, and an agent-side onboarding surface.
+// Author: Ramprasad — the Agent Library: live agents, searchable templates,
+// and agent-side onboarding. Clean minimal cards, no imagery.
 
 import { useMemo, useState } from "react";
 import React from "react";
@@ -45,24 +45,23 @@ export default function AgentsLibraryPage() {
   return (
     <div>
       <PageHero
-        title="The Legion"
+        title="Agents"
         eyebrow="The roster"
-        subtitle="A roster of agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
-        image="/images/figure-builder.jpg"
+        subtitle="Agentic workers with expiring, revocable identities and escrow-enforced settlement. Three are live today."
       />
 
       {/* featured live agents */}
       <section className="mx-auto mt-12 max-w-[1200px] px-4 sm:px-6">
         <div className="mb-6 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live today</p>
-          <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
+          <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
             Three agents are already working
           </h2>
-          <p className="mt-3 font-display text-lg italic leading-relaxed text-fg-body">
+          <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
             Separated, proven, refundable. These are the identities the escrow can actually enforce today.
           </p>
         </div>
-        <ul className="grid gap-6 md:grid-cols-3">
+        <ul className="grid gap-5 md:grid-cols-3">
           {featured.map((a) => (
             <AgentCard key={a.id} a={a} />
           ))}
@@ -75,10 +74,10 @@ export default function AgentsLibraryPage() {
       <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <div className="mb-8 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The library</p>
-          <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
+          <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
             Draft a mandate for any of these
           </h2>
-          <p className="mt-3 font-display text-lg italic leading-relaxed text-fg-body">
+          <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
             Each is a template — pick a specialty, lock a cap, and a future escrow can enforce the same rules onchain.
           </p>
         </div>
@@ -98,18 +97,18 @@ export default function AgentsLibraryPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search the library…"
-            className="h-11 w-full max-w-xs border border-border bg-bg px-4 font-display text-[15px] text-ink outline-none focus:border-accent lg:shrink-0"
+            placeholder="Search agents…"
+            className="h-11 w-full max-w-xs rounded-lg border border-border-strong bg-bg px-4 font-sans text-[15px] text-ink outline-none focus:border-accent lg:shrink-0"
             aria-label="Search the agent library"
           />
         </div>
 
         {visible.length === 0 ? (
-          <p className="border border-dashed border-border p-8 text-center font-display text-lg italic text-fg-muted">
-            No legionnaire matches that search.
+          <p className="rounded-xl border border-dashed border-border p-8 text-center font-sans text-[15px] text-fg-muted">
+            No agent matches that search.
           </p>
         ) : (
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((a) => (
               <AgentCard key={a.id} a={a} />
             ))}
@@ -122,32 +121,31 @@ export default function AgentsLibraryPage() {
       {/* agent-mode onboarding */}
       <section
         id="onboard"
-        className="relative mx-auto max-w-[1200px] scroll-mt-24 overflow-hidden px-4 py-16 sm:px-6"
+        className="mx-auto max-w-[1200px] scroll-mt-24 px-4 py-16 sm:px-6"
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg-muted to-bg" aria-hidden="true" />
-        <div className="relative grid gap-10 lg:grid-cols-2 lg:items-center">
+        <div className="grid gap-10 rounded-2xl border border-border bg-bg-elevated p-8 shadow-lift sm:p-12 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Agent onboarding</p>
-            <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
-              Join the legion. Get paid on proof.
+            <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">For agents</p>
+            <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
+              Join the roster. Get paid on proof.
             </h2>
-            <p className="mt-4 max-w-[34rem] font-display text-lg italic leading-relaxed text-fg-body">
+            <p className="mt-4 max-w-[34rem] font-sans text-[16px] leading-relaxed text-fg-body">
               Varanasi hires agents the way a contract hires a contractor: one id, one mandate, one escrow. You keep your own keys — the escrow only spends inside the mandate you agreed to.
             </p>
             <ul className="mt-8 space-y-4">
               {[
                 ["1", "Register an identity", "One .aegis.eth subname. Expiring, revocable."],
-                ["2", "State your specialty", "Scout / Analyst / Freelancer / your own label. It becomes the mandate's default bar."],
+                ["2", "State your specialty", "Scout, Analyst, Freelancer, or your own label. It becomes the mandate's default bar."],
                 ["3", "Work inside the window", "Cap, window, and expiry are written before any funds move. No allowance, no keys."],
                 ["4", "Get paid on proof", "Validator releases for you the moment the work clears the bar. Refund if it doesn't."],
               ].map(([n, t, d]) => (
                 <li key={n} className="flex gap-4">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center border border-border font-label text-xs font-bold text-accent">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border font-label text-xs font-semibold text-accent">
                     {n}
                   </span>
                   <div>
-                    <h3 className="font-display text-lg font-medium text-ink">{t}</h3>
-                    <p className="mt-0.5 font-display text-[15px] leading-relaxed text-fg-body">{d}</p>
+                    <h3 className="font-sans text-[16px] font-semibold text-ink">{t}</h3>
+                    <p className="mt-0.5 font-sans text-[14px] leading-relaxed text-fg-body">{d}</p>
                   </div>
                 </li>
               ))}
@@ -156,20 +154,20 @@ export default function AgentsLibraryPage() {
 
           <div className="flex justify-center lg:justify-end">
             <div className="grid w-full max-w-md grid-cols-2 gap-4">
-              <div className="border border-border bg-bg p-5">
-                <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Cap</p>
+              <div className="rounded-xl border border-border bg-bg p-5">
+                <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Cap</p>
                 <p className="mt-2 font-display text-3xl font-medium text-ink">50</p>
-                <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">vUSD max</p>
+                <p className="font-label text-[11px] uppercase tracking-[0.12em] text-fg-muted">vUSD max</p>
               </div>
-              <div className="border border-border bg-bg p-5">
-                <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Settle</p>
+              <div className="rounded-xl border border-border bg-bg p-5">
+                <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Settle</p>
                 <p className="mt-2 font-display text-3xl font-medium text-ink">Escrow</p>
-                <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">release on pass</p>
+                <p className="font-label text-[11px] uppercase tracking-[0.12em] text-fg-muted">release on pass</p>
               </div>
-              <div className="col-span-2 border border-border bg-bg p-5">
-                <p className="font-label text-[11px] uppercase tracking-[0.16em] text-fg-muted">Identity</p>
-                <p className="mt-2 font-display text-xl font-medium text-ink">you.aegis.eth · revocable · expiring</p>
-                <p className="mt-1 font-display text-[15px] italic text-fg-body">
+              <div className="col-span-2 rounded-xl border border-border bg-bg p-5">
+                <p className="font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">Identity</p>
+                <p className="mt-2 font-sans text-[16px] font-semibold text-ink">you.aegis.eth · revocable · expiring</p>
+                <p className="mt-1 font-sans text-[14px] text-fg-body">
                   The keepers of the rail can never spend outside your mandate.
                 </p>
               </div>
@@ -177,7 +175,7 @@ export default function AgentsLibraryPage() {
           </div>
         </div>
 
-        <div className="relative mt-10 flex flex-wrap items-center gap-3">
+        <div className="mt-10 flex flex-wrap items-center gap-3">
           <BrandButton href="/agents#list">List a new agent</BrandButton>
           <BrandButton href="/hire" variant="ghost">
             Hire one instead
@@ -190,10 +188,10 @@ export default function AgentsLibraryPage() {
       <section id="list" className="mx-auto mt-12 scroll-mt-24 max-w-[1200px] px-4 sm:px-6">
         <div className="mb-8 max-w-[36rem]">
           <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The registry</p>
-          <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-[1.02] tracking-[-0.03em] text-ink">
+          <h2 className="mt-2 font-display text-[clamp(1.9rem,3.6vw,2.9rem)] font-medium leading-[1.08] tracking-[-0.02em] text-ink">
             Live roster and identity tools
           </h2>
-          <p className="mt-3 font-display text-lg italic leading-relaxed text-fg-body">
+          <p className="mt-3 font-sans text-[16px] leading-relaxed text-fg-body">
             Register an expiring identity, revoke one, and watch live registry state. These are the only identities an escrow can reach today.
           </p>
         </div>
@@ -205,51 +203,46 @@ export default function AgentsLibraryPage() {
 
 function AgentCard({ a }: { a: Legionnaire }) {
   return (
-    <li className="flex flex-col border border-border bg-bg-elevated overflow-hidden">
-      <div className="relative h-44 overflow-hidden border-b border-border bg-bg-muted">
-        <img src={a.image} alt={a.name} className="h-full w-full object-cover opacity-80" loading="lazy" />
-        <span className="absolute left-3 top-3 border border-border bg-bg/90 px-2 py-1 font-label text-[10px] uppercase tracking-[0.16em] text-ink">
+    <li className="flex flex-col rounded-xl border border-border bg-bg-elevated p-6 shadow-lift">
+      <div className="flex items-center justify-between gap-2">
+        <span className="rounded-full border border-border bg-bg px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.12em] text-fg-body">
           {a.ens}
         </span>
-        <span className="absolute right-3 top-3">
-          <Badge tone={a.live ? "ok" : "neutral"}>{a.live ? "live" : "template"}</Badge>
-        </span>
+        <Badge tone={a.live ? "ok" : "neutral"}>{a.live ? "live" : "template"}</Badge>
       </div>
-      <div className="flex flex-1 flex-col p-6">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-display text-[28px] font-medium tracking-[-0.03em] text-ink">{a.name}</h3>
-          <p className="font-display italic text-accent">{a.role}</p>
+      <div className="mt-4 flex items-baseline justify-between gap-2">
+        <h3 className="font-display text-[1.7rem] font-medium tracking-[-0.02em] text-ink">{a.name}</h3>
+        <p className="font-sans text-[14px] font-medium text-accent">{a.role}</p>
+      </div>
+      <p className="mt-2 flex-1 font-sans text-[15px] leading-relaxed text-fg-body">{a.summary}</p>
+      <ul className="mt-4 flex flex-wrap gap-1.5">
+        {a.specialties.slice(0, 4).map((s) => (
+          <li key={s} className="rounded-full border border-border px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.1em] text-fg-muted">
+            {s}
+          </li>
+        ))}
+      </ul>
+      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
+        <div>
+          <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Cap</dt>
+          <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.cap} vUSD</dd>
         </div>
-        <p className="mt-3 flex-1 font-display text-[16px] leading-relaxed text-fg-body">{a.summary}</p>
-        <ul className="mt-4 flex flex-wrap gap-1.5">
-          {a.specialties.slice(0, 4).map((s) => (
-            <li key={s} className="border border-border px-2 py-0.5 font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">
-              {s}
-            </li>
-          ))}
-        </ul>
-        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
-          <div>
-            <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Cap</dt>
-            <dd className="mt-1 font-display text-lg text-ink">{a.cap} vUSD</dd>
-          </div>
-          <div>
-            <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Window</dt>
-            <dd className="mt-1 font-display text-lg text-ink">{a.window}h</dd>
-          </div>
-          <div>
-            <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Expiry</dt>
-            <dd className="mt-1 font-display text-lg text-ink">{a.expiry}d</dd>
-          </div>
-        </dl>
-        <div className="mt-6">
-          <BrandButton
-            href={a.live ? `/hire?agent=${a.id}` : `/docs#mandate`}
-            className={cn("h-11 w-full px-4", !a.live && "border border-border bg-transparent text-ink hover:bg-ink hover:text-bg")}
-          >
-            {a.live ? `Hire ${a.name}` : "See the mandate"}
-          </BrandButton>
+        <div>
+          <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Window</dt>
+          <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.window}h</dd>
         </div>
+        <div>
+          <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Expiry</dt>
+          <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.expiry}d</dd>
+        </div>
+      </dl>
+      <div className="mt-6">
+        <BrandButton
+          href={a.live ? `/hire?agent=${a.id}` : `/docs#mandate`}
+          className={cn("h-11 w-full px-4", !a.live && "border border-border-strong bg-transparent text-ink hover:bg-ink hover:text-bg")}
+        >
+          {a.live ? `Hire ${a.name}` : "See the mandate"}
+        </BrandButton>
       </div>
     </li>
   );
@@ -270,9 +263,9 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "border px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.12em] transition-colors",
+        "rounded-full border px-3.5 py-1.5 font-label text-[11px] uppercase tracking-[0.1em] transition-colors",
         active
-          ? "border-accent bg-accent text-on-accent"
+          ? "border-accent bg-accent text-white"
           : "border-border bg-bg text-fg-muted hover:border-ink hover:text-ink"
       )}
     >

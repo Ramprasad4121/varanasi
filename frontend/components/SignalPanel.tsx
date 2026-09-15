@@ -3,19 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { BrandButton } from "@/components/BrandButton";
-import { LS_RECEIPTS, SIGNAL_URL, hashscanTx, type Receipt } from "./aegis";
+import { LS_RECEIPTS, hashscanTx, type Receipt } from "./aegis";
+import { backendUrls } from "@/lib/backend";
 import { useVaultUserId, loadScoped, saveScoped } from "@/lib/vault";
 
 function signalEndpoint() {
-  const base = SIGNAL_URL.replace(/\/$/, "");
-  return base.endsWith("/v1/signal") ? base : `${base}/v1/signal`;
+  return backendUrls.signal();
 }
 
 function receiptsEndpoint() {
-  const base = SIGNAL_URL.replace(/\/$/, "");
-  return base.endsWith("/v1/receipts")
-    ? base
-    : `${base.replace(/\/v1\/signal$/, "")}/v1/receipts`;
+  return backendUrls.receipts();
 }
 
 export function SignalPanel({
