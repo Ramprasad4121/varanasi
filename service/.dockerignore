@@ -1,0 +1,10 @@
+# Author: Ramprasad
+node_modules
+dist
+data/*.json
+.env
+.env.local
+npm-debug.log
+Dockerfile
+.dockerignore
+.git

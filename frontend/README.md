@@ -56,7 +56,12 @@ npm run dev   # http://localhost:3000
 - `NEXT_PUBLIC_PRIVY_APP_ID` — required for Sign in / vault / embedded wallet
 - `NEXT_PUBLIC_SEPOLIA_RPC` — Sepolia RPC URL
 - `NEXT_PUBLIC_AEGIS_REGISTRY` — deployed `AegisRegistry` address
-- `NEXT_PUBLIC_SIGNAL_URL` — x402-gated signal service
+- `NEXT_PUBLIC_SIGNAL_URL` — x402-gated signal service base URL.
+  Local: `http://localhost:4021`. Production (recommended): `/api/backend`
+  (same-origin proxy via `next.config.js` rewrites — no CORS config needed).
+  Direct host (`https://…`) also works. All calls go through the typed client
+  in `lib/backend.ts` (12s timeout, typed errors, graceful degradation);
+  the footer shows a live backend status pill (`components/BackendStatus.tsx`).
 - `NEXT_PUBLIC_GRAPH_API_KEY` — optional, live subgraph query
 
 Until the registry is a non-zero address, onchain writes run in **"not

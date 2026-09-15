@@ -7,39 +7,24 @@ type Props = {
   as?: "h1" | "h2" | "h3";
   className?: string;
   size?: "hero" | "section" | "page";
-  initial?: boolean;
 };
 
 /**
- * Display serif heading with the Colosseum grammar: pass `initial` to render
- * the leading character as a blackletter drop-cap (Old London Initials role).
+ * Author: Ramprasad — clean display heading, colosseum grammar.
+ * Serif only, tight tracking, balanced wrapping. No drop-caps.
  */
-export function DisplayHeading({ children, as: Tag = "h2", className, size = "section", initial = false }: Props) {
-  const text = typeof children === "string" ? children : null;
-  const drop = initial && text && text.length > 0 ? text[0] : null;
-  const rest = initial && text && text.length > 1 ? text.slice(1) : text;
-
+export function DisplayHeading({ children, as: Tag = "h2", className, size = "section" }: Props) {
   return (
     <Tag
       className={cn(
-        "font-display font-medium text-ink tracking-[-0.03em] leading-[1.02] text-balance",
-        size === "hero" && "text-[clamp(2.4rem,5vw,4.1rem)]",
-        size === "section" && "text-[clamp(2.1rem,4.2vw,3.4rem)]",
-        size === "page" && "text-[clamp(2.6rem,5.4vw,4.4rem)]",
+        "font-display font-medium text-ink tracking-[-0.02em] leading-[1.08] text-balance",
+        size === "hero" && "text-[clamp(2.5rem,5vw,4rem)]",
+        size === "section" && "text-[clamp(1.9rem,3.6vw,2.9rem)]",
+        size === "page" && "text-[clamp(2.4rem,5vw,3.9rem)]",
         className,
       )}
     >
-      {drop ? (
-        <>
-          <span className="sr-only">{text}</span>
-          <span aria-hidden="true">
-            <span className="drop-cap">{drop}</span>
-            {rest}
-          </span>
-        </>
-      ) : (
-        children
-      )}
+      {children}
     </Tag>
   );
 }

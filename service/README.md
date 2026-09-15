@@ -14,7 +14,7 @@ verified/settled via an x402 facilitator. Adapted from the reference PoC
 | `GET /v1/finance?address=0x…` | free | demo community-finance portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
 | `GET /v1/finance/summary` | free | same, forced summary |
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
-| `GET /health`, `GET /402-info`, `GET /v1/receipts` | free | status / pay-preview / receipt log |
+| `GET /health`, `GET /ready`, `GET /version`, `GET /openapi.json`, `GET /402-info`, `GET /v1/receipts` | free | status / readiness / version / route catalog / pay-preview / receipt log |
 
 Each paid route accepts **two** payment options (USDC leg + HBAR leg) — the
 payer's x402 client picks whichever asset its wallet can fund.
@@ -52,7 +52,29 @@ npm run build && npm start
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # tsx --test — 5 tests (finance + receipts), no keys needed
+npm test            # tsx --test — 10 tests (finance + receipts + infra), no keys needed
+```
+
+## 2b1. Production hardening
+
+- `src/config.ts` — env validated once at boot; bad `PORT` /
+  `HEDERA_NETWORK` / `HEDERA_SERVICE_ACCOUNT_ID` / facilitator URL fails fast.
+- Security: `helmet` headers, `gzip`, `trust proxy` (correct `req.ip` behind
+  Render/Fly/Vercel), `x-powered-by` off, 256kb JSON body cap.
+- Observability: `x-request-id` on every response + structured access logs;
+  `GET /ready` (readiness), `GET /version` (version/sha/uptime),
+  `GET /openapi.json` (route catalog). JSON `404` + JSON error handler
+  (stacks never leak; errors carry the request id).
+- Lifecycle: 30s request timeout, graceful `SIGTERM`/`SIGINT` drain (10s cap).
+- Receipts: atomic temp-file + rename writes (`src/store.ts`), cap 100.
+- Deploy: `service/Dockerfile` (node:24-alpine, `npm ci --omit=dev`,
+  exposes 4021). Set `CORS_ORIGIN=https://<your-site>`,
+  `NODE_ENV=production`, `GIT_SHA` + `SERVICE_VERSION` for `/version`.
+
+```bash
+docker build -t varanasi-signal ./service
+docker run -p 4021:4021 --env-file service/.env varanasi-signal
+curl -s localhost:4021/ready
 ```
 
 ## 2b. Community finance API (demo)
@@ -222,6 +244,9 @@ Service as a verifiable timestamped receipt
 ```
 service/
   src/server.ts    Express app, x402 gate, paid + free routes, receipt log
+  src/config.ts    validated runtime config (fails fast on bad env)
+  src/middleware.ts request ids, access logs, free-route rate limiter
+  src/store.ts     atomic file-backed receipt log (last 100)
   src/pricing.ts   price table ($0.01 signal / $0.001 score) + USDC/HBAR switch
   src/signal.ts    DEMO deterministic mock alpha (TODO: real Graph-fed model)
   src/finance/     DEMO address-seeded portfolio + recommendations (v1/finance*)

@@ -97,6 +97,9 @@ procedure: `docs/KEYS.md`.
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
 | `GET /v1/receipts` | free | receipt log (file-backed, last 100) |
 | `GET /health` | free | status |
+| `GET /ready` | free | readiness probe (receipt store + config) |
+| `GET /version` | free | build version + git sha + uptime |
+| `GET /openapi.json` | free | machine-readable route catalog |
 | `GET /402-info` | free | payment preview |
 
 ## 6. Test matrix (verified passing, CI-blue)
@@ -105,7 +108,7 @@ procedure: `docs/KEYS.md`.
 |---|---|---|
 | Contracts (Foundry) | `forge test` | **166** tests / 10 suites — offline (mock ENS), fork tests skip w/o `SEPOLIA_RPC_URL` |
 | Agent (vitest) | `npm test` (`vitest run`) | **162** tests / 17 files — mocked fetch, no live wallet |
-| Service (node:test) | `npm test` (`tsx --test`) | **5** tests |
+| Service (node:test) | `npm test` (`tsx --test`) | **10** tests |
 
 Of the 333: community finance = 54 forge (SavingsVault 9, ChitPool 7,
 LoanAgreement 10, CollateralVault 10, FinancialReputation 9, Gold 9)

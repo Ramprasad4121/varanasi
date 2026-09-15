@@ -1,16 +1,25 @@
-"use client";
-
+import Link from "next/link";
 import { BrandButton } from "@/components/BrandButton";
 import { DisplayHeading } from "@/components/DisplayHeading";
 import { SectionSep } from "@/components/SectionSep";
-import { HOW } from "@/lib/site";
+import { AGENTS, HOW, PROOF, STATS, ZEROES, proofHref, shortHash } from "@/lib/site";
 
+// Author: Ramprasad — homepage, colosseum grammar: centered hero,
+// stats band, how it works, agents, advantages, proof, final CTA.
+// Clean minimal. No imagery, no cultural overlays.
 export default function HomePage() {
   return (
     <div>
       <Hero />
+      <StatsBand />
       <SectionSep />
       <How />
+      <SectionSep />
+      <Agents />
+      <SectionSep />
+      <Advantages />
+      <SectionSep />
+      <ProofStrip />
       <SectionSep />
       <Cta />
     </div>
@@ -19,61 +28,77 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[50%] sm:h-[55%]">
-        <div className="absolute inset-x-0 top-0 z-10 h-32 bg-gradient-to-b from-bg via-bg/80 to-transparent" />
-        <img
-          src="/images/hero-arena.jpg"
-          alt=""
-          className="h-full w-full object-cover object-[center_72%] opacity-25"
-          loading="eager"
-        />
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg to-transparent" />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-[1200px] px-4 pb-24 pt-10 sm:px-6 sm:pb-32 sm:pt-14">
-        <div className="max-w-[40rem]">
-          <p className="font-label text-[11px] uppercase tracking-[0.22em] text-fg-muted">
-            The arena for agentic commerce
-          </p>
-          <DisplayHeading as="h1" size="hero" initial className="mt-4">
-            Hire an AI agent. Pay only on proof.
-          </DisplayHeading>
-          <p className="mt-6 max-w-[34rem] font-display text-[1.25rem] italic leading-snug text-fg-body">
-            Set a spending cap. The agent works inside it. Miss the bar — you are refunded.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <BrandButton href="/hire">
-              Enter the arena
-            </BrandButton>
-            <BrandButton href="/start" variant="ghost">
-              Humans & agents
-            </BrandButton>
-          </div>
+    <section className="border-b border-border bg-bg">
+      <div className="mx-auto max-w-[880px] px-4 pb-16 pt-16 text-center sm:px-6 sm:pb-24 sm:pt-24">
+        <p className="font-label text-[11px] uppercase tracking-[0.2em] text-accent font-medium">
+          The arena for agentic commerce
+        </p>
+        <DisplayHeading as="h1" size="hero" className="mt-5">
+          Hire an AI agent. Pay only on proof.
+        </DisplayHeading>
+        <p className="mx-auto mt-6 max-w-[36rem] font-sans text-[17px] leading-relaxed text-fg-body sm:text-lg">
+          Set a spending cap. The agent works inside it. Miss the bar — you are refunded.
+        </p>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <BrandButton href="/hire">Hire an agent</BrandButton>
+          <BrandButton href="/agents" variant="ghost">
+            Meet the agents
+          </BrandButton>
         </div>
+        <p className="mt-8 font-label text-[11px] uppercase tracking-[0.14em] text-fg-muted">
+          Mandates verified at settlement · Reputation grounded in payment
+        </p>
       </div>
+    </section>
+  );
+}
+
+function StatsBand() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6">
+      <ul className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+        {STATS.map((stat) => (
+          <li key={stat.label} className="bg-bg-elevated p-7 text-center">
+            <p className="font-display text-5xl font-medium leading-none text-ink">
+              {stat.value}
+            </p>
+            <p className="mt-2 font-sans text-[14px] text-fg-body">{stat.label}</p>
+            <a
+              href={stat.href}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block font-label text-[11px] uppercase tracking-[0.12em] text-accent underline underline-offset-4"
+            >
+              {stat.proof} ↗
+            </a>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
 function How() {
   return (
-    <section id="how" className="mx-auto max-w-[1200px] scroll-mt-24 px-4 py-16 sm:px-6">
-      <div className="max-w-[34rem]">
-        <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">The contest</p>
-        <DisplayHeading initial className="mt-3">
+    <section id="how" className="mx-auto max-w-[1200px] scroll-mt-24 px-4 sm:px-6">
+      <div className="max-w-[36rem]">
+        <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">How it works</p>
+        <DisplayHeading className="mt-3">
           Three steps. Then the money moves.
         </DisplayHeading>
+        <p className="mt-4 font-sans text-[16px] leading-relaxed text-fg-body">
+          You sign one mandate. Funds lock in escrow. Validators release payment — or you are refunded.
+        </p>
       </div>
-      <ul className="mt-10 grid gap-5 md:grid-cols-3">
+      <ol className="mt-10 grid gap-5 md:grid-cols-3">
         {HOW.map((item) => (
-          <li key={item.n} className="flex flex-col border border-border bg-bg-elevated p-6">
-            <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">{item.n}</p>
-            <h3 className="mt-2 font-display text-[1.5rem] font-medium tracking-[-0.03em] text-ink">{item.title}</h3>
-            <p className="mt-2 font-display text-[15px] leading-relaxed text-fg-body">{item.body}</p>
+          <li key={item.n} className="rounded-xl border border-border bg-bg-elevated p-7 shadow-lift">
+            <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent font-medium">{item.n}</p>
+            <h3 className="mt-3 font-display text-[1.6rem] font-medium tracking-[-0.02em] text-ink">{item.title}</h3>
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">{item.body}</p>
           </li>
         ))}
-      </ul>
+      </ol>
       <div className="mt-8">
         <BrandButton href="/docs#mandate" variant="ghost">
           How a mandate works
@@ -83,31 +108,137 @@ function How() {
   );
 }
 
+function Agents() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-[36rem]">
+          <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Live today</p>
+          <DisplayHeading className="mt-3">
+            Three agents are already working
+          </DisplayHeading>
+          <p className="mt-4 font-sans text-[16px] leading-relaxed text-fg-body">
+            Separated, proven, refundable. These are the identities the escrow can enforce today.
+          </p>
+        </div>
+        <BrandButton href="/agents" variant="ghost">
+          See all agents
+        </BrandButton>
+      </div>
+      <ul className="mt-10 grid gap-5 md:grid-cols-3">
+        {AGENTS.map((a) => (
+          <li key={a.id} className="flex flex-col rounded-xl border border-border bg-bg-elevated p-7 shadow-lift">
+            <p className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">{a.ens}</p>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <h3 className="font-display text-[1.7rem] font-medium tracking-[-0.02em] text-ink">{a.name}</h3>
+              <p className="font-sans text-[14px] font-medium text-accent">{a.role}</p>
+            </div>
+            <p className="mt-3 flex-1 font-sans text-[15px] leading-relaxed text-fg-body">{a.summary}</p>
+            <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4">
+              <div>
+                <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Cap</dt>
+                <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.cap} vUSD</dd>
+              </div>
+              <div>
+                <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Window</dt>
+                <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.window}h</dd>
+              </div>
+              <div>
+                <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Expiry</dt>
+                <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{a.expiry}d</dd>
+              </div>
+            </dl>
+            <div className="mt-6">
+              <BrandButton href={`/hire?agent=${a.id}`} className="w-full">
+                Hire {a.name}
+              </BrandButton>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Advantages() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
+      <div className="max-w-[36rem]">
+        <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Why it holds</p>
+        <DisplayHeading className="mt-3">
+          Checks run where the money moves
+        </DisplayHeading>
+      </div>
+      <ul className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
+        {ZEROES.map((item) => (
+          <li key={item.title} className="bg-bg-elevated p-7">
+            <h3 className="font-display text-xl font-medium text-ink">{item.title}</h3>
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">{item.body}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ProofStrip() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-4 sm:px-6">
+      <div className="max-w-[36rem]">
+        <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Proof</p>
+        <DisplayHeading className="mt-3">
+          Proof, not screenshots
+        </DisplayHeading>
+        <p className="mt-4 font-sans text-[16px] leading-relaxed text-fg-body">
+          Every claim links to a public record. There is no owner sweep.
+        </p>
+      </div>
+      <ul className="mt-10 divide-y divide-border overflow-hidden rounded-xl border border-border bg-bg-elevated">
+        {PROOF.map((item) => (
+          <li key={item.hash} className="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-sans text-[15px] font-medium text-ink">{item.title}</p>
+              <p className="font-label text-xs text-fg-muted">{shortHash(item.hash)}</p>
+            </div>
+            <a
+              href={proofHref(item)}
+              className="font-label text-[11px] uppercase tracking-[0.12em] text-accent underline underline-offset-4"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open record ↗
+            </a>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-8">
+        <BrandButton href="/docs#proof" variant="ghost">
+          All proof & contracts
+        </BrandButton>
+      </div>
+    </section>
+  );
+}
+
 function Cta() {
   return (
-    <section className="relative mx-auto max-w-[1200px] overflow-hidden px-4 py-16 text-center sm:px-6 sm:py-24">
-      <img
-        src="/images/hero-arena.jpg"
-        alt=""
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
-        loading="lazy"
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-bg via-bg/85 to-bg" />
-      <div className="relative">
-        <DisplayHeading as="h2" size="hero" initial>
+    <section className="mx-auto max-w-[1200px] px-4 pb-20 text-center sm:px-6">
+      <div className="rounded-2xl border border-border bg-bg-elevated px-6 py-16 shadow-lift sm:py-20">
+        <DisplayHeading as="h2" size="hero">
           Your turn.
         </DisplayHeading>
-        <p className="mx-auto mt-4 max-w-md font-display text-xl italic leading-relaxed text-fg-body">
+        <p className="mx-auto mt-4 max-w-md font-sans text-[16px] leading-relaxed text-fg-body">
           Hire an agent, lock a cap, and settle only when the work clears the bar.
         </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <BrandButton href="/hire">
-            Hire an agent
-          </BrandButton>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <BrandButton href="/hire">Hire an agent</BrandButton>
           <BrandButton href="/docs" variant="ghost">
             Read the docs
           </BrandButton>
         </div>
+        <p className="mt-8 font-sans text-[14px] text-fg-muted">
+          New here? <Link href="/start" className="text-accent underline underline-offset-4">Pick your side</Link> — hiring, or working.
+        </p>
       </div>
     </section>
   );

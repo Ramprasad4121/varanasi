@@ -268,32 +268,29 @@ export function AgentMarket({
       </div>
 
       {/* 3-column roster */}
-      <ul className="mt-6 grid gap-6 lg:grid-cols-3">
+      <ul className="mt-6 grid gap-5 lg:grid-cols-3">
         {AGENTS.map((agent) => (
-          <li key={agent.id} className="flex flex-col border border-border bg-bg-elevated overflow-hidden">
-            <div className="h-36 overflow-hidden border-b border-border bg-bg-muted">
-              <img src={agent.image} alt={agent.name} className="h-full w-full object-cover opacity-80" loading="lazy" />
-            </div>
-            <div className="flex flex-1 flex-col p-6">
+          <li key={agent.id} className="flex flex-col rounded-xl border border-border bg-bg-elevated p-6 shadow-lift">
+            <div className="flex flex-1 flex-col">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">{agent.ens}</p>
+                <p className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">{agent.ens}</p>
                 <Badge tone="ok">authorized</Badge>
               </div>
-              <h3 className="mt-3 font-display text-[28px] font-medium tracking-[-0.03em] text-ink">{agent.name}</h3>
-              <p className="mt-1 font-display italic text-accent">{agent.role}</p>
-              <p className="mt-3 flex-1 font-display text-[16px] leading-relaxed text-fg-body">{agent.summary}</p>
+              <h3 className="mt-3 font-display text-[1.7rem] font-medium tracking-[-0.02em] text-ink">{agent.name}</h3>
+              <p className="mt-1 font-sans text-[14px] font-medium text-accent">{agent.role}</p>
+              <p className="mt-3 flex-1 font-sans text-[15px] leading-relaxed text-fg-body">{agent.summary}</p>
               <dl className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
                 <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Cap</dt>
-                  <dd className="mt-1 font-display text-lg text-ink">{agent.cap} vUSD</dd>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Cap</dt>
+                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{agent.cap} vUSD</dd>
                 </div>
                 <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Window</dt>
-                  <dd className="mt-1 font-display text-lg text-ink">{agent.window}h</dd>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Window</dt>
+                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">{agent.window}h</dd>
                 </div>
                 <div>
-                  <dt className="font-label text-[10px] uppercase tracking-[0.14em] text-fg-muted">Score</dt>
-                  <dd className="mt-1 font-display text-lg text-ink">98/100</dd>
+                  <dt className="font-label text-[10px] uppercase tracking-[0.12em] text-fg-muted">Score</dt>
+                  <dd className="mt-1 font-sans text-[15px] font-semibold text-ink">98/100</dd>
                 </div>
               </dl>
               <div className="mt-6">
@@ -307,16 +304,12 @@ export function AgentMarket({
       </ul>
 
       {/* Featured sentinel-1 card */}
-      <div className="mt-6 border border-border bg-bg-elevated">
-        <div className="grid gap-0 md:grid-cols-[200px_1fr]">
-          <div className="h-44 md:h-auto overflow-hidden border-b md:border-b-0 md:border-r border-border bg-bg-muted">
-            <img src="/images/emblem.jpg" alt="" className="h-full w-full object-cover opacity-80" loading="lazy" />
-          </div>
-          <div className="p-6">
+      <div className="mt-6 rounded-xl border border-border bg-bg-elevated p-6 shadow-lift sm:p-8">
+          <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-display text-2xl font-medium text-ink">sentinel-1.aegis.eth</p>
-                <p className="mt-1 font-display text-sm italic text-fg-muted">
+                <p className="mt-1 font-sans text-[14px] text-fg-muted">
                   Minted Sep 6, 2026 · 90-day expiry · RiskGuard verified
                 </p>
               </div>
@@ -344,7 +337,6 @@ export function AgentMarket({
               </p>
             )}
           </div>
-        </div>
       </div>
 
       {/* Onboard form toggle */}
