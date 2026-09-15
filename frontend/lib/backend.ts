@@ -33,6 +33,13 @@ export function backendRoot(): string {
 }
 
 function join(root: string, path: string): string {
+  // Browser calls go same-origin (/api/backend/...) so ad-blockers, tracker
+  // blockers, and CORS edge cases can never break them: Vercel rewrites
+  // (next.config.js) forward to the Render host server-side. Direct URLs are
+  // kept for non-browser contexts (SSR, scripts).
+  if (typeof window !== "undefined" && /^https?:\/\//.test(root)) {
+    return `/api/backend${path}`;
+  }
   if (root === "") return `/api/backend${path}`;
   return `${root}${path}`;
 }
