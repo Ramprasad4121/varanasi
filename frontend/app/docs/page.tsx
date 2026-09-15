@@ -20,13 +20,13 @@ function Guide({ title, what, steps, miss }: { title: string; what: string; step
   return (
     <article className="border border-border bg-bg-elevated p-6">
       <h3 className="font-display text-xl font-medium text-ink">{title}</h3>
-      <p className="mt-2 font-display text-[16px] leading-relaxed text-fg-body">{what}</p>
-      <ol className="mt-4 space-y-2 list-decimal list-inside font-display text-[15px] text-fg-body">
+      <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">{what}</p>
+      <ol className="mt-4 space-y-2 list-decimal list-inside font-sans text-[14px] leading-relaxed text-fg-body">
         {steps.map((s) => (
           <li key={s.slice(0, 24)}>{s}</li>
         ))}
       </ol>
-      <p className="mt-4 font-display text-[14px] italic leading-relaxed text-fg-muted">If it goes wrong: {miss}</p>
+      <p className="mt-4 font-sans text-[13px] italic leading-relaxed text-fg-muted">If it goes wrong: {miss}</p>
     </article>
   );
 }
@@ -38,12 +38,11 @@ export default function DocsPage() {
         title="Documentation"
         eyebrow="Learn"
         subtitle="Everything Varanasi does, in plain words. Three sentences first, guides for each feature below."
-        image="/images/mandate-scroll.jpg"
       />
 
       <section id="what" className="mx-auto max-w-[760px] scroll-mt-24 px-4 py-14 sm:px-6">
         <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">What it is</p>
-        <div className="mt-4 space-y-5 font-display text-lg leading-relaxed text-fg-body">
+        <div className="mt-4 space-y-5 font-sans text-lg leading-relaxed text-fg-body">
           <p>
             Agents move money on promises. The old way hands them a key and a standing approval — one bad prompt and
             the treasury drains.
@@ -61,7 +60,7 @@ export default function DocsPage() {
           {ZEROES.map((item) => (
             <li key={item.title} className="bg-bg p-6">
               <h2 className="font-display text-xl font-medium text-ink">{item.title}</h2>
-              <p className="mt-2 font-display text-[16px] leading-relaxed text-fg-body">{item.body}</p>
+              <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">{item.body}</p>
             </li>
           ))}
         </ul>
@@ -74,7 +73,7 @@ export default function DocsPage() {
         <h2 className="mt-3 font-display text-3xl font-medium tracking-[-0.03em] text-ink">
           One signed object. One escrowed task.
         </h2>
-        <p className="mt-4 max-w-[36rem] font-display text-lg italic leading-relaxed text-fg-body">
+        <p className="mt-4 max-w-[36rem] font-sans text-[16px] leading-relaxed text-fg-body">
           You sign. Anyone can submit. Settlement never trusts a prompt.
         </p>
         <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -82,13 +81,13 @@ export default function DocsPage() {
             <li key={step.n} className="border border-border bg-bg-elevated p-6">
               <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">{step.n}</p>
               <h3 className="mt-3 font-display text-2xl font-medium tracking-[-0.03em] text-ink">{step.title}</h3>
-              <p className="mt-2 font-display text-[16px] leading-relaxed text-fg-body">{step.body}</p>
+              <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">{step.body}</p>
             </li>
           ))}
           <li className="border border-border bg-bg-elevated p-6">
             <p className="font-label text-[11px] uppercase tracking-[0.16em] text-accent">IV</p>
             <h3 className="mt-3 font-display text-2xl font-medium tracking-[-0.03em] text-ink">Kill switch</h3>
-            <p className="mt-2 font-display text-[16px] leading-relaxed text-fg-body">
+            <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">
               Revoke the identity and every downstream gate closes. The agent cannot spend after that.
             </p>
           </li>
@@ -97,7 +96,7 @@ export default function DocsPage() {
           {MANDATE_FIELDS.map((row) => (
             <li key={row.field} className="grid gap-1 px-4 py-3 sm:grid-cols-[8.5rem_1fr] sm:items-baseline sm:gap-4">
               <span className="font-label text-sm text-ink">{row.field}</span>
-              <span className="font-display text-base leading-relaxed text-fg-body">{row.meaning}</span>
+              <span className="font-sans text-[15px] leading-relaxed text-fg-body">{row.meaning}</span>
             </li>
           ))}
         </ul>
@@ -114,7 +113,7 @@ export default function DocsPage() {
       <section id="proof" className="mx-auto max-w-[1100px] scroll-mt-24 px-4 py-14 sm:px-6">
         <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Proof</p>
         <h2 className="mt-3 font-display text-3xl font-medium tracking-[-0.03em] text-ink">Proof, not screenshots</h2>
-        <p className="mt-4 max-w-[36rem] font-display text-lg italic leading-relaxed text-fg-body">
+        <p className="mt-4 max-w-[36rem] font-sans text-[16px] leading-relaxed text-fg-body">
           Every claim below links to a public record. There is no owner sweep.
         </p>
         <ul className="mt-8 grid grid-cols-2 gap-px overflow-hidden border border-border bg-border md:grid-cols-4">
@@ -124,7 +123,7 @@ export default function DocsPage() {
                 {stat.value}
                 {stat.suffix ? <span className="text-base text-fg-muted">{stat.suffix}</span> : null}
               </p>
-              <p className="mt-2 font-display text-sm text-fg-muted">{stat.label}</p>
+              <p className="mt-2 font-sans text-sm text-fg-muted">{stat.label}</p>
             </li>
           ))}
         </ul>
@@ -133,7 +132,7 @@ export default function DocsPage() {
           {PROOF.map((item) => (
             <li key={item.hash} className="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-display text-lg text-ink">{item.title}</p>
+                <p className="font-sans text-[15px] font-medium text-ink">{item.title}</p>
                 <p className="font-label text-xs text-fg-muted">{shortHash(item.hash)}</p>
               </div>
               <a
@@ -152,7 +151,7 @@ export default function DocsPage() {
           {CONTRACTS.map((c) => (
             <li key={c.address} className="border border-border bg-bg-elevated p-5">
               <p className="font-display text-xl font-medium text-ink">{c.name}</p>
-              <p className="mt-1 font-display text-[16px] text-fg-body">{c.note}</p>
+              <p className="mt-1 font-sans text-[15px] leading-relaxed text-fg-body">{c.note}</p>
               <a
                 href={`${ETHERSCAN_ADDR}/${c.address}`}
                 className="mt-3 inline-block break-all font-label text-xs text-accent underline underline-offset-4"
@@ -216,8 +215,8 @@ export default function DocsPage() {
             miss="Varanasi never holds keys. Only public addresses and receipts are stored."
           />
         </div>
-        <p className="mt-8 font-display text-[15px] text-fg-muted">
-          Finance and the gold-backed coin are not live yet — see{" "}
+        <p className="mt-8 font-sans text-[15px] text-fg-muted">
+          Finance is a simulated vault — see{" "}
           <Link href="/finance" className="text-accent underline underline-offset-4">
             finance
           </Link>{" "}
@@ -233,7 +232,7 @@ export default function DocsPage() {
         </p>
         <div className="mt-8 flex items-center gap-2">
           <Badge tone="ok">Community product</Badge>
-          <span className="font-display text-[15px] text-fg-muted">Fork the repo. The contracts hold only user funds.</span>
+          <span className="font-sans text-[15px] text-fg-muted">Fork the repo. The contracts hold only user funds.</span>
         </div>
       </section>
     </div>

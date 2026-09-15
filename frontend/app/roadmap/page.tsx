@@ -11,7 +11,6 @@ export default function RoadmapPage() {
         title="The Roadmap"
         eyebrow="No dates"
         subtitle="What we build, in what order. Every brick has to hold before the next one goes down."
-        image="/images/gate.jpg"
       />
       <section className="mx-auto max-w-[760px] px-4 py-12 sm:px-6">
         {ROADMAP_INTRO.map((p) => (

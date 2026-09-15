@@ -19,7 +19,6 @@ function SetupNotice() {
         title="Treasury"
         eyebrow="Setup Required"
         subtitle="Sign-in and the embedded wallet need a Privy App ID. The rest of the site still works."
-        image="/images/scales.jpg"
       />
       <section className="mx-auto max-w-[880px] px-4 py-12 sm:px-6">
         <div className="border border-border bg-bg-elevated p-8">
