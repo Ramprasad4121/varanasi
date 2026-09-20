@@ -29,6 +29,8 @@ export interface AnalystOptions {
   identityOk?: boolean;
   /** Opt-in LLM reasoning via brain.ts (default false = pure heuristic). */
   llm?: boolean;
+  /** TypeSafe verifier gate: true forces on, false forces off, undefined = auto (on only when TYPESAFE_API_KEY present). */
+  verify?: boolean;
   /** Pin one pool id to fetch intel for (else the caller supplies intel). */
   poolId?: string;
   /** Force offline fixture mode for the poolId lookup (tests only). */
@@ -127,6 +129,7 @@ export async function runAnalyst(
       { score: alpha.score, direction: alpha.direction },
       { identityOk: opts.identityOk },
       thresholdBps,
+      { verify: opts.verify },
     );
     return { verdict, brief: buildAnalystBrief(intel, alpha, verdict, thresholdBps) };
   }

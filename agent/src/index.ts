@@ -30,7 +30,20 @@ export { resolveAgentSubname, splitSubname, isIdentityAuthorized, DEFAULT_UNIVER
 export type { AgentIdentity } from "./ens.js";
 export { analyzeRisk, llmRationale, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 export type { ReasonInput, ReasonOutput } from "./reason.js";
-export { reasonWithLLM, isAllowedLlmBaseUrl, isLocalBaseUrl, escapeHtml } from "./brain.js";
+export {
+  reasonWithLLM,
+  isAllowedLlmBaseUrl,
+  isLocalBaseUrl,
+  escapeHtml,
+  resolveVerifyConfig,
+  buildVerifyState,
+  verifyVerdictWithTypeSafe,
+  DEFAULT_TYPESAFE_MODEL,
+  DEFAULT_VERIFY_THRESHOLD,
+  TYPESAFE_TIMEOUT_MS,
+  VERIFY_QUESTION_IDS,
+} from "./brain.js";
+export type { BrainVerdict, BrainIntel, BrainAlpha, BrainIdentity, VerifyGate } from "./brain.js";
 export { payForSignal, hashscanTxUrl, derivePaidReceipt, isValidHederaTxId, isAllowedSignalUrl } from "./pay.js";
 export type { PayResult, DerivedReceipt } from "./pay.js";
 export { runDoctor, formatDoctor, SEPOLIA_CHAIN_ID_DEC, SEPOLIA_CHAIN_ID_HEX } from "./doctor.js";
@@ -105,12 +118,16 @@ export {
   AAVE_REQUEST_TIMEOUT_MS,
   AAVE_TOOLS,
   AAVE_OFFLINE_FIXTURE,
+  MAX_ROW_CANDIDATES,
+  ROW_SELECT_NONE,
   toMarketSnapshot,
   toWalletSummary,
   extractRows,
+  collectRowCandidates,
+  selectRowsWithTypeSafe,
   parseSseData,
 } from "./aave.js";
-export type { AaveToolName, AaveFetch, AaveClientOptions, MarketSnapshot, WalletSummary, PreviewResult } from "./aave.js";
+export type { AaveToolName, AaveFetch, AaveClientOptions, MarketSnapshot, WalletSummary, PreviewResult, RowCandidate, RowSelection, SelectRowsOptions } from "./aave.js";
 
 /** Finance decision engine: deterministic demo recommendations + mandates. */
 export {

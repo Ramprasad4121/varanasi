@@ -126,10 +126,11 @@ error JSON to stderr with a non-zero exit. Env: `AAVE_MCP_URL` (default
 | `src/graph.ts` | `GraphClient` — live Gateway, official Uniswap IDs (`KNOWN_SUBGRAPHS`), curated pools (`CURATED_POOLS`), `query()` escape hatch |
 | `src/discover.ts` | ERC-8004 agent discovery — `searchAgents` (Base default, Sepolia opt-in), `getAgentProfile` (chainId:agentId), Agent0 IDs (`AGENT0_SUBGRAPHS`) |
 | `src/mcp.ts` | MCP stdio wrapper (`search_subgraphs/get_schema/run_query`) + Gateway fallback |
-| `src/aave.ts` | Aave MCP streamable-HTTP client (`AaveMcpClient` — markets/wallet/APY/preview, unsigned-only) |
+| `src/aave.ts` | Aave MCP streamable-HTTP client (`AaveMcpClient` — markets/wallet/APY/preview, unsigned-only) + TypeSafe row selector (`selectRowsWithTypeSafe`, opt-in via `selectRows`, heuristic `extractRows` fallback) |
 | `src/ens.ts` | viem ENSv2 resolver (`AegisRegistry` + Universal Resolver V2, registry-only fallback) |
 | `src/reason.ts` | pure heuristic `analyzeRisk` + `llmRationale` plug point (opt-in LLM via brain) |
-| `src/brain.ts` | opt-in LLM reasoning `reasonWithLLM` (OpenAI-compatible chat API, heuristic fallback, `{ llm }` flag) |
+| `src/brain.ts` | opt-in LLM reasoning `reasonWithLLM` (OpenAI-compatible chat API, heuristic fallback, `{ llm }` flag) + TypeSafe verifier gate (`verifyVerdictWithTypeSafe`, 3 Nouls, max-gate → heuristic fallback, `verify` on verdict) |
+| `src/select.ts` | closed-set input resolution `resolveClosedSet` (exact-first in code, Jev `Choice` + `none` hatch on miss; wired into `aave.preview` aliases + CLI worker/subcommand) |
 | `src/pay.ts` | x402 payer (`@x402/fetch` + Hedera ECDSA signer, HashScan receipts) |
 | `src/mandate.ts` | EIP-712 mandate sign/verify (domain bound to live escrow + Sepolia, nonce mgmt, offline) |
 | `src/escrow.ts` | TaskEscrow viem client (`fundMandate` with ERC20 approve-first, `taskState` read, release/refund/cancel/submitValidation writers) |
@@ -196,7 +197,20 @@ Env (never print `LLM_API_KEY`):
 LLM_BASE_URL=http://localhost:1234/v1  # default: local LM Studio, no key needed
 LLM_API_KEY=                           # optional locally; required for remote base URLs
 LLM_MODEL=local-model                  # default
+TYPESAFE_API_KEY=                      # optional; when set, the verifier gate runs automatically
+TYPESAFE_MODEL=jev-1.12                # default verifier model
+TYPESAFE_VERIFY=auto                   # auto|1|0 — gate runs only with a key unless forced
+TYPESAFE_VERIFY_THRESHOLD=0.7          # max-gate fire line (any Noul P(wrong) above this → heuristic fallback)
 ```
+
+Verifier gate (SDE-cascade style): a parsed LLM verdict is screened by 3 Jev
+Noul questions (`hallucinated` / `off_target` / `policy_break`) in one
+`system_one` call. Any `P(wrong) > threshold` escalates to the heuristic
+fallback (`{ llm: false, verify: { escalate: true, ... } }`); a passing verdict
+keeps `{ llm: true, verify: { escalate: false, ... } }`. Missing key, disabled
+gate, or verifier error skips the gate (`verify: null`) — the LLM verdict
+stands as before. Force on/off with `--verify` / `--no-verify`
+(`analyze` + `hire analyst`); `runAnalyst` takes `{ verify }`.
 
 ```bash
 # Heuristic (default — behavior unchanged, no LLM call)

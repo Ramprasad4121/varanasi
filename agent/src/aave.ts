@@ -21,7 +21,17 @@
  *  - Injectable fetch for tests; 20s timeouts (mirrors the 20s MCP stdio guard).
  *  - Offline fixture mode (`AAVE_OFFLINE=1` or opts.offline) mirrors graph.ts.
  *  - Fail-closed errors; never log keys (no keys needed — public server).
+ *
+ * Row selection (TypeSafe, opt-in): `extractRows` stays the sync heuristic
+ * default. When `opts.selectRows` is true and `TYPESAFE_API_KEY` is set,
+ * `selectRowsWithTypeSafe` asks Jev which candidate envelope field holds the
+ * rows (pre-parsed find→pick: candidates over-found in code, model picks,
+ * code copies verbatim). Any miss falls back to `extractRows` — the selector
+ * never throws.
  */
+import type { ChoiceQuestion, Questions } from "@typesafe-ai/sdk";
+import { resolveVerifyConfig } from "./brain.js";
+import { resolveClosedSet } from "./select.js";
 
 export const AAVE_MCP_URL_DEFAULT = "https://mcp.aave.com";
 /** Pinned MCP protocol version (bump deliberately with a smoke regression check). */
@@ -72,7 +82,42 @@ export interface AaveClientOptions {
   offline?: boolean;
   /** Injectable fetch (tests only; default: globalThis.fetch). */
   fetch?: AaveFetch;
+  /** Row selector: true forces the TypeSafe gate on, false forces off, undefined = auto (on only when TYPESAFE_API_KEY present). */
+  selectRows?: boolean;
+  /** TypeSafe API key override (default: env TYPESAFE_API_KEY). */
+  typesafeApiKey?: string;
+  /** TypeSafe selector model (default: env TYPESAFE_MODEL or jev-1.12). */
+  typesafeModel?: string;
+  /** Minimum Choice confidence to trust the selector (default: env TYPESAFE_VERIFY_THRESHOLD or 0.7). */
+  selectThreshold?: number;
+  /** Injectable fetch for the TypeSafe selector (defaults to global fetch). */
+  typesafeFetchImpl?: typeof fetch;
 }
+
+/** One over-found row-array candidate (path + rows + a key sample for the model). */
+export interface RowCandidate {
+  /** Dotted envelope path, e.g. "data.v4.markets" ("" = top-level array). */
+  path: string;
+  /** Candidate rows at that path. */
+  rows: unknown[];
+  /** Sorted key sample of the first row (object rows) for the model to judge. */
+  sampleKeys: string[];
+}
+
+/** Selector outcome: winning path + rows, or null when the heuristic should win. */
+export interface RowSelection {
+  /** Winning candidate path ("heuristic" when falling back is the caller's choice). */
+  path: string;
+  /** Rows at the winning path. */
+  rows: unknown[];
+  /** Choice confidence for the winner (0..1). */
+  confidence: number;
+}
+
+/** Max candidates handed to the model (Choice caps at 255; keep state small). */
+export const MAX_ROW_CANDIDATES = 12;
+/** "None of these" hatch id (mirrors the pre-parsed extraction cookbook). */
+export const ROW_SELECT_NONE = "none";
 
 /** Normalized market snapshot consumed by lending intel. */
 export interface MarketSnapshot {
@@ -208,10 +253,15 @@ export class AaveMcpClient {
   private msgId = 0;
   private sessionId: string | null = null;
   private initialized = false;
+  private selectRows?: boolean;
+  private typesafeApiKey?: string;
+  private typesafeModel?: string;
+  private selectThreshold?: number;
+  private typesafeFetchImpl?: typeof fetch;
 
   /**
    * Build a client reading AAVE_MCP_URL / AAVE_OFFLINE unless overridden.
-   * @param opts Optional url, offline flag, and injectable fetch.
+   * @param opts Optional url, offline flag, injectable fetch, and TypeSafe selector opts.
    */
   constructor(opts: AaveClientOptions = {}) {
     this.url = opts.url ?? process.env[AAVE_MCP_URL_ENV] ?? AAVE_MCP_URL_DEFAULT;
@@ -222,6 +272,11 @@ export class AaveMcpClient {
         (() => {
           throw new Error("No fetch available (pass opts.fetch or run on Node 18+).");
         }));
+    this.selectRows = opts.selectRows;
+    this.typesafeApiKey = opts.typesafeApiKey;
+    this.typesafeModel = opts.typesafeModel;
+    this.selectThreshold = opts.selectThreshold;
+    this.typesafeFetchImpl = opts.typesafeFetchImpl;
   }
 
   /**
@@ -252,7 +307,7 @@ export class AaveMcpClient {
   async listChains(): Promise<unknown[]> {
     if (this.offline) return [...AAVE_OFFLINE_FIXTURE.chains] as unknown[];
     const res = await this.callTool<unknown>("get_chains", {});
-    return extractRows(res);
+    return this.rows("get_chains", res);
   }
 
   /**
@@ -269,11 +324,29 @@ export class AaveMcpClient {
         .map(toMarketSnapshot);
     }
     const res = await this.callTool<unknown>("get_markets", {});
-    const rows = extractRows(res) as Record<string, unknown>[];
+    const rows = (await this.rows("get_markets", res)) as Record<string, unknown>[];
     const want = new Set(symbols.map((s) => s.toUpperCase()));
     return rows
       .filter((r) => want.size === 0 || want.has(String(r.symbol ?? r.asset ?? r.token ?? "").toUpperCase()))
       .map((r) => toMarketSnapshot(r));
+  }
+
+  /**
+   * Row resolution: TypeSafe selector first (opt-in, key-gated), heuristic
+   * `extractRows` fallback. Never throws for selector-side reasons.
+   * @param tool Tool the payload came from (state context for the model).
+   * @param res Unwrapped tool payload.
+   * @returns Rows (selector winner or heuristic result).
+   */
+  private async rows(tool: string, res: unknown): Promise<unknown[]> {
+    const sel = await selectRowsWithTypeSafe(tool, res, {
+      verify: this.selectRows,
+      typesafeApiKey: this.typesafeApiKey,
+      typesafeModel: this.typesafeModel,
+      verifyThreshold: this.selectThreshold,
+      typesafeFetchImpl: this.typesafeFetchImpl,
+    });
+    return sel?.rows ?? extractRows(res);
   }
 
   /**
@@ -336,9 +409,29 @@ export class AaveMcpClient {
    * @returns PreviewResult (ok reflects the server simulation flag).
    */
   async preview(action: string, reserve: string, amount: string, wallet: string): Promise<PreviewResult> {
-    const act = action.toLowerCase();
-    if (!["supply", "borrow", "withdraw", "repay"].includes(act)) {
-      throw new Error(`Unknown preview action "${action}" (want supply|borrow|withdraw|repay).`);
+    const lowered = action.toLowerCase();
+    let act = ["supply", "borrow", "withdraw", "repay"].includes(lowered) ? lowered : null;
+    if (!act) {
+      // Exact miss ("lend", "stake", …): ask Jev once, else throw as before.
+      const resolved = await resolveClosedSet(
+        action,
+        ["supply", "borrow", "withdraw", "repay"] as const,
+        {
+          supply: "add funds or lend into the pool",
+          borrow: "take out a loan against collateral",
+          withdraw: "pull funds out of the pool",
+          repay: "pay back an existing loan",
+        },
+        {
+          verify: this.selectRows,
+          typesafeApiKey: this.typesafeApiKey,
+          typesafeModel: this.typesafeModel,
+          verifyThreshold: this.selectThreshold,
+          typesafeFetchImpl: this.typesafeFetchImpl,
+        },
+      );
+      if (!resolved) throw new Error(`Unknown preview action "${action}" (want supply|borrow|withdraw|repay).`);
+      act = resolved.value;
     }
     if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) throw new Error(`Bad wallet "${wallet}" (want 0x + 40 hex).`);
     if (this.offline) {
@@ -484,6 +577,115 @@ export function extractRows(res: unknown): unknown[] {
     }
   }
   return res == null ? [] : [res];
+}
+
+/** Envelope keys probed for row arrays (mirrors extractRows). */
+const ROW_KEYS = ["markets", "result", "reserves", "items", "rows", "chains"] as const;
+
+function sampleKeys(row: unknown): string[] {
+  if (row === null || typeof row !== "object" || Array.isArray(row)) return [];
+  return Object.keys(row as Record<string, unknown>).sort().slice(0, 12);
+}
+
+/**
+ * Over-find every row-array candidate in a tool payload (recall-tuned; the
+ * model picks, code copies — never invents a path). Pure — no I/O.
+ * @param res Unwrapped tool payload.
+ * @param base Dotted path prefix for recursion (callers omit).
+ * @param out Accumulator (callers omit).
+ * @returns Labeled candidates, capped at MAX_ROW_CANDIDATES.
+ */
+export function collectRowCandidates(res: unknown, base = "", out: RowCandidate[] = []): RowCandidate[] {
+  if (out.length >= MAX_ROW_CANDIDATES) return out;
+  if (Array.isArray(res)) {
+    if (res.length > 0) out.push({ path: base || "(top-level)", rows: res, sampleKeys: sampleKeys(res[0]) });
+    return out;
+  }
+  if (res !== null && typeof res === "object") {
+    const o = res as Record<string, unknown>;
+    for (const k of ROW_KEYS) {
+      if (Array.isArray(o[k]) && out.length < MAX_ROW_CANDIDATES) {
+        const rows = o[k] as unknown[];
+        if (rows.length > 0) out.push({ path: base ? `${base}.${k}` : k, rows, sampleKeys: sampleKeys(rows[0]) });
+      }
+    }
+    if (out.length < MAX_ROW_CANDIDATES && o.data !== null && typeof o.data === "object") {
+      collectRowCandidates(o.data, base ? `${base}.data` : "data", out);
+    }
+    for (const [k, v] of Object.entries(o)) {
+      if (out.length >= MAX_ROW_CANDIDATES) break;
+      if (k === "data" || v === null || typeof v !== "object" || Array.isArray(v)) continue;
+      collectRowCandidates(v, base ? `${base}.${k}` : k, out);
+    }
+  }
+  return out;
+}
+
+/** Options for selectRowsWithTypeSafe (mirrors the brain.ts verifier gate). */
+export interface SelectRowsOptions {
+  /** True forces on, false forces off, undefined = auto (on only when TYPESAFE_API_KEY present). */
+  verify?: boolean;
+  /** TypeSafe API key override (default: env TYPESAFE_API_KEY). */
+  typesafeApiKey?: string;
+  /** TypeSafe selector model (default: env TYPESAFE_MODEL or jev-1.12). */
+  typesafeModel?: string;
+  /** Minimum Choice confidence to trust the winner (default: env TYPESAFE_VERIFY_THRESHOLD or 0.7). */
+  verifyThreshold?: number;
+  /** Injectable fetch for the selector (defaults to global fetch). */
+  typesafeFetchImpl?: typeof fetch;
+}
+
+/**
+ * Ask Jev which over-found candidate holds the rows for a tool payload.
+ * Pre-parsed find→pick: options ARE the candidate paths, so the answer is a
+ * verbatim path (or the `none` hatch) — the model chooses, code owns the rows.
+ * Never throws — any skip/failure returns null (caller uses `extractRows`).
+ * @param tool Tool the payload came from (state context).
+ * @param res Unwrapped tool payload.
+ * @param opts Selector overrides (key, model, threshold, injectable fetch).
+ * @returns RowSelection for a confident winner, else null.
+ */
+export async function selectRowsWithTypeSafe(
+  tool: string,
+  res: unknown,
+  opts: SelectRowsOptions = {},
+): Promise<RowSelection | null> {
+  const { enabled, apiKey, model, threshold } = resolveVerifyConfig({
+    verify: opts.verify,
+    typesafeApiKey: opts.typesafeApiKey,
+    typesafeModel: opts.typesafeModel,
+    verifyThreshold: opts.verifyThreshold,
+  });
+  if (!enabled || apiKey.length === 0) return null;
+  const candidates = collectRowCandidates(res);
+  if (candidates.length < 2) return null; // nothing to disambiguate — heuristic wins
+  try {
+    const { TypeSafeClient, choice } = await import("@typesafe-ai/sdk");
+    const fetchImpl = opts.typesafeFetchImpl ?? globalThis.fetch.bind(globalThis);
+    const client = new TypeSafeClient({ apiKey, timeout: 10_000, fetch: fetchImpl as never });
+    const criteria: Record<string, string | null> = {};
+    for (const c of candidates) {
+      criteria[c.path] =
+        `${c.rows.length} rows; first-row keys: ${c.sampleKeys.length > 0 ? c.sampleKeys.join(", ") : "(non-object rows)"}`;
+    }
+    criteria[ROW_SELECT_NONE] = "None of these holds the requested rows.";
+    const questions: Questions = {
+      pick: choice(`Which field holds the ${tool} rows the caller asked for?`, criteria) as ChoiceQuestion,
+    };
+    const state = {
+      tool,
+      candidates: candidates.map((c) => ({ path: c.path, count: c.rows.length, sampleKeys: c.sampleKeys })),
+    };
+    const { answers } = await client.systemOne({ state: state as never, questions, model });
+    const ans = (answers as Record<string, { choice?: unknown; confidence?: unknown }>).pick;
+    const winner = typeof ans?.choice === "string" ? ans.choice : null;
+    const confidence = typeof ans?.confidence === "number" && Number.isFinite(ans.confidence) ? ans.confidence : 0;
+    if (!winner || winner === ROW_SELECT_NONE || confidence < threshold) return null;
+    const hit = candidates.find((c) => c.path === winner);
+    return hit ? { path: hit.path, rows: hit.rows, confidence } : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -16,6 +16,9 @@
  *   GET  /v1/finance         demo community-finance portfolio by address (?address=0x...)
  *   GET  /v1/finance/summary  same, forced to summary mode
  *   GET  /v1/finance/recommend demo agent recommendations by address (?address=0x...)
+ *   POST /v1/classify-error   error-text classification (label_taken|insufficient_funds|
+ *                             user_rejected|network_error|unknown + confidence; {fallback:true}
+ *                             when unconfigured → caller uses its regex path)
  *
  * Flow: client POSTs without payment -> 402 + payment requirements ->
  * client signs a Hedera TransferTransaction -> retries with payment ->
@@ -53,6 +56,7 @@ import { generateSignal, generateScore } from './signal.js';
 import { buildReceipt, isValidHederaTxId, type PaymentReceipt } from './hashscan.js';
 import { logReceipt as logReceiptToHcs } from './hcs.js';
 import { financeSummary, financeRecommendation, type FinanceEndpointMode } from './finance/index.js';
+import { classifyError } from './classify.js';
 import type { Address } from './finance/types.js';
 import { createJob, getJob, listAgents, listJobs } from './jobs.js';
 
@@ -304,6 +308,7 @@ app.get('/openapi.json', freeRouteLimiter, (_req: Request, res: Response) => {
       '/v1/finance/recommend': { get: { summary: 'Demo agent recommendations (simulated)' } },
       '/v1/agents': { get: { summary: 'Live 15-agent roster' } },
       '/v1/jobs': { get: { summary: 'Recent jobs' }, post: { summary: 'Run a roster job' } },
+      '/v1/classify-error': { post: { summary: 'Error-text classification (free; regex fallback when unconfigured)' } },
     },
   });
 });
@@ -405,7 +410,6 @@ app.get(
   },
 );
 
-
 app.get('/v1/agents', freeRouteLimiter, (_req: Request, res: Response) => {
   const agents = listAgents();
   res.json({ ok: true, count: agents.length, agents });
@@ -442,6 +446,24 @@ app.post('/v1/jobs', freeRouteLimiter, (req: Request, res: Response) => {
   }
 });
 
+// ---- error classification (free; browser-safe — key never leaves the server) --
+const MAX_CLASSIFY_BODY_CHARS = 8000;
+
+app.post('/v1/classify-error', freeRouteLimiter, async (req: Request, res: Response) => {
+  const raw = (req.body as { message?: unknown } | null | undefined)?.message;
+  if (typeof raw !== 'string' || raw.trim().length === 0 || raw.length > MAX_CLASSIFY_BODY_CHARS) {
+    res.status(400).json({ error: 'invalid message: expected a non-empty string (max 8000 chars)' });
+    return;
+  }
+  // Never throws: null means unconfigured/down → caller uses its regex path.
+  const out = await classifyError(raw);
+  if (!out) {
+    res.json({ label: 'unknown', confidence: 0, fallback: true });
+    return;
+  }
+  res.json({ label: out.label, confidence: out.confidence, fallback: false });
+});
+
 // ---- 404 + error handler (JSON, always after routes) -----------------------
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'not found' });
@@ -472,7 +494,8 @@ const server = app.listen(PORT, () => {
   console.log(`   Free:  GET  /health, /ready, /version, /openapi.json, /402-info, /v1/receipts`);
   console.log(`   Free:  GET  /v1/finance?address=0x...  (demo portfolio)`);
   console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)`);
-  console.log(`   Free:  GET  /v1/agents  POST /v1/jobs  (15-agent roster + proof)\n`);
+  console.log(`   Free:  GET  /v1/agents  POST /v1/jobs  (15-agent roster + proof)`);
+  console.log(`   Free:  POST /v1/classify-error  (error-text classification)\n`);
 });
 
 // Production lifecycle: bounded shutdown, no half-open sockets on deploy.

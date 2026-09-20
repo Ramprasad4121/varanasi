@@ -4,8 +4,10 @@ import {
   AAVE_MCP_URL_DEFAULT,
   AAVE_OFFLINE_FIXTURE,
   AaveMcpClient,
+  collectRowCandidates,
   extractRows,
   parseSseData,
+  selectRowsWithTypeSafe,
   toMarketSnapshot,
   toWalletSummary,
   type AaveFetch,
@@ -168,5 +170,95 @@ describe("aave normalizers", () => {
     expect(m.liquidity).toBe("1000");
     // get_chains: { data: { v4: [{ Chain … }] } }
     expect(extractRows({ data: { v4: [{ name: "Ethereum", chainId: 1 }] } })).toHaveLength(1);
+  });
+});
+
+function typesafePickFetch(choice: string, confidence: number): typeof fetch {
+  return (async () =>
+    new Response(JSON.stringify({ answers: { pick: { choice, confidence } } }), { status: 200 })) as unknown as typeof fetch;
+}
+
+describe("typesafe row selector (offline, mocked fetch)", () => {
+  const two = {
+    result: [{ symbol: "WRONG", chain: "X" }],
+    markets: [{ symbol: "USDC", chain: "Ethereum" }],
+  };
+
+  it("over-finds labeled candidates without choosing", () => {
+    const cands = collectRowCandidates(two);
+    expect(cands.map((c) => c.path).sort()).toEqual(["markets", "result"]);
+    expect(cands.find((c) => c.path === "markets")?.sampleKeys).toContain("symbol");
+  });
+
+  it("skips without a key and with a single candidate (heuristic wins)", async () => {
+    expect(await selectRowsWithTypeSafe("get_markets", two)).toBeNull();
+    expect(
+      await selectRowsWithTypeSafe("get_markets", { markets: [{ symbol: "USDC" }] }, {
+        verify: true,
+        typesafeApiKey: "test-key",
+        typesafeFetchImpl: typesafePickFetch("markets", 0.99),
+      }),
+    ).toBeNull();
+  });
+
+  it("returns the model's verbatim pick on a confident winner", async () => {
+    const sel = await selectRowsWithTypeSafe("get_markets", two, {
+      verify: true,
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: typesafePickFetch("result", 0.92),
+    });
+    expect(sel?.path).toBe("result");
+    expect(sel?.rows).toEqual([{ symbol: "WRONG", chain: "X" }]);
+    expect(sel?.confidence).toBeCloseTo(0.92);
+  });
+
+  it("falls back on the none hatch, low confidence, and verifier errors", async () => {
+    const base = { verify: true as const, typesafeApiKey: "test-key" };
+    expect(await selectRowsWithTypeSafe("get_markets", two, { ...base, typesafeFetchImpl: typesafePickFetch("none", 0.99) })).toBeNull();
+    expect(await selectRowsWithTypeSafe("get_markets", two, { ...base, typesafeFetchImpl: typesafePickFetch("markets", 0.3) })).toBeNull();
+    const broken = (async () => {
+      throw new Error("verifier down");
+    }) as unknown as typeof fetch;
+    expect(await selectRowsWithTypeSafe("get_markets", two, { ...base, typesafeFetchImpl: broken })).toBeNull();
+  });
+
+  it("client wiring: selector winner overrides the heuristic, fallback keeps it", async () => {    const payload = { result: [{ symbol: "USDC", chain: "Ethereum" }], markets: [{ symbol: "WETH", chain: "Ethereum" }] };
+    const mk = (selFetch: typeof fetch | undefined, selectRows?: boolean) => {
+      const seen: { url: string; headers: Record<string, string>; body: string }[] = [];
+      const c = new AaveMcpClient({
+        fetch: mockFetch(
+          {
+            initialize: { result: {} },
+            "notifications/initialized": {},
+            "call:get_markets": { result: { content: [{ type: "text", text: JSON.stringify(payload) }] } },
+          },
+          seen,
+        ),
+        selectRows,
+        typesafeApiKey: "test-key",
+        typesafeFetchImpl: selFetch,
+      });
+      return c;
+    };
+    // Selector picks "result" → USDC wins over the heuristic's "markets".
+    const picked = await mk(typesafePickFetch("result", 0.95), true).marketSnapshots();
+    expect(picked.map((m) => m.symbol)).toEqual(["USDC"]);
+    // No key / gate off → heuristic path unchanged (markets first).
+    const heir = await mk(undefined, undefined).marketSnapshots();
+    expect(heir.map((m) => m.symbol)).toEqual(["WETH"]);
+  });
+
+  it("preview resolves an alias through the model, still throws with no key", async () => {
+    const ADDR = "0x1234567890123456789012345678901234567890";
+    const aliased = new AaveMcpClient({
+      offline: true,
+      selectRows: true,
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: typesafePickFetch("borrow", 0.9),
+    });
+    const p = await aliased.preview("lend me some usdc", "USDC", "100", ADDR);
+    expect(p.action).toBe("borrow");
+    const plain = new AaveMcpClient({ offline: true });
+    await expect(plain.preview("yeet", "USDC", "1", ADDR)).rejects.toThrow("Unknown preview action");
   });
 });
