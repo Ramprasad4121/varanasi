@@ -2,7 +2,7 @@
 
 Author: Ramprasad
 
-Express + TypeScript resource server. Two paid routes on **Hedera testnet**,
+Express + TypeScript resource server. Three paid routes on **Hedera testnet**,
 verified/settled via an x402 facilitator. Adapted from the reference PoC
 [hedera-dev/x402-inference-pay-per-request-poc](https://github.com/hedera-dev/x402-inference-pay-per-request-poc)
 (Express + `@x402/express` + `@x402/hedera`) — but a **signal service, no LLM required**.
@@ -11,6 +11,8 @@ verified/settled via an x402 facilitator. Adapted from the reference PoC
 |---|---|---|
 | `POST /v1/signal` | **$0.01** USDC *or* 0.01 HBAR equiv | `{signal, confidence, features, txHint}` + `receipt` |
 | `POST /v1/score` | **$0.001** USDC *or* 0.001 HBAR equiv | `{riskScore, riskBand, factors}` + `receipt` |
+| `POST /v1/jobs` | **$0.01** USDC *or* 0.01 HBAR equiv | `{ok, job, receipt}` — roster agent + proof envelope |
+| `GET /v1/jobs` | free | recent jobs |
 | `GET /v1/finance?address=0x…` | free | demo community-finance portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
 | `GET /v1/finance/summary` | free | same, forced summary |
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
@@ -53,7 +55,7 @@ npm run build && npm start
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # tsx --test — 10 tests (finance + receipts + infra), no keys needed
+npm test            # tsx --test — finance + receipts + infra + jobs + pricing, no keys needed
 ```
 
 ## 2b1. Production hardening

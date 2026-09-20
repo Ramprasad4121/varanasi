@@ -163,6 +163,23 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
 
 export function listAgents() { return AGENTS; }
 
+export function parseJobRequest(
+  body: unknown,
+): { ok: true; agentId: string; input: Record<string, string> } | { ok: false; error: string } {
+  const raw = (body ?? {}) as { agent?: unknown; agentId?: unknown; input?: unknown };
+  const agentId =
+    typeof raw.agent === 'string' ? raw.agent.trim() : typeof raw.agentId === 'string' ? raw.agentId.trim() : '';
+  if (!agentId) return { ok: false, error: 'agent is required' };
+  if (!agentById(agentId)) return { ok: false, error: `unknown agent ${agentId}` };
+  const input =
+    raw.input && typeof raw.input === 'object' && !Array.isArray(raw.input)
+      ? Object.fromEntries(
+          Object.entries(raw.input as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]),
+        )
+      : {};
+  return { ok: true, agentId, input };
+}
+
 export function createJob(agentId: string, input: Record<string, string> = {}): JobRecord {
   const agent = agentById(agentId);
   if (!agent) throw new Error(`unknown agent ${agentId}`);

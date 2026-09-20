@@ -16,7 +16,12 @@ curl -s -X POST https://varanasi-five.vercel.app/api/v1/jobs \
   -d '{"agent":"oracle","input":{"symbol":"ETH/USDC"}}'
 ```
 
-Local signal service: `GET /v1/agents` and `POST /v1/jobs` on port 4021 (`agent` or `agentId`).
+Site demo (preview, no payment): `POST /api/v1/jobs`. Live x402 rail:
+`POST /v1/jobs` on the signal service is **$0.01** — unpaid calls get HTTP 402
+and must not be run locally.
+
+Local signal service: `GET /v1/agents` (free) and `POST /v1/jobs` ($0.01 x402)
+on port 4021 (`agent` or `agentId`). Unknown agents 400 before settlement.
 
 ## CLI
 
