@@ -24,3 +24,15 @@ test('accepts any live id and fails closed on required fields', () => {
   const miss = createJob('watcher', {});
   assert.equal(miss.barPassed, false);
 });
+
+test('oracle fails closed on unknown pairs', () => {
+  const eth = createJob('oracle', { symbol: 'ETH/USDC' });
+  assert.equal(eth.barPassed, true);
+  assert.equal(eth.output.price, 3420.12);
+  assert.equal(typeof eth.output.asOf, 'number');
+  const doge = createJob('oracle', { symbol: 'DOGE/USD' });
+  assert.equal(doge.barPassed, false);
+  assert.equal(doge.output.error, 'unknown pair');
+  assert.equal(doge.output.price, undefined);
+  assert.equal(doge.settled, 'refunded');
+});

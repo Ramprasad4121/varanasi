@@ -41,4 +41,22 @@ describe("live roster", () => {
     expect(proof.ok).toBe(false);
     if (!proof.ok) expect(proof.error).toMatch(/required/);
   });
+
+  it("oracle fails closed on unknown pairs and pins known ones", async () => {
+    const eth = await runRoster("oracle", { symbol: "ETH/USDC" }, { offline: true });
+    expect(eth.ok).toBe(true);
+    if (eth.ok) {
+      expect(eth.barPassed).toBe(true);
+      expect(eth.output.price).toBe(3420.12);
+      expect(eth.output.asOf).toEqual(expect.any(Number));
+    }
+    const doge = await runRoster("oracle", { symbol: "DOGE/USD" }, { offline: true });
+    expect(doge.ok).toBe(true);
+    if (doge.ok) {
+      expect(doge.barPassed).toBe(false);
+      expect(doge.output.error).toBe("unknown pair");
+      expect(doge.output.price).toBeUndefined();
+      expect(doge.settled).toBe("refunded");
+    }
+  });
 });

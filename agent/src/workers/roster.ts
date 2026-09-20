@@ -12,6 +12,19 @@ export interface RosterOptions { offline?: boolean; mandateId?: string }
 
 const DEFAULT_POOL = CURATED_POOLS[0]?.id ?? "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640";
 
+/** Demo feed. Unknown pairs miss the bar — never a fake $0 / $1. */
+const ORACLE_FEED: Record<string, number> = {
+  "ETH/USDC": 3420.12,
+  "ETH/USD": 3420.12,
+  "WETH/USDC": 3420.12,
+  "BTC/USD": 97540,
+  "BTC/USDC": 97540,
+  "WBTC/USD": 97540,
+  "USDC/USD": 1,
+  "USDT/USD": 1,
+  "USDT/USDC": 1,
+};
+
 function str(input: RosterInput, key: string, fallback = ""): string {
   const v = input[key];
   return typeof v === "string" ? v.trim() : fallback;
@@ -64,8 +77,11 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "oracle": {
       const symbol = (str(input, "symbol") || "ETH/USDC").toUpperCase();
-      const ok = /^[A-Z]{2,10}\/[A-Z]{2,10}$/.test(symbol);
-      return pass(agent, { symbol }, { symbol, price: symbol === "ETH/USDC" ? 3420.12 : 1, source: "varanasi-oracle-sepolia" }, ok, mid);
+      const price = ORACLE_FEED[symbol];
+      if (price == null) {
+        return pass(agent, { symbol }, { symbol, error: "unknown pair", known: Object.keys(ORACLE_FEED), source: "varanasi-oracle-sepolia" }, false, mid);
+      }
+      return pass(agent, { symbol }, { symbol, price, source: "varanasi-oracle-sepolia", asOf: Math.floor(Date.now() / 1000) }, true, mid);
     }
     case "watcher": {
       const address = str(input, "address");
