@@ -20,7 +20,7 @@ describe("live roster", () => {
       auditor: { wallet: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" },
       router: { pair: "1 ETH → USDC" },
       keeper: { target: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" },
-      reporter: { topic: "liquidity" },
+      reporter: { topic: "USDC/WETH liquidity" },
       reconciler: { mandateId: "mandate-1" },
       notary: { artifact: "pool shortlist" },
       trader: { order: "buy 0.5 ETH with USDC" },
@@ -57,6 +57,42 @@ describe("live roster", () => {
       expect(doge.output.error).toBe("unknown pair");
       expect(doge.output.price).toBeUndefined();
       expect(doge.settled).toBe("refunded");
+    }
+  });
+
+  it("router and trader fail closed on junk pairs", async () => {
+    const eth = await runRoster("router", { pair: "1 ETH → USDC" }, { offline: true });
+    expect(eth.ok).toBe(true);
+    if (eth.ok) {
+      expect(eth.barPassed).toBe(true);
+      expect(eth.output.path).toEqual(["WETH", "USDC"]);
+    }
+    const sol = await runRoster("router", { pair: "1000 SOL to PEPE" }, { offline: true });
+    expect(sol.ok).toBe(true);
+    if (sol.ok) {
+      expect(sol.barPassed).toBe(false);
+      expect(sol.output.error).toBe("unknown pair");
+      expect(sol.settled).toBe("refunded");
+    }
+    const buy = await runRoster("trader", { order: "buy 0.5 ETH with USDC" }, { offline: true });
+    expect(buy.ok).toBe(true);
+    if (buy.ok) expect(buy.barPassed).toBe(true);
+    const doge = await runRoster("trader", { order: "buy 100 DOGE with USDC" }, { offline: true });
+    expect(doge.ok).toBe(true);
+    if (doge.ok) {
+      expect(doge.barPassed).toBe(false);
+      expect(doge.output.error).toBe("unknown order");
+    }
+  });
+
+  it("analyst fails closed on unknown pools", async () => {
+    const ok = await runRoster("analyst", { pool: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" }, { offline: true });
+    expect(ok.ok).toBe(true);
+    const junk = await runRoster("analyst", { pool: "not-a-pool" }, { offline: true });
+    expect(junk.ok).toBe(true);
+    if (junk.ok) {
+      expect(junk.barPassed).toBe(false);
+      expect(junk.output.error).toBe("unknown pool");
     }
   });
 });

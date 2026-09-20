@@ -25,6 +25,45 @@ const ORACLE_FEED: Record<string, number> = {
   "USDT/USDC": 1,
 };
 
+
+/** Demo quotes. Unknown pairs miss the bar — never a fake WETH/USDC fill. */
+const QUOTE_BOOK: Record<string, { path: string[]; amountOut: string; venue: string }> = {
+  "ETH/USDC": { path: ["WETH", "USDC"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "WETH/USDC": { path: ["WETH", "USDC"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "ETH/USDT": { path: ["WETH", "USDT"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "BTC/USDC": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "WBTC/USDC": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "BTC/USD": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "WBTC/WETH": { path: ["WBTC", "WETH"], amountOut: "28.50", venue: "Uniswap v3 0.30%" },
+  "USDC/USDT": { path: ["USDC", "USDT"], amountOut: "0.9998", venue: "Uniswap v3 0.01%" },
+  "USDT/USDC": { path: ["USDT", "USDC"], amountOut: "1.0001", venue: "Uniswap v3 0.01%" },
+};
+
+function parsePairSymbol(raw: string): string | null {
+  const n = raw
+    .toUpperCase()
+    .replace(/→/g, "/")
+    .replace(/\s+TO\s+/g, "/")
+    .replace(/,/g, "")
+    .replace(/\s+/g, "");
+  const stripped = n.replace(/^[0-9.]+/, "");
+  const m = stripped.match(/^(WETH|ETH|WBTC|BTC|USDC|USDT)\/(WETH|ETH|WBTC|BTC|USDC|USDT)$/);
+  if (!m || m[1] === m[2]) return null;
+  return `${m[1]}/${m[2]}`;
+}
+function lookupQuote(raw: string) {
+  const pair = parsePairSymbol(raw);
+  if (!pair) return null;
+  const quote = QUOTE_BOOK[pair];
+  if (!quote) return null;
+  return { pair, ...quote };
+}
+function parseOrder(raw: string) {
+  const n = raw.toUpperCase().replace(/→/g, " ").replace(/,/g, " ");
+  const m = n.match(/\b(BUY|SELL)\s+([\d.]+)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\s+(?:WITH|FOR|IN)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\b/);
+  if (!m || m[3] === m[4]) return null;
+  return { side: m[1], size: m[2], base: m[3], quote: m[4], pair: `${m[3]}/${m[4]}` };
+}
 function str(input: RosterInput, key: string, fallback = ""): string {
   const v = input[key];
   return typeof v === "string" ? v.trim() : fallback;
@@ -65,7 +104,14 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
   const mid = opts.mandateId;
   switch (agent.id) {
     case "scout": return runScoutJob(agent, input, opts);
-    case "analyst": return runAnalystJob(agent, input, opts);
+    case "analyst": {
+      const pool = str(input, "pool") || DEFAULT_POOL;
+      const known = CURATED_POOLS.some((p) => p.id.toLowerCase() === pool.toLowerCase());
+      if (!known && !isAddr(pool)) {
+        return pass(agent, { pool }, { pool, error: "unknown pool" }, false, mid);
+      }
+      return runAnalystJob(agent, input, opts);
+    }
     case "freelancer": {
       const taskId = str(input, "taskId") || str(input, "task");
       if (!taskId) return { ok: false, agent: agent.id, error: "freelancer requires taskId" };
@@ -97,7 +143,11 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "router": {
       const pair = str(input, "pair") || "1 ETH → USDC";
-      return pass(agent, { pair }, { pair, path: ["WETH", "USDC"], amountOut: "3418.02", broadcast: false }, pair.length > 3, mid);
+      const quote = lookupQuote(pair);
+      if (!quote) {
+        return pass(agent, { pair }, { pair, error: "unknown pair", broadcast: false, known: Object.keys(QUOTE_BOOK) }, false, mid);
+      }
+      return pass(agent, { pair }, { pair: quote.pair, path: quote.path, amountOut: quote.amountOut, venue: quote.venue, broadcast: false }, true, mid);
     }
     case "keeper": {
       const target = str(input, "target");
@@ -105,7 +155,11 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "reporter": {
       const topic = str(input, "topic") || "USDC/WETH liquidity";
-      return pass(agent, { topic }, { topic, brief: `Varanasi brief on ${topic}`, citations: [DEFAULT_POOL] }, topic.length > 3, mid);
+      const hit = /\b(ETH|WETH|BTC|WBTC|USDC|USDT|UNI|UNISWAP)\b/i.test(topic);
+      if (!hit) {
+        return pass(agent, { topic }, { topic, error: "unknown topic", citations: [] }, false, mid);
+      }
+      return pass(agent, { topic }, { topic, brief: `Varanasi brief on ${topic}`, citations: [DEFAULT_POOL] }, true, mid);
     }
     case "reconciler": {
       const mandateId = str(input, "mandateId") || str(input, "taskId");
@@ -117,7 +171,14 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "trader": {
       const order = str(input, "order") || "buy 0.5 ETH with USDC";
-      return pass(agent, { order }, { order, quote: { size: "0.5", price: "3420.12" }, broadcast: false }, order.length > 3, mid);
+      const parsed = parseOrder(order);
+      const price = parsed
+        ? (ORACLE_FEED[parsed.pair] ?? ORACLE_FEED[parsed.pair.replace("WETH", "ETH").replace("WBTC", "BTC")])
+        : undefined;
+      if (!parsed || price == null) {
+        return pass(agent, { order }, { order, error: "unknown order", broadcast: false }, false, mid);
+      }
+      return pass(agent, { order }, { order, quote: { size: parsed.size, price, pair: parsed.pair }, broadcast: false }, true, mid);
     }
     case "dispatcher": {
       const pool = str(input, "pool") || DEFAULT_POOL;
