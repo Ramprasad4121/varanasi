@@ -13,7 +13,7 @@ const ALPHA = { score: 0.8, direction: "long" as const };
 const IDENTITY = { authorized: true };
 const REMOTE = "https://api.example.com/v1";
 
-const ENV_KEYS = ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"] as const;
+const ENV_KEYS = ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "TYPESAFE_API_KEY", "TYPESAFE_MODEL", "TYPESAFE_VERIFY", "TYPESAFE_VERIFY_THRESHOLD"] as const;
 let savedEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -205,5 +205,103 @@ describe("escapeHtml", () => {
     const { escapeHtml } = await import("./brain.js");
     expect(escapeHtml(`<a href="x">&'y'</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&amp;&#39;y&#39;&lt;/a&gt;");
     expect(escapeHtml("plain")).toBe("plain");
+  });
+});
+
+function typesafeFetch(probs: Record<string, number>): typeof fetch {
+  return (async () =>
+    new Response(JSON.stringify({ answers: Object.fromEntries(Object.entries(probs).map(([k, p]) => [k, { noul: p }])) }), {
+      status: 200,
+    })) as unknown as typeof fetch;
+}
+
+describe("typesafe verifier gate (offline, mocked fetch)", () => {
+  it("skips the gate without a key (verify: null, LLM verdict kept)", async () => {
+    const good = JSON.stringify({
+      riskScoreBps: 1200,
+      decision: "ACT",
+      rationale: "Deep pool, healthy flow, bullish alpha.",
+      factors: [{ name: "liquidity", bps: 200, note: "deep" }],
+    });
+    const out = await reasonWithLLM(INTEL, ALPHA, IDENTITY, 5000, {
+      baseUrl: REMOTE,
+      apiKey: "test-key",
+      fetchImpl: jsonFetch(good),
+    });
+    expect(out.llm).toBe(true);
+    expect(out.verify ?? null).toBeNull();
+  });
+
+  it("passes a clean verdict (max-gate quiet) and attaches the gate", async () => {
+    const { verifyVerdictWithTypeSafe, buildVerifyState } = await import("./brain.js");
+    const verdict = { riskScoreBps: 1200, decision: "ACT" as const, rationale: "ok", factors: [] };
+    const gate = await verifyVerdictWithTypeSafe(buildVerifyState(INTEL, ALPHA, IDENTITY, 5000, verdict), {
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: typesafeFetch({ hallucinated: 0.05, off_target: 0.1, policy_break: 0.02 }),
+    });
+    expect(gate?.escalate).toBe(false);
+    expect(gate?.maxP).toBeCloseTo(0.1);
+    expect(gate?.fired).toEqual({});
+  });
+
+  it("fires on a hallucinated verdict (any P(wrong) > 0.7 escalates)", async () => {
+    const { verifyVerdictWithTypeSafe, buildVerifyState } = await import("./brain.js");
+    const verdict = { riskScoreBps: 100, decision: "ACT" as const, rationale: "invented", factors: [] };
+    const gate = await verifyVerdictWithTypeSafe(buildVerifyState(INTEL, ALPHA, IDENTITY, 5000, verdict), {
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: typesafeFetch({ hallucinated: 0.95, off_target: 0.2, policy_break: 0.1 }),
+    });
+    expect(gate?.escalate).toBe(true);
+    expect(gate?.fired).toEqual({ hallucinated: 0.95 });
+  });
+
+  it("sends a firing LLM verdict to the heuristic fallback", async () => {
+    const good = JSON.stringify({
+      riskScoreBps: 100,
+      decision: "ACT",
+      rationale: "Invented rationale.",
+      factors: [{ name: "liquidity", bps: 200, note: "deep" }],
+    });
+    const out = await reasonWithLLM(INTEL, ALPHA, IDENTITY, 5000, {
+      baseUrl: REMOTE,
+      apiKey: "test-key",
+      fetchImpl: jsonFetch(good),
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: typesafeFetch({ hallucinated: 0.95, off_target: 0.1, policy_break: 0.05 }),
+    });
+    expect(out.llm).toBe(false);
+    expect(out.verify?.escalate).toBe(true);
+  });
+
+  it("keeps the LLM verdict when the verifier errors (fail-open gate, fail-closed reason)", async () => {
+    const good = JSON.stringify({
+      riskScoreBps: 1200,
+      decision: "ACT",
+      rationale: "Deep pool.",
+      factors: [{ name: "liquidity", bps: 200, note: "deep" }],
+    });
+    const broken = (async () => {
+      throw new Error("verifier down");
+    }) as unknown as typeof fetch;
+    const out = await reasonWithLLM(INTEL, ALPHA, IDENTITY, 5000, {
+      baseUrl: REMOTE,
+      apiKey: "test-key",
+      fetchImpl: jsonFetch(good),
+      typesafeApiKey: "test-key",
+      typesafeFetchImpl: broken,
+    });
+    expect(out.llm).toBe(true);
+    expect(out.verify ?? null).toBeNull();
+  });
+
+  it("resolveVerifyConfig: auto off without key, on with key, TYPESAFE_VERIFY=0 forces off", async () => {
+    const { resolveVerifyConfig } = await import("./brain.js");
+    expect(resolveVerifyConfig({}).enabled).toBe(false);
+    expect(resolveVerifyConfig({ typesafeApiKey: "k" }).enabled).toBe(true);
+    process.env.TYPESAFE_API_KEY = "k";
+    process.env.TYPESAFE_VERIFY = "0";
+    expect(resolveVerifyConfig({}).enabled).toBe(false);
+    delete process.env.TYPESAFE_VERIFY;
+    expect(resolveVerifyConfig({ verify: false }).enabled).toBe(false);
   });
 });

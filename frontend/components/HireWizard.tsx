@@ -40,6 +40,7 @@ import {
 import { rememberHire } from "../lib/vault";
 import { AGENTS as ROSTER, agentById, type CatalogAgent } from "../lib/agents";
 import { JobRunner } from "./JobRunner";
+import { postClassifyError } from "../lib/backend";
 const DEMO_TASK_ID =
   "0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc";
 const DEMO_FUND_TX =
@@ -667,7 +668,13 @@ function HireWizardInner({
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (/LabelTaken|already\s+minted|already\s+registered/i.test(msg)) {
+      // Server-side classification first (key never leaves the server);
+      // regex stays the offline fallback when the route is unconfigured/down.
+      const classified = await postClassifyError(msg, 8000);
+      const alreadyMinted =
+        (classified.ok && !classified.data.fallback && classified.data.label === "label_taken") ||
+        /LabelTaken|already\s+minted|already\s+registered/i.test(msg);
+      if (alreadyMinted) {
         // Identity already exists onchain (this sublabel or agent wallet was
         // minted before) — treat as minted and continue the funding flow.
         setSkipMint(true);

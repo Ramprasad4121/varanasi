@@ -73,7 +73,12 @@ auto-create on first paid request; persist the printed id).
 `0x4a1817D13E9cF196F471725176355C1234b63C70`),
 `HEDERA_NETWORK=testnet`, `HEDERA_AGENT_ACCOUNT_ID`,
 `HEDERA_AGENT_PRIVATE_KEY` (ED25519), `SIGNAL_URL`
-(`http://localhost:4021/v1/signal`).
+(`http://localhost:4021/v1/signal`), `RISK_THRESHOLD_BPS` (default 5000),
+`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` (opt-in `--llm` reasoning),
+`TYPESAFE_API_KEY` / `TYPESAFE_MODEL` (default `jev-1.12`) /
+`TYPESAFE_VERIFY` (`auto`|1|0) / `TYPESAFE_VERIFY_THRESHOLD` (default 0.7)
+(verifier gate: auto-on only when key present; `--verify` / `--no-verify`
+force on/off on `analyze` + `hire analyst`).
 
 ### frontend/.env.local
 `NEXT_PUBLIC_SEPOLIA_RPC`, `NEXT_PUBLIC_AEGIS_REGISTRY`,
@@ -95,6 +100,7 @@ procedure: `docs/KEYS.md`.
 | `GET /v1/finance?address=0x…` | free | demo portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
 | `GET /v1/finance/summary` | free | same, forced summary |
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
+| `POST /v1/classify-error` | free | error-text classification (`label` + `confidence`; `{fallback:true}` when unconfigured) |
 | `GET /v1/receipts` | free | receipt log (file-backed, last 100) |
 | `GET /health` | free | status |
 | `GET /ready` | free | readiness probe (receipt store + config) |
@@ -107,8 +113,8 @@ procedure: `docs/KEYS.md`.
 | Suite | Command (inside dir) | Result |
 |---|---|---|
 | Contracts (Foundry) | `forge test` | **166** tests / 10 suites — offline (mock ENS), fork tests skip w/o `SEPOLIA_RPC_URL` |
-| Agent (vitest) | `npm test` (`vitest run`) | **162** tests / 17 files — mocked fetch, no live wallet |
-| Service (node:test) | `npm test` (`tsx --test`) | **10** tests |
+| Agent (vitest) | `npm test` (`vitest run`) | **346** tests / 37 files — mocked fetch, no live wallet |
+| Service (node:test) | `npm test` (`tsx --test`) | **17** tests |
 
 Of the 333: community finance = 54 forge (SavingsVault 9, ChitPool 7,
 LoanAgreement 10, CollateralVault 10, FinancialReputation 9, Gold 9)
@@ -125,7 +131,7 @@ On push to `main` + every PR. `main` is PR-protected; 5 required checks:
 | Check | Job | Runs |
 |---|---|---|
 | contracts (forge build + test) | force test | build + 166 tests |
-| agent (typecheck + tests) | tsc + vitest | 162 tests |
+| agent (typecheck + tests) | tsc + vitest | 346 tests |
 | service (typecheck + build) | tsc + build | — |
 | frontend (typecheck + build) | tsc + next build | no-env build |
 | secrets scan (gitleaks) | gitleaks-action v3 | full-history secret scan |

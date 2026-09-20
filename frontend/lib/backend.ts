@@ -54,6 +54,7 @@ export const backendUrls = {
     join(backendRoot(), `/v1/finance?address=${encodeURIComponent(address)}`),
   financeRecommend: (address: string) =>
     join(backendRoot(), `/v1/finance/recommend?address=${encodeURIComponent(address)}`),
+  classifyError: () => join(backendRoot(), "/v1/classify-error"),
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs: number = BACKEND_TIMEOUT_MS): Promise<BackendResult<T>> {
@@ -111,6 +112,28 @@ export function getVersion(): Promise<BackendResult<VersionReply>> {
 
 export function getReceipts(): Promise<BackendResult<{ count: number; receipts: unknown[] }>> {
   return fetchJson(backendUrls.receipts());
+}
+
+export type ClassifyReply = {
+  label: "label_taken" | "insufficient_funds" | "user_rejected" | "network_error" | "unknown";
+  confidence: number;
+  fallback: boolean;
+};
+
+/**
+ * Server-side error classification (the TypeSafe key never leaves the server).
+ * Never throws to UI — { ok: false } means the caller uses its regex path.
+ */
+export function postClassifyError(message: string, timeoutMs = 8000): Promise<BackendResult<ClassifyReply>> {
+  return fetchJson<ClassifyReply>(
+    backendUrls.classifyError(),
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: message.slice(0, 8000) }),
+    },
+    timeoutMs,
+  );
 }
 
 export function isConfigured(): boolean {

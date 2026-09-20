@@ -16,6 +16,7 @@
   "dependencies": {
     "@hiero-ledger/sdk": "^2.88.0",
     "@noble/curves": "2.4.0",
+    "@typesafe-ai/sdk": "^0.6.0",
     "@x402/fetch": "^2.25.0",
     "@x402/hedera": "^2.25.0",
     "commander": "^15.0.0",

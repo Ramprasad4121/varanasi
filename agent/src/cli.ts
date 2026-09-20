@@ -18,6 +18,7 @@ import { SubgraphAgent } from "./mcp.js";
 import { isIdentityAuthorized, resolveAgentSubname } from "./ens.js";
 import { analyzeRisk, DEFAULT_THRESHOLD_BPS } from "./reason.js";
 import { reasonWithLLM } from "./brain.js";
+import { resolveClosedSet } from "./select.js";
 import { payForSignal } from "./pay.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { runScout } from "./workers/scout.js";
@@ -87,6 +88,8 @@ program
   .option("--no-mcp", "skip local MCP server, use direct Gateway")
   .option("--threshold <bps>", "risk threshold in bps", String(DEFAULT_THRESHOLD_BPS))
   .option("--llm", "opt-in LLM reasoning via brain.ts (fallback: heuristic); default off")
+  .option("--verify", "force the TypeSafe verifier gate on (requires TYPESAFE_API_KEY; default: auto)")
+  .option("--no-verify", "force the TypeSafe verifier gate off")
   .action(async (opts) => {
     const started = Date.now();
     const thresholdBps = Number(opts.threshold);
@@ -140,6 +143,7 @@ program
             { score: alpha.score, direction: alpha.direction },
             { authorized },
             thresholdBps,
+            { verify: opts.verify },
           )
         : analyzeRisk(
             {
@@ -536,11 +540,27 @@ program
   .option("--key-stdin", "read freelancer caller key from stdin pipe (default: FREELANCER_PRIVATE_KEY env; flags never accept keys)")
   .option("--offline", "fixture mode (no network Graph call; tests only)")
   .option("--llm", "opt-in LLM reasoning for analyst (default: heuristic)")
+  .option("--verify", "force the TypeSafe verifier gate on (requires TYPESAFE_API_KEY; default: auto)")
   .option("--threshold <bps>", "analyst ACT/SKIP cutoff in bps", String(DEFAULT_THRESHOLD_BPS))
   .option("--json", "machine-readable JSON output")
   .action(async (opts) => {
     try {
-      const worker = String(opts.agent).toLowerCase();
+      const rawWorker = String(opts.agent);
+      let worker = rawWorker.toLowerCase();
+      if (worker !== "scout" && worker !== "analyst" && worker !== "freelancer") {
+        // Exact miss ("find pools", "risk check", …): ask Jev once, else error as before.
+        const resolved = await resolveClosedSet(
+          rawWorker,
+          ["scout", "analyst", "freelancer"] as const,
+          {
+            scout: "discover pools and buy the paid signal",
+            analyst: "score pool risk and write the verdict",
+            freelancer: "settle escrow: release on validated, refund past expiry",
+          },
+        );
+        if (!resolved) throw new Error(`Unknown --agent "${opts.agent}" (want scout|analyst|freelancer).`);
+        worker = resolved.value;
+      }
       const offline = Boolean(opts.offline);
       if (worker === "scout") {
         const result = await runScout({ poolId: opts.pool, offline });
@@ -551,7 +571,7 @@ program
         if (!opts.pool) throw new Error('hire analyst requires --pool <id> (pool intel to score).');
         const result = await runAnalyst(
           { poolId: String(opts.pool) },
-          { thresholdBps: Number(opts.threshold), llm: Boolean(opts.llm), offline },
+          { thresholdBps: Number(opts.threshold), llm: Boolean(opts.llm), verify: opts.verify, offline },
         );
         console.log(
           JSON.stringify({ ok: true, worker, pool: String(opts.pool), verdict: result.verdict, brief: result.brief }, null, 2),
@@ -599,7 +619,22 @@ program
   .argument("[subcommand]", "markets|wallet|preview (default: markets)")
   .action(async (subcommand, opts) => {
     try {
-      const sub = String(subcommand ?? "markets").toLowerCase();
+      const rawSub = String(subcommand ?? "markets");
+      let sub = rawSub.toLowerCase();
+      if (sub !== "markets" && sub !== "wallet" && sub !== "preview") {
+        // Exact miss ("prices", "my position", …): ask Jev once, else error as before.
+        const resolved = await resolveClosedSet(
+          rawSub,
+          ["markets", "wallet", "preview"] as const,
+          {
+            markets: "list lending market snapshots and APYs",
+            wallet: "summarize one wallet: collateral, debt, health factor",
+            preview: "simulate a supply/borrow/withdraw/repay without executing",
+          },
+        );
+        if (!resolved) throw new Error(`Unknown lending subcommand "${subcommand}" (want markets|wallet|preview).`);
+        sub = resolved.value;
+      }
       const offline = Boolean(opts.offline);
       const aave = new AaveMcpClient({ offline });
       if (sub === "markets") {

@@ -14,6 +14,7 @@ verified/settled via an x402 facilitator. Adapted from the reference PoC
 | `GET /v1/finance?address=0x…` | free | demo community-finance portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
 | `GET /v1/finance/summary` | free | same, forced summary |
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
+| `POST /v1/classify-error` | free | error-text classification (`label_taken\|insufficient_funds\|user_rejected\|network_error\|unknown` + confidence; `{fallback:true}` when unconfigured → use regex path) |
 | `GET /health`, `GET /ready`, `GET /version`, `GET /openapi.json`, `GET /402-info`, `GET /v1/receipts` | free | status / readiness / version / route catalog / pay-preview / receipt log |
 
 Each paid route accepts **two** payment options (USDC leg + HBAR leg) — the
@@ -250,6 +251,7 @@ service/
   src/pricing.ts   price table ($0.01 signal / $0.001 score) + USDC/HBAR switch
   src/signal.ts    DEMO deterministic mock alpha (TODO: real Graph-fed model)
   src/finance/     DEMO address-seeded portfolio + recommendations (v1/finance*)
+  src/classify.ts  server-side error classification (TypeSafe Choice; key never leaves the server)
   src/hashscan.ts  HashScan link builders + PaymentReceipt shape
   src/hcs.ts       HCS audit trail: topic auto-create + best-effort logReceipt
   src/x402.ts      resource-server factory + facilitator URL resolution
