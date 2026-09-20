@@ -27,6 +27,19 @@ const POOLS = [
 
 const jobs = new Map<string, JobRecord>();
 
+/** Demo feed. Unknown pairs miss the bar — never a fake $0 / $1. */
+const ORACLE_FEED: Record<string, number> = {
+  "ETH/USDC": 3420.12,
+  "ETH/USD": 3420.12,
+  "WETH/USDC": 3420.12,
+  "BTC/USD": 97540,
+  "BTC/USDC": 97540,
+  "WBTC/USD": 97540,
+  "USDC/USD": 1,
+  "USDT/USD": 1,
+  "USDT/USDC": 1,
+};
+
 function s(input: Record<string, string>, key: string, fallback = ""): string {
   return String(input[key] ?? fallback).trim();
 }
@@ -88,14 +101,22 @@ export function execute(
     }
     case "oracle": {
       const symbol = s(input, "symbol", "ETH/USDC").toUpperCase();
-      const ok = /^[A-Z]{2,10}\/[A-Z]{2,10}$/.test(symbol);
+      const price = ORACLE_FEED[symbol];
+      const asOf = Math.floor(Date.now() / 1000);
+      if (price == null) {
+        return {
+          barPassed: false,
+          output: {
+            symbol,
+            error: "unknown pair",
+            known: Object.keys(ORACLE_FEED),
+            source: "varanasi-oracle-sepolia",
+          },
+        };
+      }
       return {
-        barPassed: ok,
-        output: {
-          symbol,
-          price: symbol === "ETH/USDC" ? 3420.12 : symbol.endsWith("/USDC") ? 1 : 0,
-          source: "varanasi-oracle-sepolia",
-        },
+        barPassed: true,
+        output: { symbol, price, source: "varanasi-oracle-sepolia", asOf },
       };
     }
     case "watcher": {
