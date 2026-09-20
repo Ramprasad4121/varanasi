@@ -73,6 +73,9 @@ function lookupQuote(raw: string) {
   if (!quote) return null;
   return { pair, ...quote };
 }
+function queryHitsCatalog(q: string): boolean {
+  return /\b(ETH|WETH|BTC|WBTC|USDC|USDT|UNI|UNISWAP|POOL|V3|V2|GRAPH|SUBGRAPH)\b/i.test(q);
+}
 function parseOrder(raw: string) {
   const n = raw.toUpperCase().replace(/→/g, " ").replace(/,/g, " ");
   const m = n.match(/\b(BUY|SELL)\s+([\d.]+)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\s+(?:WITH|FOR|IN)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\b/);
@@ -169,8 +172,11 @@ export function execute(
     }
     case "indexer": {
       const query = s(input, "query", "uniswap v3 top pools");
+      if (!queryHitsCatalog(query)) {
+        return { barPassed: false, output: { query, error: "unknown query", rows: 0, pools: [] } };
+      }
       return {
-        barPassed: query.length > 2,
+        barPassed: true,
         output: { query, rows: POOLS.length, pools: POOLS.map((p) => p.id) },
       };
     }
@@ -212,8 +218,11 @@ export function execute(
     }
     case "reconciler": {
       const mandateId = s(input, "mandateId") || s(input, "taskId");
+      if (!isBytes32(mandateId)) {
+        return { barPassed: false, output: { mandateId, error: "mandateId must be bytes32", spent: "0", inCap: false } };
+      }
       return {
-        barPassed: mandateId.length > 4,
+        barPassed: true,
         output: { mandateId, spent: "0", cap: agent.cap, inCap: true },
       };
     }

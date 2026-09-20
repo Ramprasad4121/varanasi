@@ -58,6 +58,9 @@ function lookupQuote(raw: string) {
   if (!quote) return null;
   return { pair, ...quote };
 }
+function queryHitsCatalog(q: string): boolean {
+  return /\b(ETH|WETH|BTC|WBTC|USDC|USDT|UNI|UNISWAP|POOL|V3|V2|GRAPH|SUBGRAPH)\b/i.test(q);
+}
 function parseOrder(raw: string) {
   const n = raw.toUpperCase().replace(/→/g, " ").replace(/,/g, " ");
   const m = n.match(/\b(BUY|SELL)\s+([\d.]+)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\s+(?:WITH|FOR|IN)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\b/);
@@ -135,7 +138,10 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "indexer": {
       const query = str(input, "query") || "uniswap v3 top pools";
-      return pass(agent, { query }, { query, rows: CURATED_POOLS.length, pools: CURATED_POOLS.map((p) => p.id) }, query.length > 2, mid);
+      if (!queryHitsCatalog(query)) {
+        return pass(agent, { query }, { query, error: "unknown query", rows: 0, pools: [] }, false, mid);
+      }
+      return pass(agent, { query }, { query, rows: CURATED_POOLS.length, pools: CURATED_POOLS.map((p) => p.id) }, true, mid);
     }
     case "auditor": {
       const wallet = str(input, "wallet");
@@ -163,7 +169,10 @@ export async function runRoster(id: string, input: RosterInput = {}, opts: Roste
     }
     case "reconciler": {
       const mandateId = str(input, "mandateId") || str(input, "taskId");
-      return pass(agent, { mandateId }, { mandateId, spent: "0", cap: agent.cap, inCap: true }, mandateId.length > 4, mid);
+      if (!isBytes32(mandateId)) {
+        return pass(agent, { mandateId }, { mandateId, error: "mandateId must be bytes32", spent: "0", inCap: false }, false, mid);
+      }
+      return pass(agent, { mandateId }, { mandateId, spent: "0", cap: agent.cap, inCap: true }, true, mid);
     }
     case "notary": {
       const artifact = str(input, "artifact");

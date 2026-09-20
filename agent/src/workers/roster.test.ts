@@ -21,7 +21,7 @@ describe("live roster", () => {
       router: { pair: "1 ETH → USDC" },
       keeper: { target: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" },
       reporter: { topic: "USDC/WETH liquidity" },
-      reconciler: { mandateId: "mandate-1" },
+      reconciler: { mandateId: `0x${"11".repeat(32)}` },
       notary: { artifact: "pool shortlist" },
       trader: { order: "buy 0.5 ETH with USDC" },
       dispatcher: { pool: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640" },
@@ -93,6 +93,29 @@ describe("live roster", () => {
     if (junk.ok) {
       expect(junk.barPassed).toBe(false);
       expect(junk.output.error).toBe("unknown pool");
+    }
+  });
+
+  it("indexer and reconciler fail closed on junk", async () => {
+    const idx = await runRoster("indexer", { query: "uniswap v3 top pools" }, { offline: true });
+    expect(idx.ok).toBe(true);
+    if (idx.ok) expect(idx.barPassed).toBe(true);
+    const cheese = await runRoster("indexer", { query: "why is the moon cheese" }, { offline: true });
+    expect(cheese.ok).toBe(true);
+    if (cheese.ok) {
+      expect(cheese.barPassed).toBe(false);
+      expect(cheese.output.error).toBe("unknown query");
+      expect(cheese.settled).toBe("refunded");
+    }
+    const rec = await runRoster("reconciler", { mandateId: `0x${"11".repeat(32)}` }, { offline: true });
+    expect(rec.ok).toBe(true);
+    if (rec.ok) expect(rec.barPassed).toBe(true);
+    const fake = await runRoster("reconciler", { mandateId: "not-a-real-mandate-at-all" }, { offline: true });
+    expect(fake.ok).toBe(true);
+    if (fake.ok) {
+      expect(fake.barPassed).toBe(false);
+      expect(fake.output.error).toBe("mandateId must be bytes32");
+      expect(fake.output.inCap).toBe(false);
     }
   });
 });
