@@ -16,6 +16,19 @@ export type JobRecord = {
 };
 
 const jobs = new Map<string, JobRecord>();
+
+/** Demo feed. Unknown pairs miss the bar — never a fake $0 / $1. */
+const ORACLE_FEED: Record<string, number> = {
+  'ETH/USDC': 3420.12,
+  'ETH/USD': 3420.12,
+  'WETH/USDC': 3420.12,
+  'BTC/USD': 97540,
+  'BTC/USDC': 97540,
+  'WBTC/USD': 97540,
+  'USDC/USD': 1,
+  'USDT/USD': 1,
+  'USDT/USDC': 1,
+};
 const POOLS = [
   { id: '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640', name: 'USDC/WETH 0.05%' },
   { id: '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8', name: 'USDC/WETH 0.3%' },
@@ -49,7 +62,17 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
     }
     case 'oracle': {
       const symbol = s(input, 'symbol', 'ETH/USDC').toUpperCase();
-      return { barPassed: /^[A-Z]{2,10}\/[A-Z]{2,10}$/.test(symbol), output: { symbol, price: 3420.12, source: 'varanasi-oracle-sepolia' } };
+      const price = ORACLE_FEED[symbol];
+      if (price == null) {
+        return {
+          barPassed: false,
+          output: { symbol, error: 'unknown pair', known: Object.keys(ORACLE_FEED), source: 'varanasi-oracle-sepolia' },
+        };
+      }
+      return {
+        barPassed: true,
+        output: { symbol, price, source: 'varanasi-oracle-sepolia', asOf: Math.floor(Date.now() / 1000) },
+      };
     }
     case 'watcher': return { barPassed: isAddr(s(input, 'address')), output: { address: s(input, 'address'), matches: 0 } };
     case 'indexer': return { barPassed: true, output: { query: s(input, 'query', 'uniswap v3'), rows: POOLS.length } };
