@@ -1158,7 +1158,7 @@ function HireWizardInner({
                 <span> · Balance: {vusdBalance} vUSD</span>
               )}
               {needsVusdMint && (
-                <button type="button" style={{ marginLeft: 8 }} disabled={busy} onClick={claimVusdTokens}>
+                <button type="button" style={{ marginLeft: 8 }} disabled={busy} onClick={() => void claimVusdTokens()}>
                   Claim 100 vUSD
                 </button>
               )}
