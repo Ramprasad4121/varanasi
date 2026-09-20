@@ -36,3 +36,27 @@ test('oracle fails closed on unknown pairs', () => {
   assert.equal(doge.output.price, undefined);
   assert.equal(doge.settled, 'refunded');
 });
+
+test('router and trader fail closed on junk pairs', () => {
+  const eth = createJob('router', { pair: '1 ETH → USDC' });
+  assert.equal(eth.barPassed, true);
+  assert.deepEqual(eth.output.path, ['WETH', 'USDC']);
+  const sol = createJob('router', { pair: '1000 SOL to PEPE' });
+  assert.equal(sol.barPassed, false);
+  assert.equal(sol.output.error, 'unknown pair');
+  assert.equal(sol.settled, 'refunded');
+  const buy = createJob('trader', { order: 'buy 0.5 ETH with USDC' });
+  assert.equal(buy.barPassed, true);
+  const doge = createJob('trader', { order: 'buy 100 DOGE with USDC' });
+  assert.equal(doge.barPassed, false);
+  assert.equal(doge.output.error, 'unknown order');
+});
+
+test('analyst fails closed on unknown pools', () => {
+  const ok = createJob('analyst', { pool: '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640' });
+  assert.equal(ok.barPassed, true);
+  const junk = createJob('analyst', { pool: 'not-a-pool' });
+  assert.equal(junk.barPassed, false);
+  assert.equal(junk.output.error, 'unknown pool');
+  assert.equal(junk.settled, 'refunded');
+});

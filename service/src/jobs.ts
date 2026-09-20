@@ -35,6 +35,45 @@ const POOLS = [
   { id: '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed', name: 'WBTC/WETH 0.3%' },
 ];
 
+
+/** Demo quotes. Unknown pairs miss the bar — never a fake WETH/USDC fill. */
+const QUOTE_BOOK: Record<string, { path: string[]; amountOut: string; venue: string }> = {
+  "ETH/USDC": { path: ["WETH", "USDC"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "WETH/USDC": { path: ["WETH", "USDC"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "ETH/USDT": { path: ["WETH", "USDT"], amountOut: "3418.02", venue: "Uniswap v3 0.05%" },
+  "BTC/USDC": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "WBTC/USDC": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "BTC/USD": { path: ["WBTC", "USDC"], amountOut: "97480", venue: "Uniswap v3 0.30%" },
+  "WBTC/WETH": { path: ["WBTC", "WETH"], amountOut: "28.50", venue: "Uniswap v3 0.30%" },
+  "USDC/USDT": { path: ["USDC", "USDT"], amountOut: "0.9998", venue: "Uniswap v3 0.01%" },
+  "USDT/USDC": { path: ["USDT", "USDC"], amountOut: "1.0001", venue: "Uniswap v3 0.01%" },
+};
+
+function parsePairSymbol(raw: string): string | null {
+  const n = raw
+    .toUpperCase()
+    .replace(/→/g, "/")
+    .replace(/\s+TO\s+/g, "/")
+    .replace(/,/g, "")
+    .replace(/\s+/g, "");
+  const stripped = n.replace(/^[0-9.]+/, "");
+  const m = stripped.match(/^(WETH|ETH|WBTC|BTC|USDC|USDT)\/(WETH|ETH|WBTC|BTC|USDC|USDT)$/);
+  if (!m || m[1] === m[2]) return null;
+  return `${m[1]}/${m[2]}`;
+}
+function lookupQuote(raw: string) {
+  const pair = parsePairSymbol(raw);
+  if (!pair) return null;
+  const quote = QUOTE_BOOK[pair];
+  if (!quote) return null;
+  return { pair, ...quote };
+}
+function parseOrder(raw: string) {
+  const n = raw.toUpperCase().replace(/→/g, " ").replace(/,/g, " ");
+  const m = n.match(/\b(BUY|SELL)\s+([\d.]+)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\s+(?:WITH|FOR|IN)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\b/);
+  if (!m || m[3] === m[4]) return null;
+  return { side: m[1], size: m[2], base: m[3], quote: m[4], pair: `${m[3]}/${m[4]}` };
+}
 function hashOf(value: unknown): string {
   return `0x${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
@@ -51,7 +90,12 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
   }
   switch (agent.id) {
     case 'scout': return { barPassed: true, output: { shortlist: POOLS, pool: s(input, 'pool', POOLS[0].id) } };
-    case 'analyst': return { barPassed: true, output: { pool: s(input, 'pool', POOLS[0].id), verdict: { decision: 'ACT', riskScoreBps: 1800 } } };
+    case 'analyst': {
+      const pool = s(input, 'pool');
+      const known = POOLS.find((p) => p.id.toLowerCase() === pool.toLowerCase() || p.name.toUpperCase().includes(pool.toUpperCase()));
+      if (!known) return { barPassed: false, output: { pool, error: 'unknown pool', known: POOLS.map((p) => p.id) } };
+      return { barPassed: true, output: { pool: known.id, name: known.name, verdict: { decision: 'ACT', riskScoreBps: 1800 } } };
+    }
     case 'freelancer': {
       const taskId = s(input, 'taskId') || s(input, 'task');
       return { barPassed: isBytes32(taskId), output: { taskId, action: isBytes32(taskId) ? 'pending' : 'noop' } };
@@ -77,12 +121,30 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
     case 'watcher': return { barPassed: isAddr(s(input, 'address')), output: { address: s(input, 'address'), matches: 0 } };
     case 'indexer': return { barPassed: true, output: { query: s(input, 'query', 'uniswap v3'), rows: POOLS.length } };
     case 'auditor': return { barPassed: isAddr(s(input, 'wallet')), output: { wallet: s(input, 'wallet'), riskBand: 'MEDIUM' } };
-    case 'router': return { barPassed: true, output: { pair: s(input, 'pair', '1 ETH → USDC'), path: ['WETH', 'USDC'], broadcast: false } };
+    case 'router': {
+      const pair = s(input, 'pair', '1 ETH → USDC');
+      const quote = lookupQuote(pair);
+      if (!quote) return { barPassed: false, output: { pair, error: 'unknown pair', broadcast: false, known: Object.keys(QUOTE_BOOK) } };
+      return { barPassed: true, output: { pair: quote.pair, path: quote.path, amountOut: quote.amountOut, venue: quote.venue, broadcast: false } };
+    }
     case 'keeper': return { barPassed: isAddr(s(input, 'target')), output: { target: s(input, 'target'), shouldRun: false } };
-    case 'reporter': return { barPassed: true, output: { topic: s(input, 'topic', 'liquidity'), citations: [POOLS[0].id] } };
+    case 'reporter': {
+      const topic = s(input, 'topic', 'USDC/WETH liquidity');
+      const hit = /\b(ETH|WETH|BTC|WBTC|USDC|USDT|UNI|UNISWAP)\b/i.test(topic);
+      if (!hit) return { barPassed: false, output: { topic, error: 'unknown topic', citations: [] } };
+      return { barPassed: true, output: { topic, brief: `Varanasi brief on ${topic}`, citations: [POOLS[0].id] } };
+    }
     case 'reconciler': return { barPassed: s(input, 'mandateId', 'mandate-1').length > 4, output: { inCap: true, cap: agent.cap } };
     case 'notary': return { barPassed: s(input, 'artifact').length > 0, output: { bytes: s(input, 'artifact').length } };
-    case 'trader': return { barPassed: true, output: { order: s(input, 'order', 'buy 0.5 ETH'), broadcast: false } };
+    case 'trader': {
+      const order = s(input, 'order', 'buy 0.5 ETH with USDC');
+      const parsed = parseOrder(order);
+      const price = parsed
+        ? (ORACLE_FEED[parsed.pair] ?? ORACLE_FEED[parsed.pair.replace('WETH', 'ETH').replace('WBTC', 'BTC')])
+        : undefined;
+      if (!parsed || price == null) return { barPassed: false, output: { order, error: 'unknown order', broadcast: false } };
+      return { barPassed: true, output: { order, quote: { size: parsed.size, price, pair: parsed.pair }, broadcast: false } };
+    }
     case 'dispatcher': return { barPassed: true, output: { steps: ['scout', 'analyst', 'freelancer'], pool: s(input, 'pool', POOLS[0].id) } };
     default: return { barPassed: false, output: { error: 'no worker' } };
   }
