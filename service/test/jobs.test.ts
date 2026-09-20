@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createJob, listAgents } from '../src/jobs.js';
+import { createJob, listAgents, parseJobRequest } from '../src/jobs.js';
 
 test('lists 15 live agents', () => {
   const agents = listAgents();
@@ -74,4 +74,15 @@ test('indexer and reconciler fail closed on junk', () => {
   assert.equal(fake.barPassed, false);
   assert.equal(fake.output.error, 'mandateId must be bytes32');
   assert.equal(fake.output.inCap, false);
+});
+
+test('parseJobRequest rejects empty and unknown agents before work', () => {
+  assert.equal(parseJobRequest({}).ok, false);
+  assert.equal(parseJobRequest({ agent: 'ghost' }).ok, false);
+  const ok = parseJobRequest({ agent: 'oracle', input: { symbol: 'ETH/USDC' } });
+  assert.equal(ok.ok, true);
+  if (ok.ok) {
+    assert.equal(ok.agentId, 'oracle');
+    assert.equal(ok.input.symbol, 'ETH/USDC');
+  }
 });

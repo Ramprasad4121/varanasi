@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BrandButton } from "@/components/BrandButton";
 import { Badge } from "@/components/Badge";
 import { type CatalogAgent } from "@/lib/agents";
-import { createJob, type JobRecord } from "@/lib/roster";
+import { type JobRecord } from "@/lib/roster";
 import { rememberHire, useVaultUserId } from "@/lib/vault";
 
 export function JobRunner({ agent }: { agent: CatalogAgent }) {
@@ -39,6 +39,13 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agent: agent.id, input: values }),
       });
+      if (res.status === 402) {
+        setJob(null);
+        setError(
+          "Payment required ($0.01 x402). This page will not run the agent unpaid. Pay on the live rail, then retry.",
+        );
+        return;
+      }
       const text = await res.text();
       let body: { ok?: boolean; job?: JobRecord; error?: string } = {};
       try {
@@ -56,17 +63,8 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
         at: new Date().toISOString(),
       });
     } catch (err) {
-      // Honest local bar — never auto-pass. Same worker as /api/v1/jobs.
-      const local = createJob(agent.id, values);
-      setJob(local);
-      setError(`${err instanceof Error ? err.message : String(err)} — ran locally.`);
-      rememberHire(userId, {
-        id: local.id,
-        agent: agent.ens,
-        cap: agent.cap,
-        status: local.barPassed ? "proof-local" : "proof-failed",
-        at: new Date().toISOString(),
-      });
+      setJob(null);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
@@ -77,7 +75,9 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
       <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Use the agent</p>
       <h3 className="mt-2 font-display text-2xl font-medium text-ink">Start work</h3>
       <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">
-        Hiring locks the mandate. This runs {agent.name} against the bar: {agent.bar}
+        Hiring locks the mandate. This runs {agent.name} against the bar: {agent.bar}.
+        Site preview is free. Live <code className="font-label text-[12px]">POST /v1/jobs</code> is
+        $0.01 x402 and will not run unpaid.
       </p>
       <div className="mt-5 grid gap-4">
         {agent.input.map((field) => (

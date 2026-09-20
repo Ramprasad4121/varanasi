@@ -5,6 +5,7 @@
  * Paid routes (x402 `exact` scheme, verified via facilitator):
  *   POST /v1/signal  premium alpha: {signal, confidence, features, txHint}
  *   POST /v1/score   cheaper risk features: {riskScore, riskBand, factors}
+ *   POST /v1/jobs    run a roster agent: {ok, job, receipt}
  *
  * Free routes:
  *   GET  /health     liveness + config snapshot (no secrets)
@@ -50,7 +51,6 @@ import {
   priceFor,
   usdcTokenId,
   type HederaNetwork,
-  type PaidRoute,
 } from './pricing.js';
 import { generateSignal, generateScore } from './signal.js';
 import { buildReceipt, isValidHederaTxId, type PaymentReceipt } from './hashscan.js';
@@ -58,7 +58,7 @@ import { logReceipt as logReceiptToHcs } from './hcs.js';
 import { financeSummary, financeRecommendation, type FinanceEndpointMode } from './finance/index.js';
 import { classifyError } from './classify.js';
 import type { Address } from './finance/types.js';
-import { createJob, getJob, listAgents, listJobs } from './jobs.js';
+import { createJob, getJob, listAgents, listJobs, parseJobRequest } from './jobs.js';
 
 config();
 
@@ -176,8 +176,40 @@ function settleTxId(res: Response): string | null {
   return isValidHederaTxId(raw) ? raw : null;
 }
 
+/**
+ * Validate paid-route bodies BEFORE x402 settlement.
+ * Unknown agents / bad symbols return 400 and are not charged.
+ */
+function prevalidatePaid(req: Request, res: Response, next: NextFunction): void {
+  if (req.method !== 'POST') {
+    next();
+    return;
+  }
+  const path = req.path;
+  if (path === '/v1/signal' || path === '/v1/score') {
+    const parsed = resolveSymbol(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    next();
+    return;
+  }
+  if (path === '/v1/jobs') {
+    const parsed = parseJobRequest(req.body);
+    if (!parsed.ok) {
+      res.status(400).json({ ok: false, error: parsed.error });
+      return;
+    }
+    next();
+    return;
+  }
+  next();
+}
+
 // ---- x402 payment gate -------------------------------------------------
 const resourceServer = createResourceServer(NETWORK);
+app.use(prevalidatePaid);
 app.use(
   paymentMiddleware(
     {
@@ -189,6 +221,11 @@ app.use(
       'POST /v1/score': {
         accepts: acceptsFor('/v1/score', NETWORK, SERVICE_ACCOUNT),
         description: 'varanasi risk features (demo model)',
+        mimeType: 'application/json',
+      },
+      'POST /v1/jobs': {
+        accepts: acceptsFor('/v1/jobs', NETWORK, SERVICE_ACCOUNT),
+        description: 'varanasi roster job (proof envelope)',
         mimeType: 'application/json',
       },
     },
@@ -253,6 +290,36 @@ app.post('/v1/score', (req: Request, res: Response) => {
   });
 });
 
+app.post('/v1/jobs', (req: Request, res: Response) => {
+  const parsed = parseJobRequest(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ ok: false, error: parsed.error });
+    return;
+  }
+  try {
+    const job = createJob(parsed.agentId, parsed.input);
+    const receipt = buildReceipt({
+      route: '/v1/jobs',
+      network: NETWORK,
+      payTo: SERVICE_ACCOUNT,
+      facilitator: FACILITATOR_URL,
+      txId: settleTxId(res),
+    });
+    recordReceipt(receipts, receipt);
+    res.status(201).json({ ok: true, job, receipt });
+    void logReceiptToHcs({
+      route: receipt.route,
+      payTo: receipt.payTo,
+      txId: receipt.txId,
+      amount: priceFor('/v1/jobs').usd,
+      asset: 'USDC|HBAR',
+      servedAt: receipt.servedAt,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ---- free routes ----------------------------------------------------------
 app.get('/health', freeRouteLimiter, (_req: Request, res: Response) => {
   res.json({
@@ -292,7 +359,7 @@ app.get('/openapi.json', freeRouteLimiter, (_req: Request, res: Response) => {
       title: 'varanasi signal service',
       version: cfg.version,
       description:
-        'x402-gated alpha API on Hedera. POST /v1/signal + POST /v1/score are paid ($0.01 / $0.001 USDC or HBAR equiv); everything else is free. Finance routes are simulated demos.',
+        'x402-gated alpha API on Hedera. POST /v1/signal, POST /v1/score, and POST /v1/jobs are paid ($0.01 / $0.001 / $0.01 USDC or HBAR equiv). Finance routes are simulated demos.',
     },
     servers: [{ url: `http://localhost:${PORT}` }],
     paths: {
@@ -302,22 +369,19 @@ app.get('/openapi.json', freeRouteLimiter, (_req: Request, res: Response) => {
       '/402-info': { get: { summary: 'Payment requirements preview' } },
       '/v1/signal': { post: { summary: 'Premium alpha signal (x402 paid $0.01)' } },
       '/v1/score': { post: { summary: 'Risk features (x402 paid $0.001)' } },
+      '/v1/jobs': { get: { summary: 'Recent jobs' }, post: { summary: 'Run a roster job (x402 paid $0.01)' } },
       '/v1/receipts': { get: { summary: 'Recent paid-request receipts (last 100)' } },
       '/v1/finance': { get: { summary: 'Demo portfolio by address (simulated)' } },
       '/v1/finance/summary': { get: { summary: 'Demo portfolio summary (simulated)' } },
       '/v1/finance/recommend': { get: { summary: 'Demo agent recommendations (simulated)' } },
       '/v1/agents': { get: { summary: 'Live 15-agent roster' } },
-      '/v1/jobs': { get: { summary: 'Recent jobs' }, post: { summary: 'Run a roster job' } },
       '/v1/classify-error': { post: { summary: 'Error-text classification (free; regex fallback when unconfigured)' } },
     },
   });
 });
 
 app.get('/402-info', freeRouteLimiter, (_req: Request, res: Response) => {
-  const routes: Record<PaidRoute, unknown> = {
-    '/v1/signal': undefined,
-    '/v1/score': undefined,
-  };
+  const routes: Record<string, unknown> = {};
   for (const p of PRICE_TABLE) {
     routes[p.route] = {
       scheme: 'exact',
@@ -339,9 +403,8 @@ app.get('/402-info', freeRouteLimiter, (_req: Request, res: Response) => {
       'TransferTransaction with an ECDSA key, retry with the payment payload ' +
       '(use @x402/fetch + @x402/hedera on the client — see service/README.md).',
     billingNote:
-      'Known behavior (documented, not a bug): request validation (e.g. symbol) ' +
-      'runs AFTER x402 settlement, so a malformed request still settles the ' +
-      'payment and receives HTTP 400. Send well-formed bodies; validate client-side first.',
+      'Request validation for paid routes (symbol, agent) runs BEFORE x402 settlement. ' +
+      'Malformed bodies return HTTP 400 and are not charged.',
   });
 });
 
@@ -428,23 +491,6 @@ app.get('/v1/jobs/:id', freeRouteLimiter, (req: Request, res: Response) => {
   if (!job) { res.status(404).json({ ok: false, error: 'job not found' }); return; }
   res.json({ ok: true, job });
 });
-app.post('/v1/jobs', freeRouteLimiter, (req: Request, res: Response) => {
-  const body = (req.body ?? {}) as { agent?: unknown; agentId?: unknown; input?: unknown };
-  const agentId = typeof body.agent === 'string' ? body.agent : typeof body.agentId === 'string' ? body.agentId : '';
-  if (!agentId.trim()) {
-    res.status(400).json({ ok: false, error: 'agent is required' });
-    return;
-  }
-  const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input)
-    ? Object.fromEntries(Object.entries(body.input as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]))
-    : {};
-  try {
-    const job = createJob(agentId, input);
-    res.status(201).json({ ok: true, job });
-  } catch (err) {
-    res.status(400).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
-  }
-});
 
 // ---- error classification (free; browser-safe — key never leaves the server) --
 const MAX_CLASSIFY_BODY_CHARS = 8000;
@@ -491,10 +537,11 @@ const server = app.listen(PORT, () => {
   console.log(`   Env:         ${cfg.nodeEnv} (version ${cfg.version}, sha ${cfg.gitSha})`);
   console.log(`   Paid:  POST /v1/signal ($0.01 USDC or 0.01 HBAR equiv)`);
   console.log(`   Paid:  POST /v1/score  ($0.001 USDC or 0.001 HBAR equiv)`);
+  console.log(`   Paid:  POST /v1/jobs   ($0.01 USDC or 0.01 HBAR equiv)`);
   console.log(`   Free:  GET  /health, /ready, /version, /openapi.json, /402-info, /v1/receipts`);
   console.log(`   Free:  GET  /v1/finance?address=0x...  (demo portfolio)`);
   console.log(`   Free:  GET  /v1/finance/recommend?address=0x...  (demo agent recs)`);
-  console.log(`   Free:  GET  /v1/agents  POST /v1/jobs  (15-agent roster + proof)`);
+  console.log(`   Free:  GET  /v1/agents  GET /v1/jobs  (15-agent roster + job list)`);
   console.log(`   Free:  POST /v1/classify-error  (error-text classification)\n`);
 });
 

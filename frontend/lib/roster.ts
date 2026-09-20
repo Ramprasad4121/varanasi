@@ -1,7 +1,8 @@
 /**
  * @author Ramprasad — isomorphic 15-agent job runner.
- * Used by Next /api/v1/jobs so Start work works on Vercel without the
- * Hedera signal service, and as an honest local fallback in the browser.
+ * Used by Next /api/v1/jobs so Start work works on Vercel as a labeled
+ * preview rail. The live x402 job route is POST /v1/jobs on the signal
+ * service ($0.01). The browser must not invent a paid job locally.
  */
 import { AGENTS, agentById, type CatalogAgent } from "./agents";
 

@@ -2,7 +2,7 @@
  * @author Ramprasad
  * @module hcs — Hedera Consensus Service (HCS) audit trail for paid x402 requests.
  *
- * After a paid `/v1/signal` or `/v1/score` request is served, the service
+ * After a paid `/v1/signal`, `/v1/score`, or `/v1/jobs` request is served, the service
  * fire-and-forgets a JSON receipt
  * `{route, payTo, txId, amount, asset, servedAt, network, prevSequence}` to an HCS topic via
  * `TopicMessageSubmitTransaction`. Anyone can then verify the payment trail

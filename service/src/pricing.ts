@@ -4,7 +4,7 @@
  *
  * Env deps: none (static table; network/payTo passed in as arguments).
  *
- * Two paid routes, each payable in EITHER USDC (HTS fungible token, priced
+ * Three paid routes, each payable in EITHER USDC (HTS fungible token, priced
  * as a USD `Money` string the facilitator resolves) OR native HBAR (priced
  * as an explicit `AssetAmount` in tinybars, 1 HBAR = 10^8 tinybars).
  *
@@ -24,7 +24,7 @@ export const MAINNET_USDC_ID = '0.0.456858';
 
 export type AssetChoice = 'usdc' | 'hbar';
 export type HederaNetwork = 'hedera:testnet' | 'hedera:mainnet';
-export type PaidRoute = '/v1/signal' | '/v1/score';
+export type PaidRoute = '/v1/signal' | '/v1/score' | '/v1/jobs';
 
 export interface RoutePrice {
   route: PaidRoute;
@@ -48,11 +48,17 @@ export const PRICE_TABLE: RoutePrice[] = [
     hbarTinybars: '100000', // 0.001 HBAR
     description: 'Cheaper risk features: risk score + factor breakdown',
   },
+  {
+    route: '/v1/jobs',
+    usd: '$0.01',
+    hbarTinybars: '1000000', // 0.01 HBAR
+    description: 'Run a roster agent and return a proof envelope',
+  },
 ];
 
 /**
  * Look up the static price entry for a paid route.
- * @param route Paid route ("/v1/signal" or "/v1/score").
+ * @param route Paid route ("/v1/signal", "/v1/score", or "/v1/jobs").
  * @returns RoutePrice with USD string + HBAR tinybars.
  * @throws When the route is not in PRICE_TABLE.
  */
