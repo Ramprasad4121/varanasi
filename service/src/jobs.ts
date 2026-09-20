@@ -68,6 +68,9 @@ function lookupQuote(raw: string) {
   if (!quote) return null;
   return { pair, ...quote };
 }
+function queryHitsCatalog(q: string): boolean {
+  return /\b(ETH|WETH|BTC|WBTC|USDC|USDT|UNI|UNISWAP|POOL|V3|V2|GRAPH|SUBGRAPH)\b/i.test(q);
+}
 function parseOrder(raw: string) {
   const n = raw.toUpperCase().replace(/→/g, " ").replace(/,/g, " ");
   const m = n.match(/\b(BUY|SELL)\s+([\d.]+)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\s+(?:WITH|FOR|IN)\s+(WETH|ETH|WBTC|BTC|USDC|USDT)\b/);
@@ -119,7 +122,11 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
       };
     }
     case 'watcher': return { barPassed: isAddr(s(input, 'address')), output: { address: s(input, 'address'), matches: 0 } };
-    case 'indexer': return { barPassed: true, output: { query: s(input, 'query', 'uniswap v3'), rows: POOLS.length } };
+    case 'indexer': {
+      const query = s(input, 'query', 'uniswap v3');
+      if (!queryHitsCatalog(query)) return { barPassed: false, output: { query, error: 'unknown query', rows: 0 } };
+      return { barPassed: true, output: { query, rows: POOLS.length } };
+    }
     case 'auditor': return { barPassed: isAddr(s(input, 'wallet')), output: { wallet: s(input, 'wallet'), riskBand: 'MEDIUM' } };
     case 'router': {
       const pair = s(input, 'pair', '1 ETH → USDC');
@@ -134,7 +141,11 @@ function execute(agent: CatalogAgent, input: Record<string, string>): { barPasse
       if (!hit) return { barPassed: false, output: { topic, error: 'unknown topic', citations: [] } };
       return { barPassed: true, output: { topic, brief: `Varanasi brief on ${topic}`, citations: [POOLS[0].id] } };
     }
-    case 'reconciler': return { barPassed: s(input, 'mandateId', 'mandate-1').length > 4, output: { inCap: true, cap: agent.cap } };
+    case 'reconciler': {
+      const mandateId = s(input, 'mandateId') || s(input, 'taskId');
+      if (!isBytes32(mandateId)) return { barPassed: false, output: { mandateId, error: 'mandateId must be bytes32', inCap: false } };
+      return { barPassed: true, output: { mandateId, spent: '0', cap: agent.cap, inCap: true } };
+    }
     case 'notary': return { barPassed: s(input, 'artifact').length > 0, output: { bytes: s(input, 'artifact').length } };
     case 'trader': {
       const order = s(input, 'order', 'buy 0.5 ETH with USDC');

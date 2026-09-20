@@ -60,3 +60,18 @@ test('analyst fails closed on unknown pools', () => {
   assert.equal(junk.output.error, 'unknown pool');
   assert.equal(junk.settled, 'refunded');
 });
+
+test('indexer and reconciler fail closed on junk', () => {
+  const idx = createJob('indexer', { query: 'uniswap v3 top pools' });
+  assert.equal(idx.barPassed, true);
+  const cheese = createJob('indexer', { query: 'why is the moon cheese' });
+  assert.equal(cheese.barPassed, false);
+  assert.equal(cheese.output.error, 'unknown query');
+  assert.equal(cheese.settled, 'refunded');
+  const rec = createJob('reconciler', { mandateId: `0x${'11'.repeat(32)}` });
+  assert.equal(rec.barPassed, true);
+  const fake = createJob('reconciler', { mandateId: 'not-a-real-mandate-at-all' });
+  assert.equal(fake.barPassed, false);
+  assert.equal(fake.output.error, 'mandateId must be bytes32');
+  assert.equal(fake.output.inCap, false);
+});
