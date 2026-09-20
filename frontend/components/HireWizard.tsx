@@ -138,6 +138,13 @@ const ESCROW_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [{ name: "taskId", type: "bytes32" }],
+    name: "cancel",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
 
 const ERC20_ABI = [
@@ -515,15 +522,20 @@ function HireWizardInner({
       setVusdBalance(formatUnits(bal, 6));
       let cap = BigInt(0);
       try { cap = parseUnits(capVusd.trim() || "0", 6); } catch {}
-      setNeedsVusdMint(bal < cap);
+      const need = bal < cap;
+      setNeedsVusdMint(need);
+      return need;
     } catch (err) {
       console.error("Failed to read vUSD balance", err);
+      return false;
     }
   }
 
-  async function claimVusdTokens() {
-    setStatus("");
-    setBusy(true);
+  async function claimVusdTokens(opts?: { quiet?: boolean }): Promise<boolean> {
+    if (!opts?.quiet) {
+      setStatus("");
+      setBusy(true);
+    }
     try {
       const provider = await getProvider();
       await ensureSepoliaNetwork(provider);
@@ -548,10 +560,12 @@ function HireWizardInner({
       await waitReceipt(hash);
       setStatus("100 vUSD claimed successfully!");
       await refreshVusdBalance(acct);
+      return true;
     } catch (err) {
       setStatus(`Mint failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
     } finally {
-      setBusy(false);
+      if (!opts?.quiet) setBusy(false);
     }
   }
 
@@ -564,7 +578,7 @@ function HireWizardInner({
     }
   }
 
-  async function signMandate(): Promise<Hash | null> {
+  async function signMandate(): Promise<{ signature: Hash; id: string } | null> {
     setStatus("");
     setBusy(true);
     try {
@@ -608,7 +622,7 @@ function HireWizardInner({
       setTaskId(id);
       setTrackId(id);
       setStatus(`Signed — task ${id.slice(0, 18)}… ready to fund.`);
-      return signature;
+      return { signature, id };
     } catch (err) {
       setStatus(
         `Sign failed: ${err instanceof Error ? err.message : String(err)}`
@@ -731,9 +745,10 @@ function HireWizardInner({
     }
   }
 
-  async function fundEscrow(sigOverride?: Hash | null): Promise<boolean> {
+  async function fundEscrow(sigOverride?: Hash | null, idOverride?: string): Promise<boolean> {
     setStatus("");
     const s = sigOverride ?? sig;
+    const id = idOverride || taskId;
     if (!s) {
       setStatus("Sign the mandate first.");
       return false;
@@ -763,7 +778,7 @@ function HireWizardInner({
       const mined = await waitReceipt(hash);
       setFundOk(true);
       rememberHire(privy.user?.id, {
-        id: taskId || hash,
+        id: id || hash,
         agent: sublabel || arch,
         cap: capVusd,
         status: "funded",
@@ -772,7 +787,7 @@ function HireWizardInner({
       });
       setStatus(
         mined
-          ? `Escrow funded ✓ — track task ${taskId.slice(0, 18)}… in step 4.`
+          ? `Escrow funded ✓ — run the agent on task ${id.slice(0, 18)}… then release.`
           : `Fund submitted (${hash.slice(0, 18)}…) — receipt unreadable, track the task id anyway.`
       );
       return true;
@@ -786,10 +801,8 @@ function HireWizardInner({
     }
   }
 
-  // One guided action: sign → mint (unless skipped) → approve → fund, in
-  // order. Stops at the first failure; the status line says what happened.
-  // The fresh signature threads through as a local (React state lags a
-  // render behind, so fund never reads a stale closure).
+  // One guided action: sign → mint (unless skipped) → claim vUSD if needed
+  // → approve → fund. Stops at the first failure.
   async function authorizeAndFund() {
     const hasExtensionWallet = !!(window as any as { ethereum?: any })
       .ethereum;
@@ -805,25 +818,52 @@ function HireWizardInner({
     setBusy(true);
     try {
       let signature = sig;
+      let fundedId = taskId;
       if (!signature) {
-        setPhase("1 of 4 · signing the mandate…");
-        signature = await signMandate();
+        setPhase("1 of 5 · signing the mandate…");
+        const signed = await signMandate();
+        if (!signed) return;
+        signature = signed.signature;
+        fundedId = signed.id;
       }
-      if (!signature) return;
       if (!skipMint && !mintOk) {
-        setPhase("2 of 4 · minting the agent identity…");
+        setPhase("2 of 5 · minting the agent identity…");
         if (!(await mintIdentity())) return;
       }
       if (!approveOk) {
-        setPhase("3 of 4 · approving vUSD…");
+        setPhase("3 of 5 · checking vUSD…");
+        try {
+          const provider = await getProvider();
+          await ensureSepoliaNetwork(provider);
+          const wc = createWalletClient({
+            chain: sepolia,
+            transport: custom(provider as never),
+          });
+          const acct = await getActiveAccount(wc, provider);
+          if (acct && (await refreshVusdBalance(acct))) {
+            setPhase("3 of 5 · claiming 100 vUSD…");
+            if (!(await claimVusdTokens({ quiet: true }))) return;
+          }
+        } catch (err) {
+          setStatus(
+            `vUSD check failed: ${err instanceof Error ? err.message : String(err)}`
+          );
+          return;
+        }
+        setPhase("4 of 5 · approving vUSD…");
         if (!(await approveToken())) return;
       }
       if (!fundOk) {
-        setPhase("4 of 4 · funding escrow…");
-        if (!(await fundEscrow(signature))) return;
+        setPhase("5 of 5 · funding escrow…");
+        if (!(await fundEscrow(signature, fundedId))) return;
       }
       setPhase("");
-      setStatus("Authorized & funded ✓ — continue to tracking to watch the task.");
+      setStep(4);
+      if (fundedId) {
+        setTrackId(fundedId);
+        void refreshTrack(fundedId);
+      }
+      setStatus("Authorized & funded ✓ — run the agent below to post the score, then release.");
     } finally {
       setPhase("");
       setBusy(false);
@@ -879,7 +919,7 @@ function HireWizardInner({
     }
   }
 
-  async function settle(kind: "release" | "refund") {
+  async function settle(kind: "release" | "refund" | "cancel") {
     setStatus("");
     const id = trackId.trim();
     if (!/^0x[0-9a-fA-F]{64}$/.test(id)) {
@@ -909,7 +949,7 @@ function HireWizardInner({
       });
       setSettleTx(hash);
       await waitReceipt(hash);
-      setStatus(`${kind === "release" ? "Released" : "Refunded"} ✓ — refreshing state…`);
+      setStatus(`${kind} ✓ — refreshing state…`);
       await refreshTrack(id);
     } catch (err) {
       setStatus(
@@ -920,19 +960,16 @@ function HireWizardInner({
     }
   }
 
-  const steps = ["Pick", "Terms", "Sign & fund", "Track"];
+  const steps = ["Pick", "Terms", "Sign & fund", "Work & settle"];
   const mintBlocked = !isDeployed;
 
   return (
     <section className="panel" id="hire-wizard" style={{ marginTop: 20 }}>
       <h2>Hire an agent — guided</h2>
       <p className="desc">
-        Four small steps from browsing to escrowed work. Nothing
-        moves funds until you sign and fund in step 3.
-      </p>
-      <JobRunner key={arch} agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent} />
-      <p className="desc" style={{ marginTop: 28 }}>
-        Optional — lock a spending cap on Sepolia before the agent works.
+        Lock a cap on Sepolia, run the agent, then release only if the
+        proof clears the bar. Funds never move on a miss — you are refunded
+        after expiry.
       </p>
       <ol className="stepper">
         {steps.map((s, i) => (
@@ -1077,8 +1114,8 @@ function HireWizardInner({
           <strong>Sign & deposit</strong>
           <div className="muted">
             Step 3: one click signs your mandate, mints the agent identity,
-            approves the cap, and deposits funds into escrow — in order, stopping at the
-            first problem.
+            claims demo vUSD if the cap is short, approves, and deposits
+            into escrow — in order, stopping at the first problem.
           </div>
           <details>
             <summary className="muted" style={{ cursor: "pointer" }}>
@@ -1144,6 +1181,12 @@ function HireWizardInner({
             />
             Agent identity already minted — skip
           </label>
+          {skipMint && (
+            <div className="status">
+              Skip mint only if this agent wallet already holds a live
+              *.aegis.eth identity — release re-checks it onchain.
+            </div>
+          )}
           {mintBlocked && (
             <div className="status">
               Registry not deployed yet — tick “skip mint” to continue.
@@ -1216,7 +1259,7 @@ function HireWizardInner({
                 if (taskId) void refreshTrack(taskId);
               }}
             >
-              Continue to tracking →
+              Continue to work →
             </button>
           </div>
         </div>
@@ -1225,17 +1268,28 @@ function HireWizardInner({
       {/* STEP 4 — Track */}
       {step === 4 && (
         <div className="card" id="wizard-step-4">
-          <strong>Track the task</strong>
+          <strong>Work & settle</strong>
           <div className="muted">
-            Step 4: watch the escrow state live — release pays the merchant,
-            refund returns you after expiry.
+            Step 4: run the funded agent so the allowlisted validator can
+            post the score. Release pays the merchant only if the proof
+            clears the bar; refund returns you after expiry.
           </div>
+          {fundOk && (
+            <JobRunner
+              key={arch}
+              agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent}
+              taskId={taskId || undefined}
+              onAttested={() => {
+                if (taskId) void refreshTrack(taskId);
+              }}
+            />
+          )}
           <label>Task id (bytes32)</label>
           <input
             id="track-task-id"
             value={trackId}
             onChange={(e) => setTrackId(e.target.value)}
-            placeholder="0x… (funded in step 3, or load the example below)"
+            placeholder="0x… (funded in step 3, or load the public-record example)"
           />
           <div className="row">
             <button type="button" id="btn-refresh-track" onClick={() => void refreshTrack()}>
@@ -1249,10 +1303,10 @@ function HireWizardInner({
                 setTrackDetail(
                   `Funded → Released · fund ${DEMO_FUND_TX.slice(0, 18)}… · release ${DEMO_RELEASE_TX.slice(0, 18)}…`
                 );
-                setStatus("Example task loaded (a real task id reads live).");
+                setStatus("Public-record example loaded — this is not your hire. Fund in step 3 for a live task id.");
               }}
             >
-              Load Example Task
+              Load public-record example
             </button>
           </div>
           {trackLabel && (
@@ -1269,7 +1323,7 @@ function HireWizardInner({
           )}
           {!trackLabel && (
             <div className="status">
-              No live read yet — fund in step 3, or load the example task.{" "}
+              No live read yet — fund in step 3, or load the public-record example.{" "}
               <a href={sepoliaTx(DEMO_RELEASE_TX)} target="_blank" rel="noreferrer">
                 Example release tx ↗
               </a>
@@ -1279,6 +1333,11 @@ function HireWizardInner({
             {trackLabel === "Validated" && (
               <button type="button" disabled={busy} onClick={() => void settle("release")}>
                 Release to merchant
+              </button>
+            )}
+            {trackLabel === "Funded" && (
+              <button type="button" disabled={busy} onClick={() => void settle("cancel")}>
+                Cancel (return cap)
               </button>
             )}
             {(trackLabel === "Funded" || trackLabel === "Validated") && (

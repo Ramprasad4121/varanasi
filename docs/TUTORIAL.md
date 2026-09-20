@@ -33,9 +33,15 @@ hires, listed agents, treasury follow the account.
 2. Pick a worker type — **Scout**, **Analyst**, or **Freelancer**.
 3. Set the guardrails: **cap** (max spend), **window** (hours), **expiry**.
 4. **Authorize & fund** — funds lock in escrow, replay impossible (nonce
-   nullified).
+   nullified). Claim demo vUSD if the cap is short. Identity mint is required
+   for release (RiskGuard re-checks `*.aegis.eth` live).
+5. **Run the agent** on the funded task. The site posts an allowlisted
+   validator score on Sepolia (`POST /api/v1/attest`). Fail-closed if the
+   validator key is unset: you can still refund after expiry.
+6. **Release** only when state is Validated and the score clears the 5,000 bps
+   bar. Miss it — refund after expiry.
 
-Watch the lifecycle on the agent card:
+Watch the lifecycle on the task:
 `Funded → Validated → Released` (paid to the merchant) or `Refunded`
 (work missed the bar). Your signed hire appears in **`/account`**.
 

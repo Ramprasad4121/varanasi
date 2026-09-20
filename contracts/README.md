@@ -10,7 +10,7 @@ forge build
 forge test
 ```
 
-`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **216 tests / 11 suites** (166 legacy + 50 `MandateTreeEscrow`).
+`forge test` runs fully offline — registry deploys in mock mode (ENS addresses unset → ENS fan-out skipped). **220 tests / 11 suites** (170 legacy + 50 `MandateTreeEscrow`).
 
 ## Mandate delegation trees + verdict network (`src/MandateTreeEscrow.sol`)
 

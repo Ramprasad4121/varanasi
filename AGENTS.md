@@ -54,7 +54,7 @@ Per-package; run inside the package directory. Node 24 required.
 ```bash
 cd contracts
 forge build            # offline-safe, git submodules (forge-std, v4-core, v4-periphery)
-forge test             # 166 tests / 10 suites, fully offline (mock ENS: zero network)
+forge test             # 220 tests / 11 suites, fully offline (mock ENS: zero network)
 ```
 Sepolia RPC comes from `$SEPOLIA_RPC_URL` (`foundry.toml`); fork tests skip when unset.
 

@@ -7,19 +7,30 @@ import { type CatalogAgent } from "@/lib/agents";
 import { type JobRecord } from "@/lib/roster";
 import { rememberHire, useVaultUserId } from "@/lib/vault";
 
-export function JobRunner({ agent }: { agent: CatalogAgent }) {
+export function JobRunner({
+  agent,
+  taskId,
+  onAttested,
+}: {
+  agent: CatalogAgent;
+  taskId?: string;
+  onAttested?: () => void;
+}) {
   const userId = useVaultUserId();
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(agent.input.map((f) => [f.name, f.placeholder])),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [attest, setAttest] = useState("");
   const [job, setJob] = useState<JobRecord | null>(null);
+  const funded = Boolean(taskId && /^0x[0-9a-fA-F]{64}$/.test(taskId));
 
   useEffect(() => {
     setValues(Object.fromEntries(agent.input.map((f) => [f.name, f.placeholder])));
     setJob(null);
     setError("");
+    setAttest("");
     // Reset fields when the hired agent changes; `agent.input` is catalog-stable per id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent.id]);
@@ -33,6 +44,7 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
     }
     setBusy(true);
     setError("");
+    setAttest("");
     try {
       const res = await fetch("/api/v1/jobs", {
         method: "POST",
@@ -62,6 +74,44 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
         status: body.job.barPassed ? "proof-passed" : "proof-failed",
         at: new Date().toISOString(),
       });
+      if (!funded || !taskId) return;
+      try {
+        const att = await fetch("/api/v1/attest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId, agent: agent.id, input: values }),
+        });
+        const attText = await att.text();
+        let attBody: {
+          ok?: boolean;
+          already?: boolean;
+          error?: string;
+          tx?: string | null;
+          scoreBps?: number;
+        } = {};
+        try {
+          attBody = JSON.parse(attText) as typeof attBody;
+        } catch {
+          attBody = {};
+        }
+        if (att.status === 503) {
+          setAttest(
+            "Onchain attest is fail-closed (validator key not set or not allowlisted). Track the task below — release waits for an allowlisted validator.",
+          );
+        } else if (!att.ok || !attBody.ok) {
+          setAttest(attBody.error || `Attest HTTP ${att.status}`);
+        } else if (attBody.already) {
+          setAttest(`Onchain score ${attBody.scoreBps} bps already posted. Release below.`);
+          onAttested?.();
+        } else {
+          setAttest(
+            `Onchain score ${attBody.scoreBps} bps posted${attBody.tx ? ` · ${String(attBody.tx).slice(0, 18)}…` : ""}. Release below.`,
+          );
+          onAttested?.();
+        }
+      } catch (attErr) {
+        setAttest(attErr instanceof Error ? attErr.message : String(attErr));
+      }
     } catch (err) {
       setJob(null);
       setError(err instanceof Error ? err.message : String(err));
@@ -75,9 +125,8 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
       <p className="font-label text-[11px] uppercase tracking-[0.18em] text-fg-muted">Use the agent</p>
       <h3 className="mt-2 font-display text-2xl font-medium text-ink">Start work</h3>
       <p className="mt-2 font-sans text-[15px] leading-relaxed text-fg-body">
-        Hiring locks the mandate. This runs {agent.name} against the bar: {agent.bar}.
-        Site preview is free. Live <code className="font-label text-[12px]">POST /v1/jobs</code> is
-        $0.01 x402 and will not run unpaid.
+        Hiring already locked the mandate. This runs {agent.name} against the bar: {agent.bar}.
+        After proof, the rail posts the validator score on Sepolia so you can release.
       </p>
       <div className="mt-5 grid gap-4">
         {agent.input.map((field) => (
@@ -101,6 +150,7 @@ export function JobRunner({ agent }: { agent: CatalogAgent }) {
         </BrandButton>
       </div>
       {error ? <p className="mt-3 font-sans text-[14px] text-fg-body">{error}</p> : null}
+      {attest ? <p className="mt-3 font-sans text-[14px] text-fg-body">{attest}</p> : null}
       {job ? (
         <div className="mt-5 rounded-lg border border-border bg-bg p-4">
           <div className="flex items-center gap-2">
