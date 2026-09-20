@@ -107,6 +107,7 @@ contract TaskEscrowTest is Test {
     event TaskReleased(bytes32 indexed taskId, address indexed payee, uint256 amount);
     event TaskRefunded(bytes32 indexed taskId, address indexed payer_, uint256 amount);
     event TaskCancelled(bytes32 indexed taskId, address indexed payer_, uint256 amount);
+    event ProtocolFeePaid(bytes32 indexed taskId, address indexed treasury, uint256 amount);
 
     function setUp() public {
         payer = vm.addr(payerKey);
@@ -665,5 +666,56 @@ contract TaskEscrowTest is Test {
         escrow.setThreshold(10_001);
         escrow.setThreshold(9_000);
         assertEq(escrow.thresholdBps(), 9_000);
+    }
+
+    function test_ProtocolFeeDefaultZeroPaysMerchantFull() public {
+        assertEq(escrow.protocolFeeBps(), 0);
+        bytes32 taskId = _fundValidated(PASS_SCORE);
+        uint256 merchantBefore = usdc.balanceOf(merchant);
+        escrow.release(taskId);
+        assertEq(usdc.balanceOf(merchant), merchantBefore + CAP);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_ProtocolFeeSplitsOnRelease() public {
+        address feeTo = address(0xFEE);
+        escrow.setProtocolFee(250, feeTo); // 2.5%
+        bytes32 taskId = _fundValidated(PASS_SCORE);
+        uint256 fee = (CAP * 250) / 10_000;
+        uint256 payeeAmt = CAP - fee;
+        uint256 merchantBefore = usdc.balanceOf(merchant);
+
+        vm.expectEmit(true, true, false, true);
+        emit ProtocolFeePaid(taskId, feeTo, fee);
+        vm.expectEmit(true, true, false, true);
+        emit TaskReleased(taskId, merchant, payeeAmt);
+        escrow.release(taskId);
+
+        assertEq(usdc.balanceOf(merchant), merchantBefore + payeeAmt);
+        assertEq(usdc.balanceOf(feeTo), fee);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_SetProtocolFeeRejectsOverCapAndZeroTreasury() public {
+        vm.expectRevert(abi.encodeWithSelector(TaskEscrow.BadFee.selector, 1_001));
+        escrow.setProtocolFee(1_001, address(0xFEE));
+        vm.expectRevert(TaskEscrow.ZeroAddress.selector);
+        escrow.setProtocolFee(250, address(0));
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(TaskEscrow.NotOwner.selector, stranger));
+        escrow.setProtocolFee(250, address(0xFEE));
+    }
+
+    function test_ProtocolFeeZeroAfterSetPaysMerchantFull() public {
+        address feeTo = address(0xFEE);
+        escrow.setProtocolFee(250, feeTo);
+        escrow.setProtocolFee(0, feeTo);
+        assertEq(escrow.protocolFeeBps(), 0);
+        bytes32 taskId = _fundValidated(PASS_SCORE);
+        uint256 merchantBefore = usdc.balanceOf(merchant);
+        escrow.release(taskId);
+        assertEq(usdc.balanceOf(merchant), merchantBefore + CAP);
+        assertEq(usdc.balanceOf(feeTo), 0);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
     }
 }

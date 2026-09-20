@@ -12,6 +12,8 @@ import {TaskEscrow} from "../src/TaskEscrow.sol";
 ///      Env overrides (all optional; RISK_GUARD must be non-zero to deploy):
 ///        RISK_GUARD      live RiskGuard address (default: address(0) → reverts)
 ///        THRESHOLD_BPS   global release bar, score >= threshold (default: 5000)
+///        PROTOCOL_FEE_BPS protocol take on release, 0–1000 (default: 0 = off)
+///        TREASURY        fee receiver (required when PROTOCOL_FEE_BPS > 0)
 ///      No secrets required. Read-only until --broadcast. Never commits.
 contract DeployEscrow is Script {
     /// @notice Execute the deployment: reads RISK_GUARD + THRESHOLD_BPS and broadcasts TaskEscrow.
@@ -22,11 +24,19 @@ contract DeployEscrow is Script {
 
         vm.startBroadcast();
         TaskEscrow escrow = new TaskEscrow(riskGuard, thresholdBps);
+        uint256 feeBps = vm.envOr("PROTOCOL_FEE_BPS", uint256(0));
+        address treasury = vm.envOr("TREASURY", address(0));
+        if (feeBps > 0) {
+            require(treasury != address(0), "TREASURY unset");
+            escrow.setProtocolFee(feeBps, treasury);
+        }
         vm.stopBroadcast();
 
         console.log("TaskEscrow:  ", address(escrow));
         console.log("RiskGuard:   ", riskGuard);
         console.log("ThresholdBps:", thresholdBps);
+        console.log("FeeBps:      ", feeBps);
+        console.log("Treasury:    ", treasury);
         console.log("ChainId:     ", block.chainid);
     }
 }

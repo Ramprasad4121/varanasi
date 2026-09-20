@@ -119,6 +119,8 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
 
     /// @notice Basis-points denominator: scores and thresholds are 0-10_000.
     uint256 public constant BPS_DENOMINATOR = 10_000;
+    /// @notice Hard cap on protocolFeeBps (10%). Owner cannot take the whole cap.
+    uint256 public constant MAX_PROTOCOL_FEE_BPS = 1_000;
 
     // ── Storage ──
 
@@ -132,6 +134,11 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     address public pendingOwner;
     /// @notice Global release bar: release requires latest score >= thresholdBps.
     uint256 public thresholdBps;
+    /// @notice Protocol take on release, in bps of fundedAmount (0 = off).
+    /// @dev Capped at MAX_PROTOCOL_FEE_BPS so an owner cannot sweep the cap.
+    uint256 public protocolFeeBps;
+    /// @notice Receiver of the protocol take. Required non-zero when fee > 0.
+    address public treasury;
 
     /// @notice signer => nonce => consumed (per-signer replay nullifier).
     mapping(address => mapping(uint256 => bool)) public usedNonce;
@@ -165,6 +172,12 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     event ValidatorUpdated(address indexed validator, bool allowed);
     /// @notice Emitted when the global release threshold is updated.
     event ThresholdUpdated(uint256 thresholdBps);
+    /// @notice Emitted when the protocol take or treasury is updated.
+    /// @dev Author: Ramprasad.
+    event ProtocolFeeUpdated(uint256 protocolFeeBps, address treasury);
+    /// @notice Emitted when a release pays the protocol treasury.
+    /// @dev Author: Ramprasad.
+    event ProtocolFeePaid(bytes32 indexed taskId, address indexed treasury, uint256 amount);
     /// @notice Emitted when contract ownership is transferred.
     event OwnershipTransferred(address indexed next);
     /// @notice Emitted when contract ownership transfer is initiated (2-step).
@@ -227,6 +240,9 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
     error NotOwner(address caller);
     /// @notice Threshold exceeds 10_000 bps.
     error BadThreshold(uint256 thresholdBps);
+    /// @notice Protocol fee exceeds MAX_PROTOCOL_FEE_BPS.
+    /// @dev Author: Ramprasad.
+    error BadFee(uint256 protocolFeeBps);
     /// @notice A different validator tried to overwrite the pinned validator's score.
     /// @dev Author: Ramprasad.
     error ValidatorMismatch(bytes32 taskId, address expected, address caller);
@@ -267,6 +283,18 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         if (_thresholdBps > BPS_DENOMINATOR) revert BadThreshold(_thresholdBps);
         thresholdBps = _thresholdBps;
         emit ThresholdUpdated(_thresholdBps);
+    }
+
+    /// @notice Set the protocol take and treasury. Fee 0 disables the take.
+    /// @param _protocolFeeBps Take in bps of fundedAmount (<= MAX_PROTOCOL_FEE_BPS).
+    /// @param _treasury Receiver; required non-zero when fee > 0.
+    /// @dev Author: Ramprasad. Does not move already-funded tasks' bars.
+    function setProtocolFee(uint256 _protocolFeeBps, address _treasury) external onlyOwner {
+        if (_protocolFeeBps > MAX_PROTOCOL_FEE_BPS) revert BadFee(_protocolFeeBps);
+        if (_protocolFeeBps > 0 && _treasury == address(0)) revert ZeroAddress();
+        protocolFeeBps = _protocolFeeBps;
+        treasury = _treasury;
+        emit ProtocolFeeUpdated(_protocolFeeBps, _treasury);
     }
 
     /// @notice Transfer contract admin rights to a new owner (2-step).
@@ -461,10 +489,17 @@ contract TaskEscrow is EIP712, ReentrancyGuard {
         uint256 amount = t.fundedAmount;
         address merchant = t.merchant;
         address token = t.token;
+        uint256 fee = (amount * protocolFeeBps) / BPS_DENOMINATOR;
+        uint256 payeeAmt = amount - fee;
+        address feeTo = treasury;
 
-        IERC20(token).safeTransfer(merchant, amount);
+        IERC20(token).safeTransfer(merchant, payeeAmt);
+        if (fee > 0) {
+            IERC20(token).safeTransfer(feeTo, fee);
+            emit ProtocolFeePaid(taskId, feeTo, fee);
+        }
 
-        emit TaskReleased(taskId, merchant, amount);
+        emit TaskReleased(taskId, merchant, payeeAmt);
     }
 
     /// @notice Refund escrowed funds to the payer. Permissionless, strictly

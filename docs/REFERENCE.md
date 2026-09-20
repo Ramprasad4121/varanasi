@@ -36,7 +36,7 @@ Source of truth: `frontend/lib/site.ts` and `agent/src/erc8004.ts`.
 
 | Contract | Address | Role |
 |---|---|---|
-| `TaskEscrow` | `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24` | Mandate settlement. LOCKED typehash — see `docs/MANDATE.md`. |
+| `TaskEscrow` | `0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24` | Mandate settlement. LOCKED typehash — see `docs/MANDATE.md`. Live bytecode has **no protocol fee**. Next deploy: `PROTOCOL_FEE_BPS=250` + `TREASURY` via `DeployEscrow.s.sol`. Sourcify match: https://repo.sourcify.dev/contracts/full_match/11155111/0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24/ |
 | `AegisRegistry` | `0x3913f1E6A0Be93180363aBd01Df7968d494033A8` | Mint/revoke/renew agent subnames. |
 | `RiskGuard` | `0x668c01aE564D51baFF0029D361c20c534d738400` | `authorize(action, riskScore)` gate. |
 | `AegisHook` | `0x05043B527D67d7E4e3a2ed411fFBD15b8255c080` | Uniswap v4 hook wiring. |
@@ -84,6 +84,9 @@ force on/off on `analyze` + `hire analyst`).
 `NEXT_PUBLIC_SEPOLIA_RPC`, `NEXT_PUBLIC_AEGIS_REGISTRY`,
 `NEXT_PUBLIC_SIGNAL_URL`, `NEXT_PUBLIC_GRAPH_API_KEY` (optional),
 `NEXT_PUBLIC_PRIVY_APP_ID` (from dashboard.privy.io — required for Sign in).
+Server-only (never `NEXT_PUBLIC_`): `SEPOLIA_VALIDATOR_KEY` (allowlisted
+TaskEscrow validator; empty → `POST /api/v1/attest` is 503 fail-closed),
+`SEPOLIA_RPC_URL` (attest + hire reads; falls back to publicnode).
 Only `NEXT_PUBLIC_`/`VITE_`-prefixed vars reach browsers.
 
 ### Secrets files
@@ -97,6 +100,7 @@ procedure: `docs/KEYS.md`.
 |---|---|---|
 | `POST /v1/signal` | **$0.01** USDC/HBAR | `{signal, confidence, features, txHint}` + `receipt` |
 | `POST /v1/score` | **$0.001** USDC/HBAR | `{riskScore, riskBand, factors}` + `receipt` |
+| `POST /v1/jobs` | **$0.01** USDC/HBAR | roster job + proof envelope + `receipt` (GET remains free) |
 | `GET /v1/finance?address=0x…` | free | demo portfolio (Savings, Chit, Loan, Collateral, Gold, Score) |
 | `GET /v1/finance/summary` | free | same, forced summary |
 | `GET /v1/finance/recommend?address=0x…` | free | demo agent recommendations |
@@ -112,7 +116,7 @@ procedure: `docs/KEYS.md`.
 
 | Suite | Command (inside dir) | Result |
 |---|---|---|
-| Contracts (Foundry) | `forge test` | **166** tests / 10 suites — offline (mock ENS), fork tests skip w/o `SEPOLIA_RPC_URL` |
+| Contracts (Foundry) | `forge test` | **220** tests / 11 suites — offline (mock ENS), fork tests skip w/o `SEPOLIA_RPC_URL` |
 | Agent (vitest) | `npm test` (`vitest run`) | **346** tests / 37 files — mocked fetch, no live wallet |
 | Service (node:test) | `npm test` (`tsx --test`) | **17** tests |
 
@@ -130,7 +134,7 @@ On push to `main` + every PR. `main` is PR-protected; 5 required checks:
 
 | Check | Job | Runs |
 |---|---|---|
-| contracts (forge build + test) | force test | build + 166 tests |
+| contracts (forge build + test) | force test | build + 220 tests |
 | agent (typecheck + tests) | tsc + vitest | 346 tests |
 | service (typecheck + build) | tsc + build | — |
 | frontend (typecheck + build) | tsc + next build | no-env build |
@@ -144,6 +148,17 @@ recursive`). CI has zero secrets by design — suites must pass without them.
 `/` (marketplace + stats), `/hire`, `/agents`, `/account`, `/privy`,
 `/finance`, `/mandate`, `/about`, `/activity`, `/proof`, `/human`.
 Homepage stats are user-facing only — no test/CI counts (see `AGENTS.md`).
+
+Frontend API (Vercel, same origin):
+
+| Route | Paid? | Returns |
+|---|---|---|
+| `POST /api/v1/jobs` | free preview | roster job + proof envelope |
+| `GET /api/v1/jobs` | free | in-memory job list (process-local) |
+| `GET /api/v1/attest` | free | `{configured, escrow, chain, validator}` |
+| `POST /api/v1/attest` | free, gas from validator | re-runs worker, `submitValidation` on Sepolia. 503 if `SEPOLIA_VALIDATOR_KEY` unset or not allowlisted. 409 if task is not Funded/Validated. |
+
+Live x402 jobs remain `POST /v1/jobs` on the Render service ($0.01, Hedera **testnet**).
 
 ## 9. Go-fast commands
 
