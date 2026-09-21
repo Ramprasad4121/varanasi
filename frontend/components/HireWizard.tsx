@@ -40,6 +40,7 @@ import {
 import { rememberHire } from "../lib/vault";
 import { AGENTS as ROSTER, agentById, type CatalogAgent } from "../lib/agents";
 import { JobRunner } from "./JobRunner";
+import { CallHire } from "./CallHire";
 import { postClassifyError } from "../lib/backend";
 const DEMO_TASK_ID =
   "0x03c850258e7ec98a7034e95103d1afe27a4b334a09a238041cba86cadba554dc";
@@ -1275,14 +1276,20 @@ function HireWizardInner({
             clears the bar; refund returns you after expiry.
           </div>
           {fundOk && (
-            <JobRunner
-              key={arch}
-              agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent}
-              taskId={taskId || undefined}
-              onAttested={() => {
-                if (taskId) void refreshTrack(taskId);
-              }}
-            />
+            <>
+              <JobRunner
+                key={arch}
+                agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent}
+                taskId={taskId || undefined}
+                onAttested={() => {
+                  if (taskId) void refreshTrack(taskId);
+                }}
+              />
+              <CallHire
+                agent={(agentById(arch) ?? ROSTER[0]) as CatalogAgent}
+                taskId={taskId || undefined}
+              />
+            </>
           )}
           <label>Task id (bytes32)</label>
           <input

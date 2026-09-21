@@ -153,8 +153,10 @@ Frontend API (Vercel, same origin):
 
 | Route | Paid? | Returns |
 |---|---|---|
-| `POST /api/v1/jobs` | free preview | roster job + proof envelope |
+| `POST /api/v1/jobs` | free preview | roster job + proof envelope. Optional `taskId` (bytes32) also runs attest against the funded hire. |
 | `GET /api/v1/jobs` | free | in-memory job list (process-local) |
+| `GET /api/v1/agents` | free | roster |
+| `GET /api/v1/agents/:id` | free | agent card + `call` (prompt/HTTP/MCP/CLI). `?taskId=` binds the hire. |
 | `GET /api/v1/attest` | free | `{configured, escrow, chain, validator}` |
 | `POST /api/v1/attest` | free, gas from validator | re-runs worker, `submitValidation` on Sepolia. 503 if `SEPOLIA_VALIDATOR_KEY` unset or not allowlisted. 409 if task is not Funded/Validated. |
 

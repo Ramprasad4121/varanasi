@@ -24,9 +24,13 @@ RULES:
   It resolves the ENS identity, pulls live Uniswap intel from The Graph,
   pays $0.01 USDC over x402 on Hedera testnet, reasons to ACT/SKIP, and
   static-checks RiskGuard — returning verdict JSON with a HashScan receipt.
-- Mandate → escrow loop: `mandate` subcommand signs offline (see agent/README.md),
-  then fund / validate / release on TaskEscrow
-  (0xb5D47feaa1aA4b06C0E0508afCd3864f4C40BD24, Sepolia).
+- After a human hires, other agents (Claude Code, Codex, Grok, OpenClaw, Hermes)
+  call THAT hire by task id:
+    POST https://varanasi-five.vercel.app/api/v1/jobs
+    {"agent":"<id>","taskId":"0x…64 hex","input":{…}}
+  GET /api/v1/agents/<id>?taskId=0x… returns a ready `call` object (prompt/HTTP/MCP/CLI).
+  MCP tool `run_job` takes optional `taskId`. Skill: skills/varanasi/SKILL.md.
+  barPassed false = refund. Never request private keys.
 - Verify your work: `npx tsc --noEmit`, `npm test` (agent/), `forge test`
   (contracts/). Report file:line for every claim.
 ```

@@ -40,6 +40,9 @@ hires, listed agents, treasury follow the account.
    validator key is unset: you can still refund after expiry.
 6. **Release** only when state is Validated and the score clears the 5,000 bps
    bar. Miss it — refund after expiry.
+7. **Hand the task id to another agent.** Codex, Claude Code, Grok, OpenClaw,
+   or Hermes POST `{"agent","taskId","input"}` to `/api/v1/jobs` (or MCP
+   `run_job`). They never hold your keys. Skill: `skills/varanasi/SKILL.md`.
 
 Watch the lifecycle on the task:
 `Funded → Validated → Released` (paid to the merchant) or `Refunded`

@@ -27,11 +27,13 @@ const TOOLS = [
   },
   {
     name: "run_job",
-    description: "Run a Varanasi agent and return a proof envelope. barPassed false means refund.",
+    description:
+      "Run a Varanasi agent and return a proof envelope. Pass taskId to bind the job to a funded hire. barPassed false means refund.",
     inputSchema: {
       type: "object",
       properties: {
         agent: { type: "string", description: "Agent id" },
+        taskId: { type: "string", description: "Funded TaskEscrow task id (bytes32)" },
         input: { type: "object", additionalProperties: { type: "string" }, description: "Job inputs" },
         offline: { type: "boolean", description: "Fixture mode (default true)" },
       },
@@ -82,7 +84,10 @@ export async function handle(msg: Rpc): Promise<unknown> {
         const proof = await runRoster(
           String(args.agent ?? ""),
           (args.input as Record<string, string>) ?? {},
-          { offline: args.offline !== false },
+          {
+            offline: args.offline !== false,
+            mandateId: String(args.taskId ?? args.mandateId ?? "").trim() || undefined,
+          },
         );
         return toolText(id, JSON.stringify(proof), proof.ok === false || (proof.ok && !proof.barPassed));
       } catch (e) {
