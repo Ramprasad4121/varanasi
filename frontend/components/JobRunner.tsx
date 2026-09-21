@@ -49,7 +49,11 @@ export function JobRunner({
       const res = await fetch("/api/v1/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: agent.id, input: values }),
+        body: JSON.stringify({
+          agent: agent.id,
+          input: values,
+          ...(funded && taskId ? { taskId } : {}),
+        }),
       });
       if (res.status === 402) {
         setJob(null);
@@ -59,7 +63,18 @@ export function JobRunner({
         return;
       }
       const text = await res.text();
-      let body: { ok?: boolean; job?: JobRecord; error?: string } = {};
+      let body: {
+        ok?: boolean;
+        job?: JobRecord;
+        error?: string;
+        attest?: {
+          ok?: boolean;
+          already?: boolean;
+          error?: string;
+          tx?: string | null;
+          scoreBps?: number;
+        };
+      } = {};
       try {
         body = JSON.parse(text) as typeof body;
       } catch {
@@ -75,6 +90,25 @@ export function JobRunner({
         at: new Date().toISOString(),
       });
       if (!funded || !taskId) return;
+      const attBody = body.attest;
+      if (attBody) {
+        if (attBody.ok && attBody.already) {
+          setAttest(`Onchain score ${attBody.scoreBps} bps already posted. Release below.`);
+          onAttested?.();
+        } else if (attBody.ok) {
+          setAttest(
+            `Onchain score ${attBody.scoreBps} bps posted${attBody.tx ? ` · ${String(attBody.tx).slice(0, 18)}…` : ""}. Release below.`,
+          );
+          onAttested?.();
+        } else {
+          setAttest(
+            /validator|fail-closed|not configured/i.test(String(attBody.error ?? ""))
+              ? "Onchain attest is fail-closed (validator key not set or not allowlisted). Track the task below — release waits for an allowlisted validator."
+              : attBody.error || "Attest failed",
+          );
+        }
+        return;
+      }
       try {
         const att = await fetch("/api/v1/attest", {
           method: "POST",
@@ -82,7 +116,7 @@ export function JobRunner({
           body: JSON.stringify({ taskId, agent: agent.id, input: values }),
         });
         const attText = await att.text();
-        let attBody: {
+        let parsed: {
           ok?: boolean;
           already?: boolean;
           error?: string;
@@ -90,22 +124,22 @@ export function JobRunner({
           scoreBps?: number;
         } = {};
         try {
-          attBody = JSON.parse(attText) as typeof attBody;
+          parsed = JSON.parse(attText) as typeof parsed;
         } catch {
-          attBody = {};
+          parsed = {};
         }
         if (att.status === 503) {
           setAttest(
             "Onchain attest is fail-closed (validator key not set or not allowlisted). Track the task below — release waits for an allowlisted validator.",
           );
-        } else if (!att.ok || !attBody.ok) {
-          setAttest(attBody.error || `Attest HTTP ${att.status}`);
-        } else if (attBody.already) {
-          setAttest(`Onchain score ${attBody.scoreBps} bps already posted. Release below.`);
+        } else if (!att.ok || !parsed.ok) {
+          setAttest(parsed.error || `Attest HTTP ${att.status}`);
+        } else if (parsed.already) {
+          setAttest(`Onchain score ${parsed.scoreBps} bps already posted. Release below.`);
           onAttested?.();
         } else {
           setAttest(
-            `Onchain score ${attBody.scoreBps} bps posted${attBody.tx ? ` · ${String(attBody.tx).slice(0, 18)}…` : ""}. Release below.`,
+            `Onchain score ${parsed.scoreBps} bps posted${parsed.tx ? ` · ${String(parsed.tx).slice(0, 18)}…` : ""}. Release below.`,
           );
           onAttested?.();
         }

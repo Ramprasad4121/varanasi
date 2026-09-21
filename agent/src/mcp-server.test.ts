@@ -36,4 +36,20 @@ describe("mcp-server", () => {
     const body = text.split("\r\n\r\n")[1];
     expect(Buffer.byteLength(body, "utf8")).toBe(len);
   });
+
+  it("binds run_job to a taskId via mandateId", async () => {
+    const taskId = `0x${"ab".repeat(32)}`;
+    const res = (await handle({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "run_job",
+        arguments: { agent: "oracle", input: { symbol: "ETH/USDC" }, taskId, offline: true },
+      },
+    })) as { result: { content: { text: string }[] } };
+    const proof = JSON.parse(res.result.content[0].text) as { ok: boolean; mandateId?: string };
+    expect(proof.ok).toBe(true);
+    expect(proof.mandateId).toBe(taskId);
+  });
 });
