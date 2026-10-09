@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import "forge-std/Test.sol";
+import {GoldRegistry} from "../../src/gold/GoldRegistry.sol";
+import {GoldAttestor} from "../../src/gold/GoldAttestor.sol";
+import {GoldToken} from "../../src/gold/GoldToken.sol";
+
+/// Audit findings written against the PRE-FIX gold module. Each test asserts the
+/// secure behaviour, so every one of them FAILS on the old code.
+contract GoldAuditPreFixTest is Test {
+    GoldRegistry registry;
+    GoldAttestor attestor;
+    GoldToken token;
+    address admin = address(0xad11);
+    address verifier = address(0xbeee);
+    address rogue = address(0x50a1);
+    address alice = address(0xa11ce);
+    address bob = address(0xb0b);
+    bytes32 asset = keccak256("cert-1");
+    bytes32 cust = keccak256("bank");
+
+    function setUp() public {
+        registry = new GoldRegistry(admin);
+        attestor = new GoldAttestor(admin, address(registry));
+        token = new GoldToken(address(registry));
+        vm.startPrank(admin);
+        registry.addAttestor(address(attestor));
+        attestor.allowAttestor(verifier);
+        attestor.addCustodian(cust, "Bank");
+        vm.stopPrank();
+        vm.prank(verifier);
+        attestor.attest(asset, 10, 9950, "Bank", alice, cust);
+    }
+
+    /// F1 critical: anyone can flip VERIFIED -> MINTED and block the honest mint.
+    function test_F1_markMintedHasNoAccessControl() public {
+        vm.prank(rogue);
+        vm.expectRevert();
+        registry.markMinted(asset);
+    }
+
+    /// F2 critical: anyone can flip MINTED -> REDEEMED without burning.
+    function test_F2_markRedeemedHasNoAccessControl() public {
+        vm.prank(alice);
+        token.mint(asset);
+        vm.prank(rogue);
+        vm.expectRevert();
+        registry.markRedeemed(asset);
+    }
+
+    /// F3 high: revoking a MINTED position leaves the tokens circulating unbacked.
+    function test_F3_revokeMintedLeavesUnbackedSupply() public {
+        vm.prank(alice);
+        token.mint(asset);
+        vm.prank(verifier);
+        attestor.revoke(asset);
+        // Secure behaviour: a minted position cannot be silently revoked
+        // (or supply must still be accounted for). Old code: status REVOKED,
+        // 10 tokens live with zero verified grams behind them.
+        assertTrue(registry.positionOf(asset).status != GoldRegistry.Status.REVOKED, "minted position revoked, supply unbacked");
+    }
+
+    /// F4 medium: after revoke + re-verify, the asset can never mint again.
+    function test_F4_reverifiedAssetCannotMint() public {
+        vm.prank(alice);
+        token.mint(asset);
+        vm.prank(verifier);
+        attestor.revoke(asset);
+        vm.prank(verifier);
+        attestor.attest(asset, 10, 9950, "Bank", alice, cust);
+        vm.prank(alice);
+        token.mint(asset); // reverts: mintedGramsOf still set
+    }
+
+    /// F5 high: purity ignored, 10 g of 995 mints 10 tokens, not 9.95 g fine.
+    function test_F5_purityNotApplied() public {
+        vm.prank(alice);
+        token.mint(asset);
+        assertEq(token.balanceOf(alice), 9.95e18, "1 token != 1 g fine gold");
+    }
+
+    /// F6 high: a buyer of the fungible token can never redeem.
+    function test_F6_holderCannotRedeem() public {
+        vm.prank(alice);
+        token.mint(asset);
+        vm.prank(alice);
+        token.transfer(bob, 10e18);
+        vm.prank(bob);
+        token.redeem(asset); // reverts GoldOnlyPositionOwner
+    }
+
+    /// F7 high: no bank signature. Any allowlisted EOA can mint gold for any
+    /// active custodian; nothing binds the bank to the grams.
+    function test_F7_attestationWithoutBankSignature() public {
+        address compromisedVerifier = verifier;
+        vm.prank(compromisedVerifier);
+        attestor.attest(keccak256("fake"), 1_000_000, 9999, "Bank", rogue, cust);
+        vm.prank(rogue);
+        token.mint(keccak256("fake"));
+        assertEq(token.balanceOf(rogue), 0, "1 tonne minted with no bank signature");
+    }
+}
