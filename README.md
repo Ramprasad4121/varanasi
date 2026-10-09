@@ -121,7 +121,7 @@ The Varanasi monorepo unites four production surfaces and one shared type system
        Uniswap v3 Pools                           Hedera Consensus Service
 ```
 
-- **`contracts/`**: Core protocol written in Solidity (Foundry). Contains `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`, delegation trees (`MandateTreeEscrow`), the ERC-8183 bounty stack (`AgenticCommerce`, `RiskGuardEvaluator`, `BountyVault`), and experimental finance modules. Tested offline with mock ENS resolution (267 tests).
+- **`contracts/`**: Core protocol written in Solidity (Foundry). Contains `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`, delegation trees (`MandateTreeEscrow`), the ERC-8183 bounty stack (`AgenticCommerce`, `RiskGuardEvaluator`, `BountyVault`), and experimental finance modules. Tested offline with mock ENS resolution (270 tests).
 - **`agent/`**: Autonomous TypeScript orchestration engine. Performs ENS resolution, queries Uniswap pool analytics via The Graph / MCP, pays for alpha through x402 HTTP micropayments, evaluates risk heuristic/LLM models, and signs EIP-712 mandates.
 - **`service/`**: Express 5 microservice delivering paid alpha endpoints (`POST /v1/signal`, `POST /v1/score`) protected by x402 payment requirements, alongside deterministic financial simulation APIs and Hedera Consensus Service audit topics.
 - **`frontend/`**: Next.js 14 App Router marketplace and treasury dashboard. Features self-custodial onboarding via Privy, 4-step hire wizard, active task ledger, and colosseum-themed typography.
@@ -198,7 +198,7 @@ npm run build         # Build dist outputs
 ```bash
 cd contracts
 forge build           # Compile Solidity contracts
-forge test            # Execute test suite (267 tests across 14 suites)
+forge test            # Execute test suite (270 tests across 14 suites)
 ```
 
 ---
@@ -243,7 +243,7 @@ All packages maintain strict test hygiene and execute completely offline in CI:
 
 | Layer | Harness | Scope | Offline Safe |
 |---|---|---|---|
-| **Contracts** | Foundry (`forge test`) | **267 tests** / 14 suites | Yes (mock ENS / zero external RPCs) |
+| **Contracts** | Foundry (`forge test`) | **270 tests** / 14 suites | Yes (mock ENS / zero external RPCs) |
 | **Agent** | Vitest (`vitest run`) | **162 tests** / 17 files | Yes (mocked network / simulated crypto) |
 | **Service** | Node Test (`tsx --test`) | **5 tests** | Yes (deterministic fixtures) |
 | **Frontend** | TypeScript (`tsc --noEmit`) | Next.js 14 App Router | Yes (ES2017 BigInt-safe) |

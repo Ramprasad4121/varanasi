@@ -59,7 +59,7 @@ ReentrancyVault 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 holds 10.000000000000
 ==== 4. protocol funds the bounty vault and commits the invariant + payout tier ====
 bounty #1: pot 10,000 mUSDC (moved from sponsor wallet into the vault) | tier 0 'solvency' payout 5,000 mUSDC
            bond 50 mUSDC per claim | claim window 1 day | hunters were minted 100 mUSDC each
-committed invariant = keccak256(demo/invariants/SolvencyInvariant.sol) = 0x919dfd4d824c97e51d37b2a28514d1e90dab7b14adcd04d2675a34c25f762281
+committed invariant = keccak256(demo/invariants/SolvencyInvariant.sol) = 0x1a8cb7a96dc2244938cf66a7a2e2b9c37a6402eb462a3c75ca0534f6dfc7e7d6
 
 ==== BALANCES BEFORE ====
 account                                     mUSDC
@@ -77,7 +77,7 @@ ReentrancyVault (live chain)     10.000000000000000000 ETH
 ==== 5. Bob (slop): posts 50 mUSDC bond, submits a PoC that breaks nothing ====
 job 1  forkBlock 16  deliverable 0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d8f8a2aa241006671034
     [verifier] job 1: PoC BogusExploit.sol keccak256=0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d8f8a2aa241006671034
-    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 16 invariant 0x919dfd4d824c97e51d37b2a28514d1e90dab7b14adcd04d2675a34c25f762281
+    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 16 invariant 0x1a8cb7a96dc2244938cf66a7a2e2b9c37a6402eb462a3c75ca0534f6dfc7e7d6
     [verifier] policy: ok (no cheatcodes/ffi/fork/env/assembly/imports)
     [verifier] compile: forge build --offline inside an empty network namespace (unshare -rn)
     [verifier] compile: ok
@@ -88,12 +88,12 @@ job 1  forkBlock 16  deliverable 0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d
     [verifier] Exploit.run(): status=success gasUsed=91248
     [verifier] invariant after PoC: holds() = true
     [verifier] FAIL invariant still holds after PoC
-    [verifier] settle tx 0x593cf9ab9fdd5a805368823ef9e39e5c2ae697fd5628e6263a64e640f6e6c8f5 status 0x1
+    [verifier] settle tx 0xc04a3a6c12d2b8bb1e28c36a4270e15bd88d3fdc2af0648462f39b8d74882504 status 0x1
     {
       "jobId": 1,
       "pass": false,
       "deliverableHash": "0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d8f8a2aa241006671034",
-      "logsHash": "0x43b60de2572d3e231c6ec79f3e05fd07f987761ebc225c3b42fd307ee14fe605",
+      "logsHash": "0x6c1a2a4777e470be4ae50967df133644179833e8a2240e9f71699e62e9c7d691",
       "signer": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
       "reason": "invariant still holds after PoC"
     }
@@ -103,7 +103,7 @@ job 1 status: Rejected
 job 2  forkBlock 19  deliverable 0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242
 -- first, a dry run with the static policy switched OFF (nothing signed) to show the sandbox alone defeats it:
     [verifier] job 2: PoC CheatcodeExploit.sol keccak256=0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242
-    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 19 invariant 0x919dfd4d824c97e51d37b2a28514d1e90dab7b14adcd04d2675a34c25f762281
+    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 19 invariant 0x1a8cb7a96dc2244938cf66a7a2e2b9c37a6402eb462a3c75ca0534f6dfc7e7d6
     [verifier] policy: SKIPPED (--skip-policy, dry-run only)
     [verifier] compile: forge build --offline inside an empty network namespace (unshare -rn)
     [verifier] compile: ok
@@ -116,15 +116,15 @@ job 2  forkBlock 19  deliverable 0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078
     [verifier] FAIL invariant still holds after PoC
 -- real run (policy on), signed and settled:
     [verifier] job 2: PoC CheatcodeExploit.sol keccak256=0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242
-    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 19 invariant 0x919dfd4d824c97e51d37b2a28514d1e90dab7b14adcd04d2675a34c25f762281
+    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 19 invariant 0x1a8cb7a96dc2244938cf66a7a2e2b9c37a6402eb462a3c75ca0534f6dfc7e7d6
     [verifier] REJECT policy: cheatcode address derivation
     [verifier] FAIL policy: cheatcode address derivation
-    [verifier] settle tx 0xeaeb73bf7cb0c1b704c13acc1e8bf5dbdafb9d1d7c264a2289d77825c8848ea3 status 0x1
+    [verifier] settle tx 0xd2c088aed375f9a017b7d78170ef381df4f71144e3d1c1e32ff1dac00b73c0a0 status 0x1
     {
       "jobId": 2,
       "pass": false,
       "deliverableHash": "0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242",
-      "logsHash": "0x4953a02a521f62e07b338b003d55be7bed8c6e56fa5eb325863a789c2d59b678",
+      "logsHash": "0xb9fb56541a4b93c5159a8a25c69503008807b32dfdc217edbdbf3f5d61c4ba18",
       "signer": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
       "reason": "policy: cheatcode address derivation"
     }
@@ -133,7 +133,7 @@ job 2 status: Rejected
 ==== 7. Alice: real reentrancy PoC pinned to the current block ====
 job 3  forkBlock 22  deliverable 0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf344c155112604ca4354
     [verifier] job 3: PoC ReentrancyExploit.sol keccak256=0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf344c155112604ca4354
-    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 22 invariant 0x919dfd4d824c97e51d37b2a28514d1e90dab7b14adcd04d2675a34c25f762281
+    [verifier] terms: bounty 1 tier 0 target 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 forkBlock 22 invariant 0x1a8cb7a96dc2244938cf66a7a2e2b9c37a6402eb462a3c75ca0534f6dfc7e7d6
     [verifier] policy: ok (no cheatcodes/ffi/fork/env/assembly/imports)
     [verifier] compile: forge build --offline inside an empty network namespace (unshare -rn)
     [verifier] compile: ok
@@ -144,12 +144,12 @@ job 3  forkBlock 22  deliverable 0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf
     [verifier] Exploit.run(): status=success gasUsed=173479
     [verifier] invariant after PoC: holds() = false
     [verifier] PASS invariant broken by PoC
-    [verifier] settle tx 0x7c1279e569bb5385258c23422fbb2ff61544f728fa3bf091ca421ace7e5742cc status 0x1
+    [verifier] settle tx 0x6e64bd90c4a34816b7e6bb8df79cf795bb1b1cb090ffcf3f0020a4cd91d0ebc7 status 0x1
     {
       "jobId": 3,
       "pass": true,
       "deliverableHash": "0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf344c155112604ca4354",
-      "logsHash": "0x9f296549c390900c349cb3da9f3c97a7440f66acffe441584c7ff7d450a8338c",
+      "logsHash": "0xb2a79dea0a160b752ffbda88910355d7311f31e87ac31e33b8eeb6d952035db3",
       "signer": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
       "reason": "invariant broken by PoC"
     }
@@ -176,9 +176,9 @@ Alice withdrawable bond credit               0.00
 ReentrancyVault (live chain)     10.000000000000000000 ETH
 
 ==== verdicts ====
-{"jobId":1,"pass":false,"reason":"invariant still holds after PoC","deliverableHash":"0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d8f8a2aa241006671034","logsHash":"0x43b60de2572d3e231c6ec79f3e05fd07f987761ebc225c3b42fd307ee14fe605","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0x593cf9ab9fdd5a805368823ef9e39e5c2ae697fd5628e6263a64e640f6e6c8f5"}
-{"jobId":2,"pass":false,"reason":"policy: cheatcode address derivation","deliverableHash":"0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242","logsHash":"0x4953a02a521f62e07b338b003d55be7bed8c6e56fa5eb325863a789c2d59b678","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0xeaeb73bf7cb0c1b704c13acc1e8bf5dbdafb9d1d7c264a2289d77825c8848ea3"}
-{"jobId":3,"pass":true,"reason":"invariant broken by PoC","deliverableHash":"0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf344c155112604ca4354","logsHash":"0x9f296549c390900c349cb3da9f3c97a7440f66acffe441584c7ff7d450a8338c","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0x7c1279e569bb5385258c23422fbb2ff61544f728fa3bf091ca421ace7e5742cc"}
+{"jobId":1,"pass":false,"reason":"invariant still holds after PoC","deliverableHash":"0x926c0ebbf5b3acdf32510bd15ee8f49af89e81b3c158d8f8a2aa241006671034","logsHash":"0x6c1a2a4777e470be4ae50967df133644179833e8a2240e9f71699e62e9c7d691","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0xc04a3a6c12d2b8bb1e28c36a4270e15bd88d3fdc2af0648462f39b8d74882504"}
+{"jobId":2,"pass":false,"reason":"policy: cheatcode address derivation","deliverableHash":"0x194a8e295d3291b01ad859ee4f8d9831b26ecb6e7e078556d77f9a4e749b8242","logsHash":"0xb9fb56541a4b93c5159a8a25c69503008807b32dfdc217edbdbf3f5d61c4ba18","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0xd2c088aed375f9a017b7d78170ef381df4f71144e3d1c1e32ff1dac00b73c0a0"}
+{"jobId":3,"pass":true,"reason":"invariant broken by PoC","deliverableHash":"0x1facd112cc0d2223cfa7560137cf94e14facbb5716cdf344c155112604ca4354","logsHash":"0xb2a79dea0a160b752ffbda88910355d7311f31e87ac31e33b8eeb6d952035db3","signer":"0x90F79bf6EB2c4f870365E785982E1f101E93b906","settleTx":"0x6e64bd90c4a34816b7e6bb8df79cf795bb1b1cb090ffcf3f0020a4cd91d0ebc7"}
 
 Note: the live ReentrancyVault still holds its 10 ETH. The exploit ran only on the verifier's
 throwaway fork at the pinned block; the bounty paid on proof without anyone draining production.
