@@ -5,7 +5,7 @@ import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {AgenticCommerce} from "./AgenticCommerce.sol";
 
-/// @title RiskGuardEvaluator — contract evaluator for ERC-8183 AgenticCommerce jobs.
+/// @title RiskGuardEvaluator: contract evaluator for ERC-8183 AgenticCommerce jobs.
 /// @author Ramprasad
 /// @notice Settles a job only on an EIP-712 verdict signed by an allowlisted Varanasi verifier.
 ///         The verdict is bound to (jobId, deliverableHash) and the deliverableHash must equal the

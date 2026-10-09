@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {AgenticCommerce} from "./AgenticCommerce.sol";
 import {IACPHook} from "./interfaces/IACPHook.sol";
 
-/// @title BountyVault — PoC-gated bug bounty vault on ERC-8183.
+/// @title BountyVault: PoC-gated bug bounty vault on ERC-8183.
 /// @author Ramprasad
 /// @notice A protocol (sponsor) funds a bounty pot and commits, per payout tier, the hash of an
 ///         invariant checker plus the payout for breaking it. A hunter posts a bond and opens a
@@ -16,9 +16,10 @@ import {IACPHook} from "./interfaces/IACPHook.sol";
 ///         The hunter submits keccak256(PoC) on AgenticCommerce. When the evaluator completes the
 ///         job, AgenticCommerce pays the hunter the tier and this vault (as hook) credits the bond
 ///         back (hunter pulls it with withdrawCredit) and closes the tier. When it rejects, the
-///         tier money comes back to the pot and the bond is slashed into the pot. If nobody rules
-///         before expiry, anyone can refund the job and the hunter gets the bond back (a verifier
-///         outage is not the hunter's fault).
+///         tier money comes back to the pot and the bond is slashed into the pot. At expiry with no
+///         verdict, anyone can refund the job: if the hunter submitted a PoC hash the bond is returned
+///         (a verifier outage is not the hunter's fault); if the hunter never submitted, the bond is
+///         slashed (a no-show claim cannot lock a tier for free).
 /// @dev One open claim per tier at a time and each tier pays once (first valid PoC wins), so the
 ///      same bug is never paid twice. A bogus claim can hold a tier until claimWindow passes, at
 ///      the cost of its bond. The vault proves an exploit runs against a committed invariant;
@@ -41,6 +42,7 @@ contract BountyVault is IACPHook, ReentrancyGuard {
         uint256 bond; // hunter bond per claim, in `token`
         uint256 available; // pot not reserved by an open claim
         uint256 openClaims;
+        uint64 minForkBlock; // PoCs must be pinned at or after this block (sponsor can raise it after a fix)
         Tier[] tiers;
     }
 
@@ -77,6 +79,7 @@ contract BountyVault is IACPHook, ReentrancyGuard {
     event ClaimRefunded(uint256 indexed claimId, address indexed hunter, uint256 bondReturned);
     event SponsorWithdrew(uint256 indexed bountyId, uint256 amount);
     event CreditWithdrawn(address indexed who, uint256 amount);
+    event MinForkBlockRaised(uint256 indexed bountyId, uint64 minForkBlock);
 
     error BadParam();
     error NotSponsor();
@@ -144,6 +147,7 @@ contract BountyVault is IACPHook, ReentrancyGuard {
         b.deadline = deadline;
         b.claimWindow = claimWindow;
         b.bond = bond;
+        b.minForkBlock = uint64(block.number);
         uint256 maxPayout;
         for (uint256 i; i < n; ++i) {
             if (invariantHashes[i] == bytes32(0) || payouts[i] == 0) revert BadParam();
@@ -163,6 +167,16 @@ contract BountyVault is IACPHook, ReentrancyGuard {
         _pull(msg.sender, amount);
         b.available += amount;
         emit BountyToppedUp(bountyId, amount);
+    }
+
+    /// @notice Raise the earliest fork block new claims may pin (e.g. after shipping a fix, so a
+    ///         hunter cannot claim on pre-fix state). Only increases; open claims are unaffected.
+    function raiseMinForkBlock(uint256 bountyId, uint64 minForkBlock) external {
+        Bounty storage b = _bounty(bountyId);
+        if (msg.sender != b.sponsor) revert NotSponsor();
+        if (minForkBlock <= b.minForkBlock || minForkBlock > block.number) revert BadParam();
+        b.minForkBlock = minForkBlock;
+        emit MinForkBlockRaised(bountyId, minForkBlock);
     }
 
     /// @notice After the deadline and with no open claims, the sponsor takes back what is left
@@ -189,7 +203,8 @@ contract BountyVault is IACPHook, ReentrancyGuard {
         Bounty storage b = _bounty(bountyId);
         if (block.timestamp >= b.deadline) revert BountyClosed();
         if (tierId >= b.tiers.length) revert BadParam();
-        if (forkBlock == 0) revert BadParam(); // block on the target's chain (same chain in v1)
+        // v1: target lives on this chain; pin between the bounty's min fork block and now
+        if (forkBlock < b.minForkBlock || forkBlock > block.number) revert BadParam();
         Tier storage t = b.tiers[tierId];
         if (t.paid || t.activeClaim != 0) revert TierUnavailable();
         if (b.available < t.payout) revert InsufficientPot(b.available, t.payout);
@@ -223,7 +238,8 @@ contract BountyVault is IACPHook, ReentrancyGuard {
         emit ClaimOpened(claimId, bountyId, tierId, msg.sender, jobId, forkBlock);
     }
 
-    /// @notice If the evaluator never ruled and the job expired, refund it and credit the bond back.
+    /// @notice The job expired with no verdict: refund it to the pot. Bond back if the hunter
+    ///         submitted (deliverable != 0, enforced at submit), slashed if they never did.
     ///         Permissionless. Works whether or not someone already called commerce.claimRefund.
     function reclaimExpired(uint256 claimId) external nonReentrant {
         Claim storage c = claims[claimId];
@@ -236,11 +252,17 @@ contract BountyVault is IACPHook, ReentrancyGuard {
             revert ClaimNotOpen();
         }
         Bounty storage b = _bounties[c.bountyId];
-        c.status = ClaimStatus.Refunded;
         b.available += b.tiers[c.tierId].payout;
         _release(b, c.tierId);
-        credit[c.hunter] += c.bond;
-        emit ClaimRefunded(claimId, c.hunter, c.bond);
+        if (j.deliverable != bytes32(0)) {
+            c.status = ClaimStatus.Refunded;
+            credit[c.hunter] += c.bond;
+            emit ClaimRefunded(claimId, c.hunter, c.bond);
+        } else {
+            c.status = ClaimStatus.Slashed;
+            b.available += c.bond;
+            emit ClaimSlashed(claimId, c.hunter, c.bond);
+        }
     }
 
     /// @notice Withdraw returned bonds.
@@ -254,8 +276,13 @@ contract BountyVault is IACPHook, ReentrancyGuard {
 
     // ------------------------------------------------------------ ERC-8183 hook
 
-    function beforeAction(uint256, bytes4, bytes calldata) external view {
+    /// @dev Blocks a zero deliverable on vault jobs, so "submitted" is always visible as deliverable != 0.
+    function beforeAction(uint256 jobId, bytes4 selector, bytes calldata data) external view {
         if (msg.sender != address(commerce)) revert NotCommerce();
+        if (selector == AgenticCommerce.submit.selector && claimOfJob[jobId] != 0) {
+            (bytes32 deliverable,) = abi.decode(data, (bytes32, bytes));
+            if (deliverable == bytes32(0)) revert BadParam();
+        }
     }
 
     /// @dev Settlement bookkeeping. complete => bond credited back, tier closed. reject => budget

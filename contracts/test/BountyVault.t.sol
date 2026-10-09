@@ -60,7 +60,7 @@ contract BountyVaultTest is Test {
 
     function _open(address who, uint256 bountyId, uint256 tier) internal returns (uint256 claimId, uint256 jobId) {
         vm.prank(who);
-        (claimId, jobId) = vault.openClaim(bountyId, tier, 99);
+        (claimId, jobId) = vault.openClaim(bountyId, tier, 100);
         vm.prank(who);
         acp.submit(jobId, POC, "");
     }
@@ -122,7 +122,7 @@ contract BountyVaultTest is Test {
     function test_openClaim_postsBond_fundsJob_bindsTerms() public {
         uint256 id = _bounty();
         vm.prank(hunter);
-        (uint256 claimId, uint256 jobId) = vault.openClaim(id, 0, 99);
+        (uint256 claimId, uint256 jobId) = vault.openClaim(id, 0, 100);
         assertEq(usdc.balanceOf(hunter), 1_000e6 - BOND);
         assertEq(usdc.balanceOf(address(acp)), 5_000e6);
         assertEq(_available(id), POT - 5_000e6);
@@ -140,7 +140,7 @@ contract BountyVaultTest is Test {
             string.concat(
                 "varanasi-bounty:v1:vault=",
                 vm.toLowercase(vm.toString(address(vault))),
-                ":bounty=1:tier=0:forkBlock=99:invariant=",
+                ":bounty=1:tier=0:forkBlock=100:invariant=",
                 vm.toString(INV_CRIT)
             )
         );
@@ -151,10 +151,10 @@ contract BountyVaultTest is Test {
         _open(hunter, id, 0);
         vm.prank(hunter2);
         vm.expectRevert(BountyVault.TierUnavailable.selector);
-        vault.openClaim(id, 0, 99);
+        vault.openClaim(id, 0, 100);
         // other tier is free
         vm.prank(hunter2);
-        vault.openClaim(id, 1, 99);
+        vault.openClaim(id, 1, 100);
     }
 
     function test_validPoC_paysTier_returnsBond_closesTier() public {
@@ -172,7 +172,7 @@ contract BountyVaultTest is Test {
         assertEq(_available(id), POT - 5_000e6);
         vm.prank(hunter2);
         vm.expectRevert(BountyVault.TierUnavailable.selector); // duplicate never paid twice
-        vault.openClaim(id, 0, 99);
+        vault.openClaim(id, 0, 100);
     }
 
     function test_invalidPoC_slashesBond_restoresPot_reopensTier() public {
@@ -224,6 +224,51 @@ contract BountyVaultTest is Test {
         assertEq(_available(id), POT);
     }
 
+    function test_neverSubmitted_expiry_slashesBond() public {
+        uint256 id = _bounty();
+        vm.prank(hunter);
+        (uint256 claimId,) = vault.openClaim(id, 0, 100); // holds the tier, never submits
+        vm.warp(block.timestamp + 1 days + 1);
+        vault.reclaimExpired(claimId);
+        assertEq(vault.credit(hunter), 0);
+        assertEq(uint8(_status(claimId)), uint8(BountyVault.ClaimStatus.Slashed));
+        assertEq(_available(id), POT + BOND);
+        assertEq(usdc.balanceOf(address(vault)), POT + BOND);
+    }
+
+    function test_zeroDeliverable_blocked() public {
+        uint256 id = _bounty();
+        vm.prank(hunter);
+        (, uint256 jobId) = vault.openClaim(id, 0, 100);
+        vm.prank(hunter);
+        vm.expectRevert(BountyVault.BadParam.selector);
+        acp.submit(jobId, bytes32(0), "");
+    }
+
+    function test_forkBlockBounds_andRaiseMin() public {
+        uint256 id = _bounty(); // created at block 100
+        vm.startPrank(hunter);
+        vm.expectRevert(BountyVault.BadParam.selector); // before the bounty existed
+        vault.openClaim(id, 0, 99);
+        vm.expectRevert(BountyVault.BadParam.selector); // future block
+        vault.openClaim(id, 0, uint64(block.number + 1));
+        vm.stopPrank();
+        vm.roll(200);
+        vm.prank(hunter);
+        vm.expectRevert(BountyVault.NotSponsor.selector);
+        vault.raiseMinForkBlock(id, 150);
+        vm.prank(sponsor);
+        vault.raiseMinForkBlock(id, 150); // sponsor shipped a fix at block 150
+        vm.prank(sponsor);
+        vm.expectRevert(BountyVault.BadParam.selector); // cannot lower
+        vault.raiseMinForkBlock(id, 120);
+        vm.prank(hunter);
+        vm.expectRevert(BountyVault.BadParam.selector); // pre-fix state no longer claimable
+        vault.openClaim(id, 0, 149);
+        vm.prank(hunter);
+        vault.openClaim(id, 0, 150);
+    }
+
     function test_hookOnlyCommerce() public {
         vm.expectRevert(BountyVault.NotCommerce.selector);
         vault.afterAction(1, AgenticCommerce.complete.selector, "");
@@ -234,7 +279,7 @@ contract BountyVaultTest is Test {
     function test_onlyHunterCanSubmit() public {
         uint256 id = _bounty();
         vm.prank(hunter);
-        (, uint256 jobId) = vault.openClaim(id, 0, 99);
+        (, uint256 jobId) = vault.openClaim(id, 0, 100);
         vm.prank(hunter2);
         vm.expectRevert(AgenticCommerce.NotAuthorized.selector);
         acp.submit(jobId, POC, "");
@@ -243,7 +288,7 @@ contract BountyVaultTest is Test {
     function test_hunterCannotChangeBudget() public {
         uint256 id = _bounty();
         vm.prank(hunter);
-        (, uint256 jobId) = vault.openClaim(id, 0, 99);
+        (, uint256 jobId) = vault.openClaim(id, 0, 100);
         vm.prank(hunter);
         vm.expectRevert(abi.encodeWithSelector(AgenticCommerce.WrongStatus.selector, AgenticCommerce.Status.Funded));
         acp.setBudget(jobId, 1, "");
@@ -259,7 +304,7 @@ contract BountyVaultTest is Test {
         vm.warp(block.timestamp + 31 days);
         vm.prank(hunter2);
         vm.expectRevert(BountyVault.BountyClosed.selector);
-        vault.openClaim(id, 0, 99);
+        vault.openClaim(id, 0, 100);
         vm.prank(hunter);
         vm.expectRevert(BountyVault.NotSponsor.selector);
         vault.withdrawRemaining(id);
@@ -282,11 +327,11 @@ contract BountyVaultTest is Test {
         _open(hunter, id, 0);
         vm.prank(hunter2);
         vm.expectRevert(abi.encodeWithSelector(BountyVault.InsufficientPot.selector, 0, 5_000e6));
-        vault.openClaim(id, 1, 99);
+        vault.openClaim(id, 1, 100);
         vm.prank(sponsor);
         vault.topUp(id, 5_000e6);
         vm.prank(hunter2);
-        vault.openClaim(id, 1, 99);
+        vault.openClaim(id, 1, 100);
     }
 
     // ---------------------------------------------------------------- fuzz
@@ -313,7 +358,7 @@ contract BountyVaultTest is Test {
             vm.prank(h);
             usdc.approve(address(vault), bond);
             vm.prank(h);
-            (claimIds[i], jobs[i]) = vault.openClaim(id, i, 99);
+            (claimIds[i], jobs[i]) = vault.openClaim(id, i, 100);
             vm.prank(h);
             acp.submit(jobs[i], POC, "");
         }
@@ -357,7 +402,7 @@ contract BountyVaultTest is Test {
         if (firstPass) {
             vm.prank(hunter2);
             vm.expectRevert(BountyVault.TierUnavailable.selector);
-            vault.openClaim(id, 0, 99);
+            vault.openClaim(id, 0, 100);
             return;
         }
         (, uint256 j2) = _open(hunter2, id, 0);

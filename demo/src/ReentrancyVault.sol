@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @title ReentrancyVault — DELIBERATELY VULNERABLE sample target for the Varanasi bounty demo.
+/// @title ReentrancyVault: DELIBERATELY VULNERABLE sample target for the Varanasi bounty demo.
 /// @notice Do not deploy anywhere but a local anvil. withdraw() sends ETH before zeroing the
 ///         caller's balance (classic reentrancy), so a contract can drain other depositors.
 contract ReentrancyVault {

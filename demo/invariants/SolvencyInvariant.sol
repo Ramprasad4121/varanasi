@@ -7,7 +7,7 @@ interface IDepositVault {
     function depositorCount() external view returns (uint256);
 }
 
-/// @title SolvencyInvariant — the invariant the sponsor commits to (keccak256 of this file).
+/// @title SolvencyInvariant: the invariant the sponsor commits to (keccak256 of this file).
 /// @notice Holds while the vault's ETH covers what it owes every depositor.
 ///         The Varanasi verifier deploys this next to the target on a sandboxed fork,
 ///         checks holds() == true before the PoC runs and holds() == false after.
