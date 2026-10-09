@@ -5,12 +5,14 @@ import "forge-std/Test.sol";
 import {GoldToken} from "../../src/gold/GoldToken.sol";
 import {GoldRegistry} from "../../src/gold/GoldRegistry.sol";
 import {BankGoldIssuer} from "../../src/gold/BankGoldIssuer.sol";
+import {ERC2771Forwarder} from "openzeppelin-contracts/contracts/metatx/ERC2771Forwarder.sol";
 
 /// Shared deployment + mock bank signer for the gold suites.
 abstract contract GoldBase is Test {
     GoldToken token;
     GoldRegistry registry;
     BankGoldIssuer issuer;
+    ERC2771Forwarder forwarder;
 
     address gov = makeAddr("governance");
     address bankOps = makeAddr("sbi-ops");
@@ -31,9 +33,10 @@ abstract contract GoldBase is Test {
     function _deployGold() internal {
         bankSigner = vm.addr(bankKey);
         bank2Signer = vm.addr(bank2Key);
-        token = new GoldToken();
+        forwarder = new ERC2771Forwarder("Varanasi Relayer");
+        token = new GoldToken(address(forwarder));
         registry = new GoldRegistry();
-        issuer = new BankGoldIssuer(gov, address(token), address(registry));
+        issuer = new BankGoldIssuer(gov, address(token), address(registry), address(forwarder));
         token.bindIssuer(address(issuer));
         registry.bindIssuer(address(issuer));
         vm.startPrank(gov);

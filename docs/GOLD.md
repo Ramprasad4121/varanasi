@@ -25,7 +25,29 @@ A partner bank holds the gold and signs what it holds; the chain makes sure no t
    Domain: name `Varanasi Gold`, version `1`, chainId, verifyingContract = `BankGoldIssuer`. So a signature cannot be replayed on another chain or another deployment.
 4. **Mint.** Anyone relays `(attestation, signature)` to `BankGoldIssuer.mint`. The issuer checks the signer is that bank's registered key (EOA or ERC-1271 contract), the bank is not paused or short on reserves, expiry, nonce, then records the certificate in `GoldRegistry` (reverts if it was ever used or revoked) and mints `fineGramsMilli * 1e15` units to `user`. **1 vGOLD = 1 g fine gold, 18 decimals, 1 mg = 1e15 units.**
 5. **Use.** vGOLD is a plain ERC20. Users trade it or lock it as collateral; the gold never leaves the bank. Transfers are never paused.
-6. **Redeem.** Any holder calls `requestRedemption(bankId, amountMilli, deliveryRef)`. The tokens are burned at once and a `RedemptionRequested` event goes to the bank's back office. The bank KYCs the holder off chain, hands over the gold, then calls `fulfilRedemption(id, releaseRef)`; attested reserves drop by the same grams. If the bank refuses (KYC fails, below its minimum bar size) it calls `cancelRedemption` and the tokens are re-minted. If the bank does nothing for 30 days, the holder can `reclaimRedemption` and get the tokens back.
+6. **Redeem.** Any holder (gasless through the relayer, see "For the app") calls `requestRedemption(bankId, amountMilli, deliveryRef)`. The tokens are burned at once and a `RedemptionRequested` event goes to the bank's back office. The bank KYCs the holder off chain, hands over the gold, then calls `fulfilRedemption(id, releaseRef)`; attested reserves drop by the same grams. If the bank refuses (KYC fails, below its minimum bar size) it calls `cancelRedemption` and the tokens are re-minted. If the bank does nothing for 30 days, the holder can `reclaimRedemption` and get the tokens back.
+
+## For the app (Oct 9, 2026: built for rural Telangana/Andhra families and salaried users)
+
+Everything an app needs is one view call, in grams and rupees, no crypto words:
+
+| show the user | call | returns |
+|---|---|---|
+| "My gold: 9.950 g, Rs 1,19,400" | `issuer.myGold(wallet)` | milligrams, value in paise, price time |
+| plain balance | `token.milligramsOf(wallet)` | milligrams (9950 = 9.950 g) |
+| "My redemptions" with status | `issuer.redemptionsOf(wallet)` | ids + each request (bank, grams, branch ref, time, PENDING / FULFILLED / CANCELLED) |
+| "Is my bank safe?" | `issuer.bankReserve(bankId)` or `issuer.allBankReserves()` | bank name, gold held, owed to holders, awaiting release, under dispute, fully backed yes/no, new deposits paused, last bank report, value of gold held in paise |
+| whole system | `issuer.proofOfReserve()` | supply, attested, pending, disputed, fully backed |
+
+Rupee values come from a display-only `IGoldPriceFeed` (`pricePaisePerGram()`), set by governance. The price is never used to mint, burn or redeem. With no feed set, rupee values read 0 and the app shows grams only. `MockGoldPriceFeed` is for demos.
+
+Events an app or bank back office can index (all carry grams in milligrams and the holder where relevant): `GoldMinted(bankId, certificateId, user, fineMilli, purity)`, `RedemptionRequested(id, bankId, holder, amountMilli, deliveryRef)`, `RedemptionFulfilled(id, bankId, holder, amountMilli, releaseRef)`, `RedemptionCancelled(id, bankId, holder, amountMilli, reason)`, `CertificateDisputed`, `DisputeCleared`, `CertificateWrittenOff`, `ReserveReported`, `BankPaused` / `BankUnpaused`.
+
+**No gas for users.** Users only sign; a Varanasi relayer pays gas.
+- Mint: the bank's signed attestation can be submitted by anyone, so the relayer submits it.
+- Transfer, redeem, reclaim: through OpenZeppelin's `ERC2771Forwarder` (a trusted forwarder fixed at deploy in both `GoldToken` and `BankGoldIssuer`). The user signs an EIP-712 `ForwardRequest`; the contracts see the user as the sender, never the relayer. Forwarder nonces stop replays; a request signed by the wrong key is rejected.
+- Approvals: `GoldToken` supports EIP-2612 `permit`.
+- Risk to note: whoever controls the forwarder deployment cannot forge signatures, but the forwarder address is immutable, so choose it once (the stock OZ forwarder, not a custom one).
 
 ## Contracts (`contracts/src/gold/`)
 
@@ -33,6 +55,7 @@ A partner bank holds the gold and signs what it holds; the chain makes sure no t
 |---|---|
 | `GoldToken.sol` (vGOLD) | ERC20. Mint and burn only by the issuer, bound once by the deployer (`bindIssuer`, irreversible). |
 | `GoldRegistry.sol` | Certificate store. `NONE -> MINTED`, `NONE -> REVOKED`, `MINTED -> DISPUTED -> MINTED or WRITTEN_OFF`. Every transition is issuer only. |
+| `IGoldPriceFeed.sol`, `MockGoldPriceFeed.sol` | display-only rupee price per gram (paise) |
 | `BankGoldIssuer.sol` | Bank registry (signer, operator, pause flags, reserve accounting), EIP-712 verification, mint, redemption queue, disputes, signed reserve reports, global pause. Owner = governance (should be a multisig + timelock before any real deployment). |
 
 `GoldAttestor.sol` was removed: its attestor allowlist overlapped the registry's own allowlist and is replaced by one bank signer per `bankId`.
@@ -94,7 +117,7 @@ Governance is trusted to register honest banks and to rotate keys. Before mainne
 ## Run it
 
 ```
-cd contracts && forge test --match-path 'test/gold/*'   # 31 tests incl. fuzz + invariant
+cd contracts && forge test --match-path 'test/gold/*'   # 39 tests incl. fuzz + invariant
 scripts/gold-demo.sh                                    # local anvil, mock bank signer
 ```
 
@@ -107,6 +130,7 @@ Transcript: `demo/gold-demo.transcript.txt`.
 | `BankGoldIssuer.t.sol` | 26: audit regressions F1 to F7, EIP-712 hygiene (redirect, expiry, nonce, cross chain, cross deployment, key rotation), pause, redemption, disputes, reserve reports, 2 fuzz |
 | `GoldInvariant.t.sol` | handler over mint / transfer / redeem / fulfil / cancel / reclaim / dispute / clear / write-off; supply and per-bank conservation invariants |
 | `GoldCollateral.t.sol` | vault + loan integration, plus 2 tests that document the open LoanAgreement exploits |
+| `GoldApp.t.sol` | 8: my gold in grams and rupees, no-feed fallback, per-bank reserve views, gasless redemption + status, gasless transfer, relayer cannot spoof, permit, holder in events |
 
 ## Regulatory status (India, as checked on Oct 9, 2026)
 

@@ -169,9 +169,9 @@ contract BankGoldIssuerTest is GoldBase {
         BankGoldIssuer.BankAttestation memory a = _att(BANK, alice, CERT, 1_000, 1);
         bytes memory sig = _sign(bankKey, a);
         // same signature on a second deployment (different verifyingContract)
-        GoldToken t2 = new GoldToken();
+        GoldToken t2 = new GoldToken(address(forwarder));
         GoldRegistry r2 = new GoldRegistry();
-        BankGoldIssuer i2 = new BankGoldIssuer(gov, address(t2), address(r2));
+        BankGoldIssuer i2 = new BankGoldIssuer(gov, address(t2), address(r2), address(forwarder));
         t2.bindIssuer(address(i2));
         r2.bindIssuer(address(i2));
         vm.prank(gov);

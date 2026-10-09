@@ -8,6 +8,9 @@ import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712
 import {SignatureChecker} from "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 import {GoldToken} from "./GoldToken.sol";
 import {GoldRegistry} from "./GoldRegistry.sol";
+import {IGoldPriceFeed} from "./IGoldPriceFeed.sol";
+import {ERC2771Context} from "openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
+import {Context} from "openzeppelin-contracts/contracts/utils/Context.sol";
 
 /// @title BankGoldIssuer: mints vGOLD against bank-signed gold deposit attestations.
 /// @author Ramprasad
@@ -21,8 +24,11 @@ import {GoldRegistry} from "./GoldRegistry.sol";
 ///      every certificate mints once, only a registered bank signer can create supply,
 ///      and per bank: liability + pending redemptions == attested grams, so
 ///      vGOLD totalSupply <= sum of bank-attested outstanding grams at all times.
-///      Units: all accounting is in milligrams of fine gold ("Milli").
-contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
+///      Units: all accounting is in milligrams of fine gold ("Milli"); rupee
+///      values are in paise and come from a display-only price feed.
+///      Gasless: mint and reserve reports are relayable by anyone; redemption,
+///      reclaim and bank actions also work through the trusted ERC-2771 forwarder.
+contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Context {
     // ------------------------------------------------------------------ errors
     error GoldUnknownBank(bytes32 bankId);
     error GoldBankExists(bytes32 bankId);
@@ -59,8 +65,13 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     event RedemptionRequested(
         uint256 indexed id, bytes32 indexed bankId, address indexed holder, uint256 amountMilli, bytes32 deliveryRef
     );
-    event RedemptionFulfilled(uint256 indexed id, bytes32 indexed bankId, uint256 amountMilli, bytes32 releaseRef);
-    event RedemptionCancelled(uint256 indexed id, bytes32 indexed bankId, uint256 amountMilli, bytes32 reason);
+    event RedemptionFulfilled(
+        uint256 indexed id, bytes32 indexed bankId, address indexed holder, uint256 amountMilli, bytes32 releaseRef
+    );
+    event RedemptionCancelled(
+        uint256 indexed id, bytes32 indexed bankId, address indexed holder, uint256 amountMilli, bytes32 reason
+    );
+    event PriceFeedSet(address feed);
     event CertificateDisputed(bytes32 indexed certificateId, bytes32 indexed bankId, uint256 fineMilli, bytes32 reason);
     event DisputeCleared(bytes32 indexed certificateId, bytes32 indexed bankId);
     event CertificateWrittenOff(bytes32 indexed certificateId, bytes32 indexed bankId, uint256 fineMilli);
@@ -100,6 +111,21 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         uint256 reportedReserveMilli;
         uint256 reportAsOf;
         uint256 reportSeq;
+    }
+
+    /// @notice One bank's reserve, in words an app can show as is.
+    struct BankReserveView {
+        bytes32 bankId;
+        string name;
+        uint256 goldHeldMilli; // fine gold the bank attests it holds for vGOLD
+        uint256 goldOwedToHoldersMilli; // vGOLD in people's wallets for this bank
+        uint256 awaitingReleaseMilli; // redemptions burned, gold not yet handed over
+        uint256 underDisputeMilli;
+        bool fullyBacked; // owed + awaiting + disputed <= held
+        bool newDepositsPaused; // dispute, bank request, or short reserve report
+        uint256 lastReportMilli; // bank's last signed reserve report
+        uint256 lastReportAt;
+        uint256 goldHeldValuePaise; // display only, 0 if no price feed
     }
 
     enum RedemptionStatus {
@@ -142,9 +168,14 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     uint256 public totalDisputedMilli;
     uint256 public totalPendingMilli;
 
-    constructor(address admin, address goldToken, address goldRegistry)
+    IGoldPriceFeed public priceFeed; // display only
+    mapping(address => uint256[]) internal _redemptionsOf;
+
+    /// @param forwarder Trusted ERC-2771 forwarder for gasless user actions (address(0) = none).
+    constructor(address admin, address goldToken, address goldRegistry, address forwarder)
         Ownable(admin)
         EIP712("Varanasi Gold", "1")
+        ERC2771Context(forwarder)
     {
         if (goldToken == address(0) || goldRegistry == address(0)) revert GoldZeroAddress();
         token = GoldToken(goldToken);
@@ -154,7 +185,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     // ------------------------------------------------------------------ modifiers
     modifier onlyOperatorOrOwner(bytes32 bankId) {
         Bank storage b = _bank(bankId);
-        if (msg.sender != b.operator && msg.sender != owner()) revert GoldNotBankOperator(bankId, msg.sender);
+        if (_msgSender() != b.operator && _msgSender() != owner()) revert GoldNotBankOperator(bankId, _msgSender());
         _;
     }
 
@@ -194,10 +225,16 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         _unpause();
     }
 
+    /// @notice Set the display-only rupee price feed (address(0) to remove).
+    function setPriceFeed(address feed) external onlyOwner {
+        priceFeed = IGoldPriceFeed(feed);
+        emit PriceFeedSet(feed);
+    }
+
     /// @notice Halt minting for one bank. The bank or governance may pause.
     function pauseBank(bytes32 bankId) external onlyOperatorOrOwner(bankId) {
         _banks[bankId].paused = true;
-        emit BankPaused(bankId, msg.sender);
+        emit BankPaused(bankId, _msgSender());
     }
 
     /// @notice Only governance can resume a bank (after a dispute is settled).
@@ -266,7 +303,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         if (amountMilli == 0) revert GoldZeroAmount();
         if (amountMilli > b.liabilityMilli) revert GoldExceedsLiability(bankId, amountMilli, b.liabilityMilli);
 
-        token.burn(msg.sender, amountMilli * UNITS_PER_MILLIGRAM); // reverts on low balance
+        token.burn(_msgSender(), amountMilli * UNITS_PER_MILLIGRAM); // reverts on low balance
         b.liabilityMilli -= amountMilli;
         b.pendingMilli += amountMilli;
         totalPendingMilli += amountMilli;
@@ -274,20 +311,21 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         id = ++redemptionCount;
         redemptions[id] = Redemption({
             bankId: bankId,
-            holder: msg.sender,
+            holder: _msgSender(),
             amountMilli: amountMilli,
             deliveryRef: deliveryRef,
             requestedAt: uint64(block.timestamp),
             status: RedemptionStatus.PENDING
         });
-        emit RedemptionRequested(id, bankId, msg.sender, amountMilli, deliveryRef);
+        _redemptionsOf[_msgSender()].push(id);
+        emit RedemptionRequested(id, bankId, _msgSender(), amountMilli, deliveryRef);
     }
 
     /// @notice Bank confirms it released the gold. Reduces attested reserves.
     function fulfilRedemption(uint256 id, bytes32 releaseRef) external nonReentrant {
         Redemption storage r = _pending(id);
         Bank storage b = _banks[r.bankId];
-        if (msg.sender != b.operator) revert GoldNotBankOperator(r.bankId, msg.sender);
+        if (_msgSender() != b.operator) revert GoldNotBankOperator(r.bankId, _msgSender());
         uint256 amt = r.amountMilli;
         // released gold cannot eat into grams that are under dispute
         if (b.attestedMilli - amt < b.disputedMilli) revert GoldDisputeCoverage(r.bankId);
@@ -297,20 +335,20 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         b.attestedMilli -= amt;
         totalPendingMilli -= amt;
         totalAttestedMilli -= amt;
-        emit RedemptionFulfilled(id, r.bankId, amt, releaseRef);
+        emit RedemptionFulfilled(id, r.bankId, r.holder, amt, releaseRef);
     }
 
     /// @notice Bank rejects a request (KYC failed, below bar size...): tokens re-minted.
     function cancelRedemption(uint256 id, bytes32 reason) external nonReentrant {
         Redemption storage r = _pending(id);
-        if (msg.sender != _banks[r.bankId].operator) revert GoldNotBankOperator(r.bankId, msg.sender);
+        if (_msgSender() != _banks[r.bankId].operator) revert GoldNotBankOperator(r.bankId, _msgSender());
         _cancel(id, r, reason);
     }
 
     /// @notice Holder takes tokens back if the bank ignored the request for 30 days.
     function reclaimRedemption(uint256 id) external nonReentrant {
         Redemption storage r = _pending(id);
-        if (msg.sender != r.holder) revert GoldNotRedeemer(id, msg.sender);
+        if (_msgSender() != r.holder) revert GoldNotRedeemer(id, _msgSender());
         uint256 at = uint256(r.requestedAt) + REDEMPTION_TIMEOUT;
         if (block.timestamp < at) revert GoldRedemptionNotTimedOut(id, at);
         _cancel(id, r, "TIMEOUT");
@@ -324,7 +362,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         b.liabilityMilli += amt;
         totalPendingMilli -= amt;
         token.mint(r.holder, amt * UNITS_PER_MILLIGRAM);
-        emit RedemptionCancelled(id, r.bankId, amt, reason);
+        emit RedemptionCancelled(id, r.bankId, r.holder, amt, reason);
     }
 
     // ------------------------------------------------------------------ disputes
@@ -333,7 +371,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     function disputeCertificate(bytes32 certificateId, bytes32 reason) external {
         GoldRegistry.Certificate memory c = registry.certificateOf(certificateId);
         Bank storage b = _bank(c.bankId);
-        if (msg.sender != b.operator && msg.sender != owner()) revert GoldNotBankOperator(c.bankId, msg.sender);
+        if (_msgSender() != b.operator && _msgSender() != owner()) revert GoldNotBankOperator(c.bankId, _msgSender());
         // grams already released through pooled redemptions cannot be disputed
         if (b.attestedMilli - b.disputedMilli < c.fineMilli) revert GoldDisputeCoverage(c.bankId);
         registry.setStatus(certificateId, GoldRegistry.Status.DISPUTED); // must be MINTED
@@ -341,7 +379,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         totalDisputedMilli += c.fineMilli;
         b.paused = true;
         emit CertificateDisputed(certificateId, c.bankId, c.fineMilli, reason);
-        emit BankPaused(c.bankId, msg.sender);
+        emit BankPaused(c.bankId, _msgSender());
     }
 
     /// @notice Governance confirms the gold is in custody after all.
@@ -359,11 +397,11 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     function writeOffCertificate(bytes32 certificateId) external nonReentrant {
         GoldRegistry.Certificate memory c = registry.certificateOf(certificateId);
         Bank storage b = _bank(c.bankId);
-        if (msg.sender != b.operator) revert GoldNotBankOperator(c.bankId, msg.sender);
+        if (_msgSender() != b.operator) revert GoldNotBankOperator(c.bankId, _msgSender());
         uint256 amt = c.fineMilli;
         if (amt > b.liabilityMilli) revert GoldExceedsLiability(c.bankId, amt, b.liabilityMilli);
         registry.setStatus(certificateId, GoldRegistry.Status.WRITTEN_OFF); // must be DISPUTED
-        token.burn(msg.sender, amt * UNITS_PER_MILLIGRAM);
+        token.burn(_msgSender(), amt * UNITS_PER_MILLIGRAM);
         b.liabilityMilli -= amt;
         b.attestedMilli -= amt;
         b.disputedMilli -= amt;
@@ -408,6 +446,60 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
         fullyBacked = supplyMilli + pendingMilli + disputedMilli <= attestedMilli;
     }
 
+    // ------------------------------------------------------------------ app views
+    /// @notice "My gold": milligrams held and their rupee value (display only).
+    /// @return milligrams fine gold in the wallet (9950 = 9.950 g)
+    /// @return valuePaise rupee value in paise, 0 if no price feed
+    /// @return priceAsOf time of the price used, 0 if no price feed
+    function myGold(address holder)
+        external
+        view
+        returns (uint256 milligrams, uint256 valuePaise, uint256 priceAsOf)
+    {
+        milligrams = token.balanceOf(holder) / UNITS_PER_MILLIGRAM;
+        (valuePaise, priceAsOf) = _valuePaise(milligrams);
+    }
+
+    /// @notice Every redemption a holder ever asked for, newest last, with status.
+    function redemptionsOf(address holder) external view returns (uint256[] memory ids, Redemption[] memory list) {
+        ids = _redemptionsOf[holder];
+        list = new Redemption[](ids.length);
+        for (uint256 i; i < ids.length; ++i) {
+            list[i] = redemptions[ids[i]];
+        }
+    }
+
+    /// @notice Proof of reserve for one bank, app friendly.
+    function bankReserve(bytes32 bankId) public view returns (BankReserveView memory v) {
+        Bank storage b = _bank(bankId);
+        v.bankId = bankId;
+        v.name = b.name;
+        v.goldHeldMilli = b.attestedMilli;
+        v.goldOwedToHoldersMilli = b.liabilityMilli;
+        v.awaitingReleaseMilli = b.pendingMilli;
+        v.underDisputeMilli = b.disputedMilli;
+        v.fullyBacked = b.liabilityMilli + b.pendingMilli + b.disputedMilli <= b.attestedMilli;
+        v.newDepositsPaused = b.paused || b.reportShortfall || paused();
+        v.lastReportMilli = b.reportedReserveMilli;
+        v.lastReportAt = b.reportAsOf;
+        (v.goldHeldValuePaise,) = _valuePaise(b.attestedMilli);
+    }
+
+    /// @notice Proof of reserve for every bank (small list; one call for the app).
+    function allBankReserves() external view returns (BankReserveView[] memory list) {
+        list = new BankReserveView[](bankIds.length);
+        for (uint256 i; i < bankIds.length; ++i) {
+            list[i] = bankReserve(bankIds[i]);
+        }
+    }
+
+    function _valuePaise(uint256 milli) internal view returns (uint256 paise, uint256 asOf) {
+        if (address(priceFeed) == address(0)) return (0, 0);
+        uint256 perGram;
+        (perGram, asOf) = priceFeed.pricePaisePerGram();
+        paise = (milli * perGram) / 1000;
+    }
+
     function bankOf(bytes32 bankId) external view returns (Bank memory) {
         return _banks[bankId];
     }
@@ -442,6 +534,19 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712 {
     function _bank(bytes32 bankId) internal view returns (Bank storage b) {
         b = _banks[bankId];
         if (!b.exists) revert GoldUnknownBank(bankId);
+    }
+
+    // ERC-2771: the signer of a forwarded request is the sender, not the relayer
+    function _msgSender() internal view override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
     }
 
     function _pending(uint256 id) internal view returns (Redemption storage r) {

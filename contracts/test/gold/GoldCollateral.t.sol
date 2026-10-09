@@ -5,17 +5,7 @@ import {GoldBase} from "./GoldBase.sol";
 import {CollateralVault} from "../../src/collateral/CollateralVault.sol";
 import {LoanAgreement} from "../../src/finance/LoanAgreement.sol";
 import {MockERC20} from "../../src/MockERC20.sol";
-
-/// Test-only INR-per-gram feed. CollateralVault has no oracle of its own.
-contract MockGoldPriceFeed {
-    uint256 public inrPerGram; // 18 decimals
-    constructor(uint256 p) {
-        inrPerGram = p;
-    }
-    function set(uint256 p) external {
-        inrPerGram = p;
-    }
-}
+import {MockGoldPriceFeed} from "../../src/gold/MockGoldPriceFeed.sol";
 
 /// Integration: vGOLD as collateral in the existing CollateralVault + LoanAgreement.
 contract GoldCollateralTest is GoldBase {
@@ -35,13 +25,15 @@ contract GoldCollateralTest is GoldBase {
         vault.admitAsset(address(token));
         vault.authorizeResolver(address(loans));
         inr = new MockERC20("Mock INR", "mINR", 18);
-        feed = new MockGoldPriceFeed(12_000e18); // illustrative price, not a quote
+        feed = new MockGoldPriceFeed(address(this), 1_200_000); // Rs 12,000/g in paise; illustrative, not a quote
         inr.mint(lender, 10_000_000e18);
         _mint(BANK, alice, keccak256("SBI-GD-1"), 100_000, 1); // 100 g fine
     }
 
     function _openLoan() internal returns (uint256 loanId, uint256 principal) {
-        principal = (100 * feed.inrPerGram() * LTV_BPS) / 10_000; // 840,000 mINR
+        (uint256 paisePerGram,) = feed.pricePaisePerGram();
+        // 100 g * price, paise -> mINR (18 decimals), at 70% LTV = 840,000 mINR
+        principal = (100 * paisePerGram * 1e16 * LTV_BPS) / 10_000;
         vm.startPrank(alice);
         token.approve(address(vault), 100e18);
         vault.lock(POS, address(token), address(loans), 100e18);

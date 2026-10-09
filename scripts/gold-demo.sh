@@ -9,7 +9,8 @@
 # 995 fine = 9.950 g fine gold and signs an EIP-712 attestation. A relayer mints
 # 9.950 vGOLD to Alice. Alice sends 4 vGOLD to Bob. Bob (not the depositor)
 # burns 4 vGOLD into a redemption request; the bank releases the gold and
-# confirms on chain. Proof of reserve is printed after every step.
+# confirms on chain. Bob never pays gas: he signs, a relayer submits through the
+# ERC-2771 forwarder. Proof of reserve (grams and rupees) is printed after every step.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,6 +47,18 @@ create() {
 call() { cast call --rpc-url "$RPC" "$@"; }
 grams() { python3 -c "import sys; print(f'{int(sys.argv[1])/1000:,.3f} g')" "$1"; }
 bal() { python3 -c "import sys; print(f'{int(sys.argv[1])/1e18:,.3f}')" "$(call "$TOKEN" 'balanceOf(address)(uint256)' "$1" | awk '{print $1}')"; }
+rs() { # paise -> Indian grouping, e.g. Rs 1,19,400.00
+  python3 -c "
+import sys
+p=int(sys.argv[1]); r,ps=divmod(p,100); d=str(r)
+h=d[-3:]; t=d[:-3]; g=[]
+while t: g.insert(0,t[-2:]); t=t[:-2]
+print('Rs '+(','.join(g+[h]) if g else h)+f'.{ps:02d}')" "$1"
+}
+mygold() { # holder -> "9.950 g (Rs 1,19,400.00)"
+  local out; out=$(call "$ISSUER" 'myGold(address)(uint256,uint256,uint256)' "$1")
+  printf '%s (%s)' "$(grams "$(echo "$out" | sed -n 1p | awk '{print $1}')")" "$(rs "$(echo "$out" | sed -n 2p | awk '{print $1}')")"
+}
 por() {
   local out; out=$(call "$ISSUER" 'proofOfReserve()(uint256,uint256,uint256,uint256,bool)')
   local s a p d b
@@ -54,7 +67,7 @@ por() {
   b=$(echo "$out" | sed -n 5p)
   printf '  proof of reserve | vGOLD supply %12s | bank-attested %12s | pending release %10s | disputed %8s | fully backed: %s\n' \
     "$(grams "$s")" "$(grams "$a")" "$(grams "$p")" "$(grams "$d")" "$b"
-  printf '  balances (vGOLD) | Alice %8s | Bob %8s\n' "$(bal "$ALICE")" "$(bal "$BOB")"
+  printf '  my gold          | Alice %s | Bob %s\n' "$(mygold "$ALICE")" "$(mygold "$BOB")"
 }
 TUPLE='(bytes32,address,bytes32,uint256,uint256,uint256,uint256)'
 bank_sign() { # bankKey bankId user cert fineMilli purity nonce expiry -> signature
@@ -92,9 +105,12 @@ hr "1. deploy vGOLD + registry + BankGoldIssuer, register Mock Bank"
 (cd "$ROOT/contracts" && forge build --skip test --skip script >/dev/null 2>&1) && echo "contracts/ built"
 load_errors
 cd "$ROOT/contracts"
-TOKEN=$(create $K0 src/gold/GoldToken.sol:GoldToken)
+FWD=$(create $K0 lib/v4-core/lib/openzeppelin-contracts/contracts/metatx/ERC2771Forwarder.sol:ERC2771Forwarder "Varanasi Relayer")
+TOKEN=$(create $K0 src/gold/GoldToken.sol:GoldToken "$FWD")
 REG=$(create $K0 src/gold/GoldRegistry.sol:GoldRegistry)
-ISSUER=$(create $K0 src/gold/BankGoldIssuer.sol:BankGoldIssuer "$GOV" "$TOKEN" "$REG")
+ISSUER=$(create $K0 src/gold/BankGoldIssuer.sol:BankGoldIssuer "$GOV" "$TOKEN" "$REG" "$FWD")
+FEED=$(create $K0 src/gold/MockGoldPriceFeed.sol:MockGoldPriceFeed "$GOV" 1200000) # Rs 12,000/g, illustrative
+send $K0 "$ISSUER" 'setPriceFeed(address)' "$FEED" >/dev/null
 send $K0 "$TOKEN" 'bindIssuer(address)' "$ISSUER" >/dev/null
 send $K0 "$REG" 'bindIssuer(address)' "$ISSUER" >/dev/null
 BANK=$(cast keccak "MOCK-BANK-HYD-01")
@@ -102,6 +118,8 @@ send $K0 "$ISSUER" 'addBank(bytes32,string,address,address)' "$BANK" "Mock Bank 
 echo "vGOLD          $TOKEN"
 echo "GoldRegistry   $REG"
 echo "BankGoldIssuer $ISSUER"
+echo "Forwarder      $FWD (gasless relay)"
+echo "Price feed     $FEED (display only: Rs 12,000.00 per gram, mock)"
 echo "Mock bank signer $BANKSIG, operator $BANKOPS"
 por
 
@@ -133,16 +151,32 @@ hr "5. Alice sends 4 vGOLD to Bob (plain ERC20; gold never leaves the bank)"
 send $K1 "$TOKEN" 'transfer(address,uint256)' "$BOB" 4000000000000000000 >/dev/null
 por
 
-hr "6. Bob (not the depositor) burns 4 vGOLD into a redemption request at the bank"
-send $K2 "$ISSUER" 'requestRedemption(bytes32,uint256,bytes32)' "$BANK" 4000 "$(cast keccak BRANCH-HYD-01)" >/dev/null
+hr "6. Bob (not the depositor, zero gas) signs a redemption for 4 g; a relayer submits it"
+FTYPE=$(cast keccak "ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data)")
+DTYPE=$(cast keccak "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+FDOM=$(cast keccak "$(cast abi-encode 'f(bytes32,bytes32,bytes32,uint256,address)' "$DTYPE" "$(cast keccak 'Varanasi Relayer')" "$(cast keccak 1)" 31337 "$FWD")")
+gasless() { # signerKey target calldata -> relayer K4 executes
+  local key=$1 to=$2 data=$3 from nonce dl sh d sig
+  from=$(addr "$key"); nonce=$(call "$FWD" 'nonces(address)(uint256)' "$from" | awk '{print $1}')
+  dl=$(( $(cast block latest --rpc-url "$RPC" --field timestamp) + 3600 ))
+  sh=$(cast keccak "$(cast abi-encode 'f(bytes32,address,address,uint256,uint256,uint256,uint48,bytes32)' "$FTYPE" "$from" "$to" 0 300000 "$nonce" "$dl" "$(cast keccak "$data")")")
+  d=$(cast keccak "$(cast concat-hex 0x1901 "$FDOM" "$sh")")
+  sig=$(cast wallet sign --no-hash --private-key "$key" "$d")
+  send $K4 "$FWD" 'execute((address,address,uint256,uint256,uint48,bytes,bytes))' "($from,$to,0,300000,$dl,$data,$sig)" >/dev/null
+}
+BOB_ETH_BEFORE=$(cast balance --rpc-url "$RPC" "$BOB")
+gasless $K2 "$ISSUER" "$(cast calldata 'requestRedemption(bytes32,uint256,bytes32)' "$BANK" 4000 "$(cast keccak BRANCH-NLG-01)")"
 RID=$(call "$ISSUER" 'redemptionCount()(uint256)' | awk '{print $1}')
-echo "redemption #$RID requested (event RedemptionRequested -> bank back office)"
+[ "$(cast balance --rpc-url "$RPC" "$BOB")" = "$BOB_ETH_BEFORE" ] && echo "Bob paid 0 gas (relayer paid)"
+echo "redemption #$RID requested for Bob (event RedemptionRequested -> bank back office)"
+status() { call "$ISSUER" 'redemptions(uint256)(bytes32,address,uint256,bytes32,uint64,uint8)' "$1" | sed -n 6p | awk '{split("NONE PENDING FULFILLED CANCELLED",a," "); print a[$1+1]}'; }
+echo "Bob's redemption status: $(status "$RID")"
 por
 
 hr "7. bank KYCs Bob, hands over 4 g, confirms release on chain"
 try_send "Mallory fakes the bank's fulfilment" --private-key $K8 "$ISSUER" 'fulfilRedemption(uint256,bytes32)' "$RID" "$(cast keccak X)"
 send $K5 "$ISSUER" 'fulfilRedemption(uint256,bytes32)' "$RID" "$(cast keccak RELEASE-77)" >/dev/null
-echo "redemption #$RID fulfilled"
+echo "Bob's redemption status: $(status "$RID")"
 por
 
 hr "8. bank signs a periodic reserve report (5.000 g held, owes 5.950 g) -> minting halts at that bank"
@@ -172,4 +206,22 @@ send $K0 "$ISSUER" 'clearDispute(bytes32)' "$CERT2" >/dev/null
 send $K0 "$ISSUER" 'unpauseBank(bytes32)' "$BANK" >/dev/null
 echo "governance re-checked custody: dispute cleared, bank unpaused"
 por
+hr "10. proof of reserve per bank, as an app would show it"
+call "$ISSUER" "bankReserve(bytes32)((bytes32,string,uint256,uint256,uint256,uint256,bool,bool,uint256,uint256,uint256))" "$BANK" \
+  | tr -d '()' | python3 -c "
+import sys
+f=[x.strip() for x in sys.stdin.read().split(',')]
+g=lambda v: f'{int(v.split()[0])/1000:,.3f} g'
+print('  bank            ', f[1].strip('\"'))
+print('  gold held       ', g(f[2]))
+print('  owed to holders ', g(f[3]))
+print('  awaiting release', g(f[4]))
+print('  under dispute   ', g(f[5]))
+print('  fully backed    ', f[6])
+print('  new deposits paused', f[7])
+print('  last bank report', g(f[8]))
+p=int(f[10].split()[0]); r,ps=divmod(p,100); d=str(r); h=d[-3:]; t=d[:-3]; grp=[]
+while t: grp.insert(0,t[-2:]); t=t[:-2]
+print('  value of gold held', 'Rs '+(','.join(grp+[h]) if grp else h)+f'.{ps:02d}', '(mock price)')
+"
 hr "done"
