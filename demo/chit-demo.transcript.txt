@@ -1,0 +1,71 @@
+
+==== Deploy (local anvil) ====
+Missing dependencies found. Installing now...
+Missing dependencies found. Installing now...
+token INRS (2 decimals): 0x5FbDB2315678afecb367f032d93F642f64180aa3
+ChitFund (foreman 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266): 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+all 5 members enrolled; round 1 open
+
+==== Round 1: everyone pays; sealed bids Asha 22,000, Bala 23,000 ====
+winner Asha: pot Rs 25,000.00, prize Rs 22,000.00, foreman Rs 1,250.00, dividend Rs 437.50 each, dust 0 paise to winner
+Asha owes 4 more months (Rs 20,000): she locks that as collateral and takes the whole prize
+member           wallet       escrow       credit  liability   won defaults
+Asha          97,000.00    20,000.00         0.00  20,000.00  true        0
+Bala          95,000.00         0.00       437.50       0.00 false        0
+Chitra        95,000.00         0.00       437.50       0.00 false        0
+Dev           95,000.00         0.00       437.50       0.00 false        0
+Esha          95,000.00         0.00       437.50       0.00 false        0
+foreman commission credit: 1,250.00 | fund balance: 23,000.00 | fund owes: 23,000.00 | CONSERVED
+
+==== Round 2: everyone pays (Chitra late, 2% fee joins the pot); bids Bala 22,500, Chitra 23,500 ====
+winner Bala: pot Rs 25,000.00, prize Rs 22,500.00, foreman Rs 1,250.00, dividend Rs 337.50 each, dust 0 paise to winner
+Bala posts no collateral: his prize stays held back and is released Rs 5,000 per month he pays
+member           wallet       escrow       credit  liability   won defaults
+Asha          92,000.00    20,000.00       337.50  15,000.00  true        0
+Bala          90,000.00    22,500.00       437.50  15,000.00  true        0
+Chitra        89,900.00         0.00       775.00       0.00 false        0
+Dev           90,000.00         0.00       775.00       0.00 false        0
+Esha          90,000.00         0.00       775.00       0.00 false        0
+foreman commission credit: 2,500.00 | fund balance: 48,100.00 | fund owes: 48,100.00 | CONSERVED
+
+==== Round 3: Asha (already won) stops paying; Dev bids 24,000 ====
+winner Dev: pot Rs 25,000.00, prize Rs 24,000.00, foreman Rs 1,000.00, dividend Rs 25.00 each, dust 0 paise to winner
+member           wallet       escrow       credit  liability   won defaults
+Asha          92,000.00    14,900.00       362.50  10,000.00  true        1
+Bala          85,000.00    22,500.00       462.50  10,000.00  true        0
+Chitra        84,900.00         0.00       800.00       0.00 false        0
+Dev           85,000.00    24,000.00       775.00  10,000.00  true        0
+Esha          85,000.00         0.00       800.00       0.00 false        0
+foreman commission credit: 3,500.00 | fund balance: 68,100.00 | fund owes: 68,100.00 | CONSERVED
+
+==== Round 4: Asha still not paying; nobody bids, first eligible (Chitra) takes the full pot ====
+winner Chitra: pot Rs 25,000.00, prize Rs 25,000.00, foreman Rs 0.00, dividend Rs 25.00 each, dust 0 paise to winner
+member           wallet       escrow       credit  liability   won defaults
+Asha          92,000.00     9,800.00       387.50   5,000.00  true        2
+Bala          80,000.00    22,500.00       487.50   5,000.00  true        0
+Chitra        79,900.00    25,000.00       800.00   5,000.00  true        0
+Dev           80,000.00    24,000.00       800.00   5,000.00  true        0
+Esha          80,000.00         0.00       825.00       0.00 false        0
+foreman commission credit: 3,500.00 | fund balance: 88,100.00 | fund owes: 88,100.00 | CONSERVED
+
+==== Round 5: Asha still not paying; Esha is the last eligible member and takes the full pot ====
+winner Esha: pot Rs 25,000.00, prize Rs 25,000.00, foreman Rs 0.00, dividend Rs 25.00 each, dust 0 paise to winner
+member           wallet       escrow       credit  liability   won defaults
+Asha          92,000.00     4,700.00       412.50       0.00  true        3
+Bala          75,000.00    22,500.00       512.50       0.00  true        0
+Chitra        74,900.00    25,000.00       825.00       0.00  true        0
+Dev           75,000.00    24,000.00       825.00       0.00  true        0
+Esha          75,000.00    25,000.00       825.00       0.00  true        0
+foreman commission credit: 3,500.00 | fund balance: 108,100.00 | fund owes: 108,100.00 | CONSERVED
+
+==== Fund finished: everyone withdraws, foreman takes commission ====
+member           wallet   net vs start
+Asha          97,112.50      -2,887.50
+Bala          98,012.50      -1,987.50
+Chitra       100,725.00         725.00
+Dev           99,825.00        -175.00
+Esha         100,825.00         825.00
+Foreman        3,500.00
+fund balance after all withdrawals: 0.00
+OK: 5 rounds, 5 different winners, defaulter slashed 3 times, group paid in full, nothing stuck
+exit 0

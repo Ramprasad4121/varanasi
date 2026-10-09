@@ -520,4 +520,23 @@ contract ChitFundTest is ChitFundBase {
         vm.expectRevert();
         fund.contribute();
     }
+
+    /// Gold chit: contribution in grams of an 18 decimal gold token (vGOLD
+    /// shape). 4 members x 10 g; auction winner takes 36 g, foreman 2 g (5%).
+    function test_GoldChit_Grams() public {
+        token = new MockERC20("Varanasi Gold", "vGOLD", 18);
+        _deploy(_params(address(token), 10e18, ChitFund.Mode.AUCTION), 4, 100e18);
+        _enrollAll();
+        _payAll();
+        _commitBid(m[2], 36e18);
+        _toReveal();
+        _revealBid(m[2], 36e18);
+        _toSettle();
+        fund.settle();
+        ChitFund.RoundResult memory r = fund.result(1);
+        assertEq(r.payout, 36e18);
+        assertEq(r.commission, 2e18);
+        assertEq(r.dividendEach * 3 + r.dust, 2e18);
+        _assertConserved();
+    }
 }
