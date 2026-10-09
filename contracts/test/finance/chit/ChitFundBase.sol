@@ -43,7 +43,7 @@ abstract contract ChitFundBase is Test {
     function _deploy(ChitFund.Params memory p, uint256 n, uint256 mintEach) internal {
         _members(n);
         vm.prank(foreman);
-        fund = new ChitFund(p, m);
+        fund = new ChitFund(p, m, address(0));
         for (uint256 i; i < n; ++i) {
             token.mint(m[i], mintEach);
             vm.prank(m[i]);

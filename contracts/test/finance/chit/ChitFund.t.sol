@@ -475,16 +475,16 @@ contract ChitFundTest is ChitFundBase {
         _members(3);
         vm.prank(foreman);
         vm.expectRevert(ChitFund.BadParams.selector);
-        new ChitFund(p, m);
+        new ChitFund(p, m, address(0));
         p.commissionBps = 500;
         m[1] = foreman;
         vm.prank(foreman);
         vm.expectRevert(ChitFund.BadMembers.selector);
-        new ChitFund(p, m);
+        new ChitFund(p, m, address(0));
         m[1] = m[0];
         vm.prank(foreman);
         vm.expectRevert(ChitFund.BadMembers.selector);
-        new ChitFund(p, m);
+        new ChitFund(p, m, address(0));
     }
 
     function test_Foreman_CancelOnlyBeforeStart() public {
@@ -511,7 +511,7 @@ contract ChitFundTest is ChitFundBase {
         FeeToken ft = new FeeToken();
         _members(2);
         vm.prank(foreman);
-        fund = new ChitFund(_params(address(ft), 100e18, ChitFund.Mode.FIXED_ORDER), m);
+        fund = new ChitFund(_params(address(ft), 100e18, ChitFund.Mode.FIXED_ORDER), m, address(0));
         ft.mint(m[0], 1_000e18);
         vm.prank(m[0]);
         ft.approve(address(fund), type(uint256).max);

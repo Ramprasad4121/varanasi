@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IRandomness} from "./IRandomness.sol";
+import {ERC2771Context} from "openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
 
 /// @title ChitFund: on-chain chit fund (ROSCA) with draw and auction modes.
 /// @author Ramprasad
@@ -26,7 +27,7 @@ import {IRandomness} from "./IRandomness.sol";
 ///        then) and withdraw the capped commission. No pause, no sweep, no admin.
 ///      - Amounts are token base units, so any ERC20 decimals work (2, 6, 18).
 ///        Fee on transfer tokens are rejected by a balance check.
-contract ChitFund is ReentrancyGuard {
+contract ChitFund is ReentrancyGuard, ERC2771Context {
     using SafeERC20 for IERC20;
 
     enum Mode {
@@ -185,7 +186,9 @@ contract ChitFund is ReentrancyGuard {
 
     mapping(uint256 => RoundResult) internal _results;
 
-    constructor(Params memory p, address[] memory members_) {
+    /// @param forwarder Trusted ERC-2771 forwarder so members act without paying gas
+    ///        (address(0) = none). The forwarder can only relay a call the member signed.
+    constructor(Params memory p, address[] memory members_, address forwarder) ERC2771Context(forwarder) {
         if (p.token == address(0)) revert ZeroAddress();
         if (p.contribution == 0) revert ZeroAmount();
         uint256 n = members_.length;
@@ -297,11 +300,11 @@ contract ChitFund is ReentrancyGuard {
     function enroll() external {
         if (cancelled) revert FundClosed();
         if (started) revert AlreadyStarted();
-        if (!isMember[msg.sender]) revert NotMember(msg.sender);
-        if (enrolled[msg.sender]) revert AlreadyEnrolled(msg.sender);
-        enrolled[msg.sender] = true;
+        if (!isMember[_msgSender()]) revert NotMember(_msgSender());
+        if (enrolled[_msgSender()]) revert AlreadyEnrolled(_msgSender());
+        enrolled[_msgSender()] = true;
         uint256 c = ++enrolledCount;
-        emit Enrolled(msg.sender, c);
+        emit Enrolled(_msgSender(), c);
         if (c == _members.length) {
             started = true;
             round = 1;
@@ -312,7 +315,7 @@ contract ChitFund is ReentrancyGuard {
 
     /// @notice Foreman may cancel only before start, when the fund holds nothing.
     function cancel() external {
-        if (msg.sender != foreman) revert NotForeman(msg.sender);
+        if (_msgSender() != foreman) revert NotForeman(_msgSender());
         if (started) revert AlreadyStarted();
         if (cancelled) revert FundClosed();
         cancelled = true;
@@ -327,17 +330,17 @@ contract ChitFund is ReentrancyGuard {
     ///         grace period) adds lateFeeBps of C, which joins the round pot.
     function contribute() external nonReentrant {
         _requireLive();
-        MemberState storage s = _activeMember(msg.sender);
+        MemberState storage s = _activeMember(_msgSender());
         uint256 r = round;
-        if (paid[r][msg.sender]) revert AlreadyPaid(msg.sender, r);
+        if (paid[r][_msgSender()]) revert AlreadyPaid(_msgSender(), r);
         if (block.timestamp >= graceEnd()) revert PaymentClosed(r);
         uint256 fee = block.timestamp >= payDeadline() ? (contribution * lateFeeBps) / BPS : 0;
-        paid[r][msg.sender] = true;
+        paid[r][_msgSender()] = true;
         s.paidCount += 1;
         roundCollected += contribution;
         roundExtras += fee;
-        _pull(msg.sender, contribution + fee);
-        emit Contributed(msg.sender, r, contribution, fee);
+        _pull(_msgSender(), contribution + fee);
+        emit Contributed(_msgSender(), r, contribution, fee);
     }
 
     /// @notice Post collateral into a member's escrow. Anyone may post for a
@@ -347,30 +350,30 @@ contract ChitFund is ReentrancyGuard {
         if (!isMember[member]) revert NotMember(member);
         if (amount == 0) revert ZeroAmount();
         escrow[member] += amount;
-        _pull(msg.sender, amount);
-        emit CollateralPosted(member, msg.sender, amount);
+        _pull(_msgSender(), amount);
+        emit CollateralPosted(member, _msgSender(), amount);
     }
 
     /// @notice Withdraw credit plus escrow above liability.
     function withdraw() external nonReentrant returns (uint256 amount) {
-        uint256 c = credit[msg.sender];
-        uint256 free = escrowFree(msg.sender);
+        uint256 c = credit[_msgSender()];
+        uint256 free = escrowFree(_msgSender());
         amount = c + free;
         if (amount == 0) revert NothingToWithdraw();
-        credit[msg.sender] = 0;
-        escrow[msg.sender] -= free;
-        token.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        credit[_msgSender()] = 0;
+        escrow[_msgSender()] -= free;
+        token.safeTransfer(_msgSender(), amount);
+        emit Withdrawn(_msgSender(), amount);
     }
 
     /// @notice Foreman takes accrued commission. Nothing else is reachable.
     function withdrawCommission() external nonReentrant returns (uint256 amount) {
-        if (msg.sender != foreman) revert NotForeman(msg.sender);
+        if (_msgSender() != foreman) revert NotForeman(_msgSender());
         amount = foremanCredit;
         if (amount == 0) revert NothingToWithdraw();
         foremanCredit = 0;
-        token.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        token.safeTransfer(_msgSender(), amount);
+        emit Withdrawn(_msgSender(), amount);
     }
 
     // ------------------------------------------------------------------
@@ -381,17 +384,17 @@ contract ChitFund is ReentrancyGuard {
     function commitSeed(bytes32 h) external nonReentrant {
         if (mode != Mode.DRAW) revert WrongMode();
         _requireLive();
-        _activeMember(msg.sender);
+        _activeMember(_msgSender());
         uint256 r = round;
         if (block.timestamp >= graceEnd()) revert CommitClosed(r);
-        if (h == bytes32(0)) revert BadReveal(msg.sender);
-        if (commitment[r][msg.sender] != bytes32(0)) revert AlreadyCommitted(msg.sender, r);
-        commitment[r][msg.sender] = h;
+        if (h == bytes32(0)) revert BadReveal(_msgSender());
+        if (commitment[r][_msgSender()] != bytes32(0)) revert AlreadyCommitted(_msgSender(), r);
+        commitment[r][_msgSender()] = h;
         if (revealBond != 0) {
             bondsHeld += revealBond;
-            _pull(msg.sender, revealBond);
+            _pull(_msgSender(), revealBond);
         }
-        emit SeedCommitted(msg.sender, r);
+        emit SeedCommitted(_msgSender(), r);
     }
 
     function revealSeed(uint256 seed, bytes32 salt) external {
@@ -399,19 +402,19 @@ contract ChitFund is ReentrancyGuard {
         _requireLive();
         uint256 r = round;
         _requireRevealWindow(r);
-        if (revealed[r][msg.sender]) revert AlreadyRevealed(msg.sender);
-        bytes32 h = commitment[r][msg.sender];
-        if (h == bytes32(0) || h != keccak256(abi.encode(address(this), r, msg.sender, seed, salt))) {
-            revert BadReveal(msg.sender);
+        if (revealed[r][_msgSender()]) revert AlreadyRevealed(_msgSender());
+        bytes32 h = commitment[r][_msgSender()];
+        if (h == bytes32(0) || h != keccak256(abi.encode(address(this), r, _msgSender(), seed, salt))) {
+            revert BadReveal(_msgSender());
         }
-        revealed[r][msg.sender] = true;
+        revealed[r][_msgSender()] = true;
         seedXor ^= seed;
         reveals += 1;
         if (revealBond != 0) {
             bondsHeld -= revealBond;
-            credit[msg.sender] += revealBond;
+            credit[_msgSender()] += revealBond;
         }
-        emit SeedRevealed(msg.sender, r);
+        emit SeedRevealed(_msgSender(), r);
     }
 
     /// @notice Ask the external source for this round's word, after reveals close,
@@ -437,14 +440,14 @@ contract ChitFund is ReentrancyGuard {
     function commitBid(bytes32 h) external {
         if (mode != Mode.AUCTION) revert WrongMode();
         _requireLive();
-        MemberState storage s = _activeMember(msg.sender);
-        if (s.won) revert NotEligible(msg.sender);
+        MemberState storage s = _activeMember(_msgSender());
+        if (s.won) revert NotEligible(_msgSender());
         uint256 r = round;
         if (block.timestamp >= graceEnd()) revert CommitClosed(r);
-        if (h == bytes32(0)) revert BadReveal(msg.sender);
-        if (commitment[r][msg.sender] != bytes32(0)) revert AlreadyCommitted(msg.sender, r);
-        commitment[r][msg.sender] = h;
-        emit BidCommitted(msg.sender, r);
+        if (h == bytes32(0)) revert BadReveal(_msgSender());
+        if (commitment[r][_msgSender()] != bytes32(0)) revert AlreadyCommitted(_msgSender(), r);
+        commitment[r][_msgSender()] = h;
+        emit BidCommitted(_msgSender(), r);
     }
 
     function revealBid(uint256 bid, bytes32 salt) external {
@@ -452,33 +455,33 @@ contract ChitFund is ReentrancyGuard {
         _requireLive();
         uint256 r = round;
         _requireRevealWindow(r);
-        if (revealed[r][msg.sender]) revert AlreadyRevealed(msg.sender);
-        bytes32 h = commitment[r][msg.sender];
-        if (h == bytes32(0) || h != keccak256(abi.encode(address(this), r, msg.sender, bid, salt))) {
-            revert BadReveal(msg.sender);
+        if (revealed[r][_msgSender()]) revert AlreadyRevealed(_msgSender());
+        bytes32 h = commitment[r][_msgSender()];
+        if (h == bytes32(0) || h != keccak256(abi.encode(address(this), r, _msgSender(), bid, salt))) {
+            revert BadReveal(_msgSender());
         }
-        MemberState storage s = stateOf[msg.sender];
-        if (!paid[r][msg.sender] || s.won || s.excluded) revert NotEligible(msg.sender);
+        MemberState storage s = stateOf[_msgSender()];
+        if (!paid[r][_msgSender()] || s.won || s.excluded) revert NotEligible(_msgSender());
         uint256 pot = expectedPot();
         uint256 minBid = (pot * (BPS - maxDiscountBps) + BPS - 1) / BPS; // round up
         if (bid > pot || bid < minBid) revert BidOutOfRange(bid, minBid, pot);
         // Winning must leave escrow covering the remaining contributions.
-        if (escrow[msg.sender] + bid < (_members.length - s.paidCount) * contribution) {
-            revert NotEligible(msg.sender);
+        if (escrow[_msgSender()] + bid < (_members.length - s.paidCount) * contribution) {
+            revert NotEligible(_msgSender());
         }
-        revealed[r][msg.sender] = true;
-        revealedBid[r][msg.sender] = bid;
+        revealed[r][_msgSender()] = true;
+        revealedBid[r][_msgSender()] = bid;
         bidEntropy ^= uint256(salt);
         // Lowest bid wins. Equal lowest bids are settled by lot at settle()
         // (Chit Funds Act 1982 s.6(4)), seeded by every revealed salt.
         if (bestBidder == address(0) || bid < bestBid) {
-            bestBidder = msg.sender;
+            bestBidder = _msgSender();
             bestBid = bid;
             bestBidTies = 1;
         } else if (bid == bestBid) {
             bestBidTies += 1;
         }
-        emit BidRevealed(msg.sender, r, bid);
+        emit BidRevealed(_msgSender(), r, bid);
     }
 
     // ------------------------------------------------------------------

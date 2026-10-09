@@ -132,7 +132,7 @@ contract ChitFundInvariantTest is Test {
         p.lateFeeBps = 200;
         p.forfeitBps = 1000;
         vm.prank(foreman);
-        fund = new ChitFund(p, m);
+        fund = new ChitFund(p, m, address(0));
         for (uint256 i; i < 5; ++i) {
             token.mint(m[i], 500_000_00);
             vm.startPrank(m[i]);
