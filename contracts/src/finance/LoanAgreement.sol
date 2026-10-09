@@ -30,6 +30,8 @@ contract LoanAgreement is ReentrancyGuard {
     error LoanOverpay(uint256 loanId, uint256 due, uint256 paid);
     error LoanBalanceNotDue(uint256 loanId, uint256 dueAt, uint256 now);
     error LoanInterestTooHigh(uint256 bps);
+    error LoanNotCollateralOwner(bytes32 positionId, address caller);
+    error LoanPositionInUse(bytes32 positionId);
 
     event LoanCreated(
         uint256 indexed loanId,
@@ -48,6 +50,7 @@ contract LoanAgreement is ReentrancyGuard {
     event LoanClosed(uint256 indexed loanId);
     event LoanDefaulted(uint256 indexed loanId, uint256 outstanding);
     event LoanCollateralReleased(uint256 indexed loanId, address indexed token, address indexed to);
+    event LoanCancelled(uint256 indexed loanId);
 
     struct Loan {
         address lender;
@@ -63,7 +66,7 @@ contract LoanAgreement is ReentrancyGuard {
         uint256 fundedAt;
         uint256 repaidPrincipal;
         uint256 repaidInterest;
-        uint8 state; // 0 Created, 1 Funded, 2 Active, 3 Repaid(Closed), 4 Defaulted
+        uint8 state; // 0 Created, 1 Funded, 2 Active, 3 Repaid(Closed), 4 Defaulted, 5 Cancelled
     }
 
     uint256 public constant MAX_INTEREST_BPS = 100_00;
@@ -72,6 +75,9 @@ contract LoanAgreement is ReentrancyGuard {
     mapping(uint256 => Loan) public loans;
 
     ICollateral public immutable vault;
+
+    /// @notice Positions already backing a loan (one position, one loan).
+    mapping(bytes32 => bool) public positionInUse;
 
     /// @param collateralVault Collateral position owner (this contract holds its
     ///        own locks there).
@@ -84,9 +90,10 @@ contract LoanAgreement is ReentrancyGuard {
         _;
     }
 
-    /// @notice Propose a loan. Lender and borrower may be any addresses; the
-    ///         borrower signs up as lender on chain. The lender must have approved
-    ///         this contract to pull `principal`.
+    /// @notice Borrower proposes a loan against collateral THEY locked to this
+    ///         contract. Only the borrower may call (fix L1: before, anyone could
+    ///         open a loan against a position someone else locked and foreclose it).
+    ///         The lender agrees later by calling fundLoan themselves (fix L2).
     function createLoan(
         address lender,
         address borrower,
@@ -108,6 +115,14 @@ contract LoanAgreement is ReentrancyGuard {
         (address posToken, , uint256 posAmount) = vaultC.positionOf(collateralPositionId);
         if (posAmount == 0 || posToken == address(0)) revert LoanZeroAddress();
         if (posToken != collateralToken) revert LoanZeroAddress();
+        // L1: the caller is the borrower, the borrower locked it, and it is locked to us.
+        if (msg.sender != borrower) revert LoanNotBorrower(0, msg.sender);
+        (, address posOwner,) = vaultC.positionOf(collateralPositionId);
+        if (posOwner != address(this) || vaultC.lockedBy(collateralPositionId) != borrower) {
+            revert LoanNotCollateralOwner(collateralPositionId, msg.sender);
+        }
+        if (positionInUse[collateralPositionId]) revert LoanPositionInUse(collateralPositionId);
+        positionInUse[collateralPositionId] = true;
 
         loanId = ++loanCount;
         Loan storage l = loans[loanId];
@@ -136,14 +151,29 @@ contract LoanAgreement is ReentrancyGuard {
     }
 
     /// @notice Lender funds the loan: pulls principal. Loan becomes Funded.
-    ///         The borrower draws it in `draw`.
+    ///         The borrower draws it in `draw`. Only the named lender may call, so
+    ///         a standing allowance can never be spent on a loan someone else
+    ///         invented (fix L2).
     function fundLoan(uint256 loanId) external nonReentrant {
         Loan storage l = loans[loanId];
         if (l.state != 0) revert LoanFundedAlready(loanId);
-        l.token.safeTransferFrom(l.lender, address(this), l.principal);
+        if (msg.sender != l.lender) revert LoanNotLender(loanId, msg.sender);
+        l.token.safeTransferFrom(msg.sender, address(this), l.principal);
         l.state = 1;
         l.fundedAt = block.timestamp;
         emit LoanFunded(loanId, msg.sender, l.principal);
+    }
+
+    /// @notice Borrower withdraws a loan nobody funded yet and gets the collateral back.
+    function cancelLoan(uint256 loanId) external nonReentrant {
+        Loan storage l = loans[loanId];
+        if (l.state != 0 || l.borrower == address(0)) revert LoanFundedAlready(loanId);
+        if (msg.sender != l.borrower) revert LoanNotBorrower(loanId, msg.sender);
+        l.state = 5;
+        positionInUse[l.collateralPositionId] = false;
+        emit LoanCancelled(loanId);
+        vault.release(l.collateralPositionId, l.borrower);
+        emit LoanCollateralReleased(loanId, l.collateralToken, l.borrower);
     }
 
     /// @notice Borrower draws the principal to spend it (e.g. towards a mandate).

@@ -52,6 +52,10 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     mapping(address => bool) public isAuthorizedResolver;
 
     mapping(bytes32 => Position) public positions;
+    /// @notice Who actually paid the asset into each active position. Protocols that
+    ///         accept a position locked to them (LoanAgreement) must check this so a
+    ///         stranger can never borrow against someone else's collateral (fix L1).
+    mapping(bytes32 => address) public lockedBy;
 
     /// @param admin Owner of the vault (admission + pause control).
     constructor(address admin) Ownable(admin) {}
@@ -102,6 +106,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         p.token = token;
         p.owner = owner;
         p.amount = amount;
+        lockedBy[positionId] = msg.sender;
         emit CollateralLocked(positionId, token, owner, amount);
     }
 
@@ -113,6 +118,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         IERC20 token = IERC20(p.token);
         uint256 amount = p.amount;
         delete positions[positionId];
+        delete lockedBy[positionId];
         token.safeTransfer(msg.sender, amount);
         emit CollateralUnlocked(positionId, msg.sender, amount);
     }
@@ -130,6 +136,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         IERC20 token = IERC20(p.token);
         uint256 amount = p.amount;
         delete positions[positionId];
+        delete lockedBy[positionId];
         token.safeTransfer(to, amount);
         emit CollateralUnlocked(positionId, to, amount);
     }

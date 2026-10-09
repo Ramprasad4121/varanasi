@@ -81,31 +81,53 @@ contract GoldCollateralTest is GoldBase {
         assertEq(token.balanceOf(alice), 100e18);
     }
 
-    /// KNOWN ISSUE L1 (LoanAgreement, not fixed on this branch): createLoan does not
-    /// check who locked the position, so a stranger can open a 1 wei loan against
-    /// Alice's locked gold, default it and foreclose her collateral to himself.
-    /// This test PASSES while the bug exists; flip it to expectRevert once fixed.
-    function test_KNOWN_ISSUE_L1_strangerForeclosesLockedGold() public {
+    /// L1 (fixed): a stranger cannot open a loan against gold someone else locked.
+    function test_L1_strangerCannotOpenLoanOnLockedGold() public {
         vm.startPrank(alice);
         token.approve(address(vault), 100e18);
         vault.lock(POS, address(token), address(loans), 100e18); // step 1 of her loan
         vm.stopPrank();
 
-        inr.mint(rogue, 1);
-        vm.startPrank(rogue);
-        uint256 id = loans.createLoan(rogue, rogue, address(inr), 1, 0, 1, address(token), POS);
-        inr.approve(address(loans), 1);
-        loans.fundLoan(id);
-        loans.drawLoan(id);
-        vm.warp(block.timestamp + 2);
-        loans.declareDefault(id);
-        vm.stopPrank();
-        assertEq(token.balanceOf(rogue), 100e18, "stranger took Alice's gold");
+        vm.prank(rogue);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanNotCollateralOwner.selector, POS, rogue));
+        loans.createLoan(rogue, rogue, address(inr), 1, 0, 1, address(token), POS);
+        assertEq(token.balanceOf(address(vault)), 100e18, "Alice's gold stays locked");
     }
 
-    /// KNOWN ISSUE L2: fundLoan pulls from `lender` without lender consent, so
-    /// anyone can spend a lender's standing allowance on a loan they invent.
-    function test_KNOWN_ISSUE_L2_anyoneSpendsLenderAllowance() public {
+    /// L1 (fixed): only the borrower can propose a loan in their own name.
+    function test_L1_callerMustBeBorrower() public {
+        vm.startPrank(alice);
+        token.approve(address(vault), 100e18);
+        vault.lock(POS, address(token), address(loans), 100e18);
+        vm.stopPrank();
+        vm.prank(rogue);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanNotBorrower.selector, 0, rogue));
+        loans.createLoan(lender, alice, address(inr), 1e18, 0, 1 days, address(token), POS);
+    }
+
+    /// L1 (fixed): one locked position backs at most one loan.
+    function test_L1_positionCannotBackTwoLoans() public {
+        vm.startPrank(alice);
+        token.approve(address(vault), 100e18);
+        vault.lock(POS, address(token), address(loans), 100e18);
+        loans.createLoan(lender, alice, address(inr), 1e18, 0, 1 days, address(token), POS);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanPositionInUse.selector, POS));
+        loans.createLoan(alice, alice, address(inr), 1, 0, 1, address(token), POS);
+        vm.stopPrank();
+    }
+
+    /// L1 (fixed): the position must be locked to the loan contract, not to the borrower.
+    function test_L1_positionMustBeOwnedByLoanContract() public {
+        vm.startPrank(alice);
+        token.approve(address(vault), 100e18);
+        vault.lock(POS, address(token), alice, 100e18);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanNotCollateralOwner.selector, POS, alice));
+        loans.createLoan(lender, alice, address(inr), 1e18, 0, 1 days, address(token), POS);
+        vm.stopPrank();
+    }
+
+    /// L2 (fixed): nobody but the lender can spend the lender's allowance.
+    function test_L2_onlyLenderCanFund() public {
         vm.prank(lender);
         inr.approve(address(loans), type(uint256).max); // lender pre-approved once
         _mint(BANK, rogue, keccak256("dust"), 1, 2);
@@ -114,9 +136,28 @@ contract GoldCollateralTest is GoldBase {
         token.approve(address(vault), 1e15);
         vault.lock(pos, address(token), address(loans), 1e15); // 1 mg of gold
         uint256 id = loans.createLoan(lender, rogue, address(inr), 1_000_000e18, 0, 365 days, address(token), pos);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanNotLender.selector, id, rogue));
         loans.fundLoan(id);
-        loans.drawLoan(id);
         vm.stopPrank();
-        assertEq(inr.balanceOf(rogue), 1_000_000e18, "1M mINR borrowed against 1 mg");
+        assertEq(inr.balanceOf(rogue), 0, "no money moved without the lender");
+        assertEq(inr.balanceOf(lender), 10_000_000e18);
+    }
+
+    /// A loan nobody funds can be cancelled by the borrower, who gets the gold back.
+    function test_cancelUnfundedLoanReturnsGold() public {
+        vm.startPrank(alice);
+        token.approve(address(vault), 100e18);
+        vault.lock(POS, address(token), address(loans), 100e18);
+        uint256 id = loans.createLoan(lender, alice, address(inr), 1e18, 0, 1 days, address(token), POS);
+        vm.stopPrank();
+        vm.prank(rogue);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanNotBorrower.selector, id, rogue));
+        loans.cancelLoan(id);
+        vm.prank(alice);
+        loans.cancelLoan(id);
+        assertEq(token.balanceOf(alice), 100e18);
+        vm.prank(lender);
+        vm.expectRevert(abi.encodeWithSelector(LoanAgreement.LoanFundedAlready.selector, id));
+        loans.fundLoan(id);
     }
 }

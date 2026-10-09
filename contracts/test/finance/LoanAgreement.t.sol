@@ -47,6 +47,7 @@ contract LoanAgreementTest is Test {
 
     function _createAndActivate() internal returns (uint256 loanId) {
         _borrowerLocksCollateral();
+        vm.prank(borrower);
         loanId = loans.createLoan(lender, borrower, address(token), PRINCIPAL, 500, TERM, address(token), posId);
         vm.prank(lender);
         token.approve(address(loans), PRINCIPAL);
@@ -136,6 +137,7 @@ contract LoanAgreementTest is Test {
 
     function test_OnlyBorrowerCanDraw() public {
         _borrowerLocksCollateral();
+        vm.prank(borrower);
         uint256 loanId = loans.createLoan(lender, borrower, address(token), PRINCIPAL, 500, TERM, address(token), posId);
         vm.prank(lender);
         token.approve(address(loans), PRINCIPAL);
