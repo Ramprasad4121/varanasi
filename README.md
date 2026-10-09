@@ -297,7 +297,7 @@ The repo also carries experimental community-finance contracts and simulated `/f
 - **`LoanAgreement`**: Fixed-term borrowing secured by audited onchain collateral.
 - **`CollateralVault`**: Multi-asset escrow supporting tokenized and physical assets.
 - **`FinancialReputation`**: Onchain credit scoring updated automatically upon task settlements.
-- **`GoldRegistry` & `GoldToken`**: Attestation registry for physical bullion custody.
+- **`BankGoldIssuer` + `GoldRegistry` + `GoldToken` (vGOLD)**: bank-signed (EIP-712) gold deposit attestations mint 1 vGOLD per gram of fine gold; any holder redeems through the bank; on-chain proof of reserve. See [docs/GOLD.md](docs/GOLD.md).
 
 *Note: All `/finance` frontend routes and `/v1/finance*` endpoints simulate portfolio dynamics deterministically based on wallet address hash. Real funds never move until underlying contracts are finalized.*
 
