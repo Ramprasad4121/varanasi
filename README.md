@@ -36,6 +36,24 @@ Varanasi is a **community product** engineered for humans, DAOs, and autonomous 
 
 ---
 
+## PoC-gated bounty vault (ERC-8183): local demo
+
+Varanasi's first product: **pay a bug bounty only when a machine has run the proof.**
+
+1. A protocol funds a `BountyVault` and commits, per payout tier, `keccak256` of an invariant checker plus the payout.
+2. A hunter (human or AI) posts a small bond and opens a claim; the vault opens and funds an ERC-8183 job on `AgenticCommerce` and the hunter submits `keccak256(PoC)` pinned to a fork block.
+3. The Varanasi verifier (`verifier/`) checks the PoC hash against the job, compiles it offline with no network, runs it as real transactions on a throwaway anvil fork at that block (no cheatcodes), and checks the invariant held before and is broken after.
+4. It signs an EIP-712 verdict `{jobId, deliverableHash, pass, logsHash}`. `RiskGuardEvaluator` checks the signer allowlist and that the hash matches the job's submitted deliverable, settles once (no replay, no FAIL-to-PASS flip), and calls `complete` (tier paid, bond returned) or `reject` (bond slashed into the pot).
+
+```bash
+scripts/demo.sh   # local anvil only: a slop PoC and a cheatcode-forged PoC get slashed, a real reentrancy PoC gets paid
+```
+
+Recorded run with balances before/after: [`docs/DEMO_POC_VAULT.md`](docs/DEMO_POC_VAULT.md). Verifier details and limits: [`verifier/README.md`](verifier/README.md).
+Status: local/testnet code, not audited, not deployed. It proves an exploit breaks the committed invariant; it does not judge scope or severity beyond the tier the sponsor attached to that invariant.
+
+---
+
 ## The Four Guarantees ("Zero In The Way")
 
 | Principle | Traditional Agent Setups | The Varanasi Rail |
@@ -65,7 +83,7 @@ Varanasi is deployed and operating live across **Ethereum Sepolia** (contracts &
 
 Real transactions, not mockups. Every entry links directly to public block explorers:
 
-- **Task Escrow Release**: [Etherscan `0x94b44e...eb702`](https://sepolia.etherscan.io/tx/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702) — Task funded, scored, and released to merchant.
+- **Task Escrow Release (v1 escrow, superseded)**: [Etherscan `0x94b44e...eb702`](https://sepolia.etherscan.io/tx/0x94b44e473c0746ed365e8714000ef41a7f21bbc4276c9aca29b9d134651eb702) — Task funded, scored, and released to merchant. Note: this tx targets the earlier v1 escrow [`0xba038d50d70cf63ced17f3f23f77df4783f188da`](https://sepolia.etherscan.io/address/0xba038d50d70cf63ced17f3f23f77df4783f188da), not the current `TaskEscrow` above.
 - **x402 Micropayment Leg**: [HashScan `0.0.7162784-1788675749-710110370`](https://hashscan.io/testnet/transaction/0.0.7162784-1788675749-710110370) — $0.01 USDC paid over Hedera HTS for real-time alpha signals.
 - **Agent Identity Mint**: [Etherscan `0xaac001...c327`](https://sepolia.etherscan.io/tx/0xaac0018d2906e5773f5c28e14a49e54b02a8c4156f06c6a9473e74ccebc7c327) — Subname `sentinel-1.aegis.eth` minted with 90-day expiry.
 
@@ -103,7 +121,7 @@ The Varanasi monorepo unites four production surfaces and one shared type system
        Uniswap v3 Pools                           Hedera Consensus Service
 ```
 
-- **`contracts/`**: Core protocol written in Solidity (Foundry). Contains `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`, delegation trees (`MandateTreeEscrow`), and community finance protocols. Tested offline with mock ENS resolution (220 tests).
+- **`contracts/`**: Core protocol written in Solidity (Foundry). Contains `TaskEscrow`, `AegisRegistry`, `RiskGuard`, `AegisHook`, delegation trees (`MandateTreeEscrow`), the ERC-8183 bounty stack (`AgenticCommerce`, `RiskGuardEvaluator`, `BountyVault`), and experimental finance modules. Tested offline with mock ENS resolution (267 tests).
 - **`agent/`**: Autonomous TypeScript orchestration engine. Performs ENS resolution, queries Uniswap pool analytics via The Graph / MCP, pays for alpha through x402 HTTP micropayments, evaluates risk heuristic/LLM models, and signs EIP-712 mandates.
 - **`service/`**: Express 5 microservice delivering paid alpha endpoints (`POST /v1/signal`, `POST /v1/score`) protected by x402 payment requirements, alongside deterministic financial simulation APIs and Hedera Consensus Service audit topics.
 - **`frontend/`**: Next.js 14 App Router marketplace and treasury dashboard. Features self-custodial onboarding via Privy, 4-step hire wizard, active task ledger, and colosseum-themed typography.
@@ -119,21 +137,6 @@ Varanasi utilizes **Privy** for decentralized, non-custodial authentication:
 - **Embedded Wallets**: First-time users without a Web3 wallet automatically receive an embedded, self-custodial Sepolia wallet.
 - **Zero Key Custody**: Varanasi never stores, sees, or handles private keys. Your session is cryptographically managed, and local task logs are client-scoped.
 - **Data Vault**: Open `/account` to view your personal vault, or `/privy` to access the full Treasury dashboard (mint identities, allocate task allowances, and revoke access).
-
----
-
-## Community Finance Primitives
-
-Varanasi extends bounded agentic execution into a programmable treasury framework (`/finance`):
-
-- **`SavingsVault`**: Time-locked deposits with configurable yield multipliers.
-- **`ChitPool`**: Rotating credit and savings association (ROSCA) pools managed by agents.
-- **`LoanAgreement`**: Fixed-term borrowing secured by audited onchain collateral.
-- **`CollateralVault`**: Multi-asset escrow supporting tokenized and physical assets.
-- **`FinancialReputation`**: Onchain credit scoring updated automatically upon task settlements.
-- **`GoldRegistry` & `GoldToken`**: Attestation registry for physical bullion custody.
-
-*Note: All `/finance` frontend routes and `/v1/finance*` endpoints simulate portfolio dynamics deterministically based on wallet address hash. Real funds never move until underlying contracts are finalized.*
 
 ---
 
@@ -195,7 +198,7 @@ npm run build         # Build dist outputs
 ```bash
 cd contracts
 forge build           # Compile Solidity contracts
-forge test            # Execute test suite (220 tests across 11 suites)
+forge test            # Execute test suite (267 tests across 14 suites)
 ```
 
 ---
@@ -240,7 +243,7 @@ All packages maintain strict test hygiene and execute completely offline in CI:
 
 | Layer | Harness | Scope | Offline Safe |
 |---|---|---|---|
-| **Contracts** | Foundry (`forge test`) | **220 tests** / 11 suites | Yes (mock ENS / zero external RPCs) |
+| **Contracts** | Foundry (`forge test`) | **267 tests** / 14 suites | Yes (mock ENS / zero external RPCs) |
 | **Agent** | Vitest (`vitest run`) | **162 tests** / 17 files | Yes (mocked network / simulated crypto) |
 | **Service** | Node Test (`tsx --test`) | **5 tests** | Yes (deterministic fixtures) |
 | **Frontend** | TypeScript (`tsc --noEmit`) | Next.js 14 App Router | Yes (ES2017 BigInt-safe) |
@@ -282,6 +285,21 @@ If the agent fails to submit valid proof before the mandate's expiry timestamp, 
 
 **What networks are supported?**  
 Smart contracts currently operate on Ethereum Sepolia, and micropayments settle on Hedera Testnet via x402. The architecture is chain-agnostic and designed to deploy to Ethereum mainnet, Arbitrum, Base, or Polygon without contract modifications.
+
+---
+
+## Other modules in this repo (experimental, not part of the product pitch)
+
+The repo also carries experimental community-finance contracts and simulated `/finance` routes. They are kept as code and tests only; they are not part of the Varanasi product, are not deployed to mainnet, and would need legal review before any real use (for example, chit funds and lending are regulated in India).
+
+- **`SavingsVault`**: Time-locked deposits with configurable yield multipliers.
+- **`ChitPool`**: Rotating credit and savings association (ROSCA) pools managed by agents.
+- **`LoanAgreement`**: Fixed-term borrowing secured by audited onchain collateral.
+- **`CollateralVault`**: Multi-asset escrow supporting tokenized and physical assets.
+- **`FinancialReputation`**: Onchain credit scoring updated automatically upon task settlements.
+- **`GoldRegistry` & `GoldToken`**: Attestation registry for physical bullion custody.
+
+*Note: All `/finance` frontend routes and `/v1/finance*` endpoints simulate portfolio dynamics deterministically based on wallet address hash. Real funds never move until underlying contracts are finalized.*
 
 ---
 
