@@ -1,0 +1,57 @@
+
+==== 0. local anvil chain on http://127.0.0.1:18546 ====
+anvil up (chain 31337)
+
+==== 1. deploy vGOLD + registry + BankGoldIssuer, register Mock Bank ====
+contracts/ built
+vGOLD          0x5FbDB2315678afecb367f032d93F642f64180aa3
+GoldRegistry   0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+BankGoldIssuer 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+Mock bank signer 0x90F79bf6EB2c4f870365E785982E1f101E93b906, operator 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+  proof of reserve | vGOLD supply      0.000 g | bank-attested      0.000 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    0.000 | Bob    0.000
+
+==== 2. Alice deposits 10 g at the bank; assay 995 fine -> bank signs attestation for 9.950 g fine ====
+certificate 0x0ecf33c433228d3af1a6ea5121d66abcecbe365717b1f9e37773ec803b2f4b96
+bank EIP-712 signature 0xed70b8fc504d334466a1...
+
+==== 3. attacks before the honest mint ====
+  BLOCKED  Mallory signs her own 1 kg attestation -> GoldBadSignature
+  BLOCKED  Mallory relays Alice's attestation with user=Mallory -> GoldBadSignature
+  BLOCKED  Mallory bumps the grams to 99.950 g -> GoldBadSignature
+
+==== 4. relayer submits; issuer verifies the bank signature and mints 9.950 vGOLD to Alice ====
+mint tx 0x400bc14b6a68b11d66cd7ad4722705dc7a56a608235dcf140db05c1e59dc163e
+  BLOCKED  replay the same attestation -> GoldNonceUsed
+  proof of reserve | vGOLD supply      9.950 g | bank-attested      9.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    9.950 | Bob    0.000
+
+==== 5. Alice sends 4 vGOLD to Bob (plain ERC20; gold never leaves the bank) ====
+  proof of reserve | vGOLD supply      9.950 g | bank-attested      9.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    5.950 | Bob    4.000
+
+==== 6. Bob (not the depositor) burns 4 vGOLD into a redemption request at the bank ====
+redemption #1 requested (event RedemptionRequested -> bank back office)
+  proof of reserve | vGOLD supply      5.950 g | bank-attested      9.950 g | pending release    4.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    5.950 | Bob    0.000
+
+==== 7. bank KYCs Bob, hands over 4 g, confirms release on chain ====
+  BLOCKED  Mallory fakes the bank's fulfilment -> GoldNotBankOperator
+redemption #1 fulfilled
+  proof of reserve | vGOLD supply      5.950 g | bank-attested      5.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    5.950 | Bob    0.000
+
+==== 8. bank signs a periodic reserve report (5.000 g held, owes 5.950 g) -> minting halts at that bank ====
+  BLOCKED  new mint while bank reports a shortfall -> GoldReserveShortfall
+covering report (5.950 g) accepted; minting resumes
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    6.950 | Bob    0.000
+
+==== 9. dispute: bank flags certificate 000124 (assay error); minting pauses, balances untouched ====
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  1.000 g | fully backed: false
+  balances (vGOLD) | Alice    6.950 | Bob    0.000
+governance re-checked custody: dispute cleared, bank unpaused
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  balances (vGOLD) | Alice    6.950 | Bob    0.000
+
+==== done ====
