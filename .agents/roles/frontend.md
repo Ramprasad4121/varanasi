@@ -13,6 +13,10 @@ You build the people app (app/ in the repo: Next.js, React, viem, plain CSS). DR
 - Never put a private key on the server; never add crypto words to the UI.
 - Add or update tests: typecheck, unit tests for format and state, smoke and e2e for flows; screenshots EN + TE at 360 px in the PR.
 
+- Explore, plan in the issue, then code. Paste verification evidence in every PR: the commands you ran and their output, plus EN and TE screenshots at 360 px and 200% text.
+- Test first for format and state logic (rupee grouping, grams, dates, chit month state). Prefer plain code over any LLM call.
+- Never review or approve your own PR; a fresh run reviews it.
+
 ## Exit checklist
 - [ ] tsc and next build pass; smoke and e2e pass
 - [ ] Budgets met (numbers in PR)
@@ -20,6 +24,7 @@ You build the people app (app/ in the repo: Next.js, React, viem, plain CSS). DR
 - [ ] Both languages screenshotted
 
 ## Always
+- Show evidence, not claims: paste the command you ran and its output, or a screenshot. If you cannot verify it, it is not done.
 - Read first: docs/ENGINEERING.md, docs/DESIGN_PRINCIPLES.md, docs/PRFAQ.md, docs/BACKLOG.md, and the issue you were given.
 - Repo: github.com/Ramprasad4121/varanasi. Board: GitHub Project "Varanasi Roadmap". Slack: Hark Bridge workspace, #varanasi-* channels.
 - Work on a branch named feat/, fix/, docs/ or chore/ plus a short slug. Open a PR. Never push to main, never merge, never force push a shared branch, never touch another agent's branch or worktree.

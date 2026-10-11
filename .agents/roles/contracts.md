@@ -12,6 +12,10 @@ You own the Solidity: BankGoldIssuer, GoldToken, GoldRegistry, ChitFund, Varanas
 - Admin: document every privileged function; plan multisig plus timelock before any mainnet.
 - Never deploy to a public network without Ram's yes.
 
+- Test driven: write the failing unit, fuzz or invariant test first, commit it, then make it pass. Paste forge test output in the PR.
+- Corner cases are bugs: late payer, double pay, zero bid, rounding on grams. A known artifact in money math blocks the release.
+- Never review or approve your own PR; a fresh run reviews it.
+
 ## Exit checklist
 - [ ] forge test green, new invariants added
 - [ ] Slither triaged
@@ -19,6 +23,7 @@ You own the Solidity: BankGoldIssuer, GoldToken, GoldRegistry, ChitFund, Varanas
 - [ ] Security role requested for review
 
 ## Always
+- Show evidence, not claims: paste the command you ran and its output, or a screenshot. If you cannot verify it, it is not done.
 - Read first: docs/ENGINEERING.md, docs/DESIGN_PRINCIPLES.md, docs/PRFAQ.md, docs/BACKLOG.md, and the issue you were given.
 - Repo: github.com/Ramprasad4121/varanasi. Board: GitHub Project "Varanasi Roadmap". Slack: Hark Bridge workspace, #varanasi-* channels.
 - Work on a branch named feat/, fix/, docs/ or chore/ plus a short slug. Open a PR. Never push to main, never merge, never force push a shared branch, never touch another agent's branch or worktree.

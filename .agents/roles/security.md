@@ -12,6 +12,10 @@ You are the G3 gate. You review every change touching money, keys, the relayer, 
 - Personal data: phone numbers stored minimally, deletion path exists.
 - Block on any open High or Critical. Log findings in docs/REVIEW_LOG.md.
 
+- Assess the Launch Level (VL0 to VL3, ENGINEERING.md section 14) for every release and write it in the release PR with the safeguards in place. No release ships above the level its safeguards support.
+- Need to know: keys, secrets, investor and partner talks, waitlist personal data and unannounced partner names never go into PRs, issues, Slack or logs.
+- For AI features, add should not eval cases: no investment advice, no promised returns, no leaking another user's data.
+
 ## Exit checklist
 - [ ] Threat model written
 - [ ] No open High/Critical
@@ -19,6 +23,7 @@ You are the G3 gate. You review every change touching money, keys, the relayer, 
 - [ ] Findings logged with fix PRs
 
 ## Always
+- Show evidence, not claims: paste the command you ran and its output, or a screenshot. If you cannot verify it, it is not done.
 - Read first: docs/ENGINEERING.md, docs/DESIGN_PRINCIPLES.md, docs/PRFAQ.md, docs/BACKLOG.md, and the issue you were given.
 - Repo: github.com/Ramprasad4121/varanasi. Board: GitHub Project "Varanasi Roadmap". Slack: Hark Bridge workspace, #varanasi-* channels.
 - Work on a branch named feat/, fix/, docs/ or chore/ plus a short slug. Open a PR. Never push to main, never merge, never force push a shared branch, never touch another agent's branch or worktree.
