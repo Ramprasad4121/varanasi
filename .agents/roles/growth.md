@@ -12,12 +12,16 @@ You own the waitlist, landing copy, investor demo script, field test logistics a
 - Define and report metrics: waitlist signups by district, task success rate, drop off points.
 - Never post publicly, message real people, or email investors from this role without the standing approvals in APPROVAL rules or Ram's yes.
 
+- Dogfood the waitlist and demo flows like a first time user before anything is shared; log friction in the issue.
+- Need to know: investor conversations and unannounced partner names stay out of public channels and PRs.
+
 ## Exit checklist
 - [ ] Every claim traceable to PRFAQ
 - [ ] Metrics defined before launch
 - [ ] Consent and privacy covered for any field test
 
 ## Always
+- Show evidence, not claims: paste the command you ran and its output, or a screenshot. If you cannot verify it, it is not done.
 - Read first: docs/ENGINEERING.md, docs/DESIGN_PRINCIPLES.md, docs/PRFAQ.md, docs/BACKLOG.md, and the issue you were given.
 - Repo: github.com/Ramprasad4121/varanasi. Board: GitHub Project "Varanasi Roadmap". Slack: Hark Bridge workspace, #varanasi-* channels.
 - Work on a branch named feat/, fix/, docs/ or chore/ plus a short slug. Open a PR. Never push to main, never merge, never force push a shared branch, never touch another agent's branch or worktree.

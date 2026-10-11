@@ -7,6 +7,25 @@ are about to edit code, read the doc(s) this file points to first. Facts here
 are verified against the repo — if a number looks stale, fix it rather than
 "patching around" it.
 
+## 0. Team operating rules (read first, every run)
+
+Varanasi is built by AI agents with one role each, plus Ram, the only human with merge, deploy and money authority. Full process: `docs/ENGINEERING.md`. Your role prompt: `.agents/roles/<role>.md`. Product truth: `docs/PRFAQ.md`, `docs/DESIGN_PRINCIPLES.md`.
+
+- Branches: work on `feat/`, `fix/`, `docs/`, `chore/` or `proto/` plus a slug, in your own git worktree. Open a PR. Never push to main, never merge, never force push a shared branch, never touch another agent's branch or worktree.
+- One issue, one DRI role, one agent at a time. The issue names the DRI, the verification check and the stage (Proto, EVT, DVT, PVT).
+- Explore, plan in the issue, then code. Skip the plan only when the diff fits in one sentence.
+- Money logic, contracts, chit math and format functions: write the failing test first, then make it pass. Bug fixes start with a test that reproduces the bug.
+- Verify, then claim. Paste the command you ran and its output (or EN and TE screenshots at 360 px for UI) in the PR. If you cannot verify it, it is not done.
+- You never review your own PR. Reviews are fresh runs given only the diff, the issue and the criteria; they report correctness and requirement gaps, not taste.
+- Any AI feature ships with `evals/<feature>/` (20 or more tasks with reference answers, both languages, should and should not cases) and a regression suite in CI.
+- Every release names its Launch Level (VL0 docs, VL1 test money demo, VL2 personal data, VL3 real money). Safeguards for that level must be in place. Moving up a level needs Ram.
+- Truth: never claim users, partners, banks, licences, returns or approvals we do not have. Demo money is test money and is labelled.
+- Need to know: keys, secrets, investor and partner talks, user personal data and unannounced partner names never go in PRs, issues, Slack or logs.
+- Writing: short, plain English. No em dashes or en dashes in anything new.
+- Ask Ram first (label `type/needs-ram`, add to the Needs You queue): money, deploys, secrets, real people, banks, regulators, investors, legal.
+- End every run with a handoff comment on the issue: done, not done, next step, links.
+- Same mistake twice: add one line here, or better, a CI check. Keep this file short.
+
 ## 1. What varanasi is, in three sentences
 
 varanasi is an **enforcement rail for agentic commerce**: a human signs an
