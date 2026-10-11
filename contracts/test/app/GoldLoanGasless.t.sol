@@ -50,13 +50,22 @@ contract GoldLoanGaslessTest is GoldBase {
         returns (ERC2771Forwarder.ForwardRequestData memory req)
     {
         req = ERC2771Forwarder.ForwardRequestData({
-            from: from, to: to, value: 0, gas: 700_000, deadline: uint48(block.timestamp + 1 hours), data: data, signature: ""
+            from: from,
+            to: to,
+            value: 0,
+            gas: 700_000,
+            deadline: uint48(block.timestamp + 1 hours),
+            data: data,
+            signature: ""
         });
         (, string memory name, string memory version, uint256 chainId, address vc,,) = forwarder.eip712Domain();
         bytes32 domain = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(name)), keccak256(bytes(version)), chainId, vc
+                keccak256(bytes(name)),
+                keccak256(bytes(version)),
+                chainId,
+                vc
             )
         );
         bytes32 sh = keccak256(
@@ -79,8 +88,7 @@ contract GoldLoanGaslessTest is GoldBase {
         _relay(
             address(loans),
             abi.encodeCall(
-                loans.createLoan,
-                (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
+                loans.createLoan, (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
             )
         );
         loanId = loans.loanCount();
@@ -160,8 +168,7 @@ contract GoldLoanGaslessTest is GoldBase {
         _relay(
             address(loans),
             abi.encodeCall(
-                loans.createLoan,
-                (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
+                loans.createLoan, (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
             )
         );
         vm.prank(lenderBank);
@@ -177,8 +184,7 @@ contract GoldLoanGaslessTest is GoldBase {
         _relay(
             address(loans),
             abi.encodeCall(
-                loans.createLoan,
-                (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
+                loans.createLoan, (lenderBank, borrower, address(rupee), PRINCIPAL, RATE_BPS, TERM, address(token), POS)
             )
         );
         vm.prank(relayer);
