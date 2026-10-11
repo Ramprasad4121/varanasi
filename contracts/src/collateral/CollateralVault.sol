@@ -25,6 +25,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     error CollateralZeroAmount();
     error CollateralZeroAddress();
     error CollateralNotAuthorizedResolver(address caller);
+    error CollateralUnsupportedToken(uint256 expected, uint256 received);
 
     event CollateralLocked(
         bytes32 indexed positionId,
@@ -101,12 +102,18 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         if (amount == 0) revert CollateralZeroAmount();
         if (!_allowedAssets.contains(token)) revert CollateralNotAllowedAsset(token);
 
-        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
-
+        // effects before the transfer (checks-effects-interactions), then make sure the
+        // vault really received `amount`: a fee-on-transfer token would leave a position
+        // recorded larger than what the vault holds (Slither reentrancy-no-eth, review 2026-10-11)
         p.token = token;
         p.owner = owner;
         p.amount = amount;
         lockedBy[positionId] = _msgSender();
+
+        uint256 before = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
+        uint256 got = IERC20(token).balanceOf(address(this)) - before;
+        if (got != amount) revert CollateralUnsupportedToken(amount, got);
         emit CollateralLocked(positionId, token, owner, amount);
     }
 
