@@ -30,3 +30,4 @@ service/data/receipts.json
 demo/out/
 demo/cache/
 demo/.run/
+!.env.example
