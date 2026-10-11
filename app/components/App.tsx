@@ -12,6 +12,7 @@ import { LS, type P, type Receipt } from "./shared";
 import { Gold, GoldDeposit, GoldProof, GoldRedeem, GoldSend } from "./GoldScreens";
 import { Chits, ChitScreen } from "./ChitScreens";
 import { Loans } from "./Loans";
+import { BankDesk, Pledge, Silver } from "./AssetScreens";
 import { Home, Receipts, ReceiptSheet } from "./HomeScreens";
 import { Icon } from "./Icon";
 
@@ -199,6 +200,9 @@ export default function App() {
     else if (s0 === "gold" && s1 === "proof") body = <GoldProof {...p} />;
     else if (s0 === "gold" && s1 === "loan") body = <Loans {...p} />;
     else if (s0 === "gold") body = <Gold {...p} />;
+    else if (s0 === "silver") body = <Silver {...p} />;
+    else if (s0 === "pledge") body = <Pledge {...p} />;
+    else if (s0 === "bank") body = <BankDesk {...p} />;
     else if (s0 === "chit" && s1) body = <ChitScreen {...p} address={s1} />;
     else if (s0 === "chits") body = <Chits {...p} />;
     else if (s0 === "receipts") body = <Receipts {...p} receiptsKey={receiptsKey} />;
