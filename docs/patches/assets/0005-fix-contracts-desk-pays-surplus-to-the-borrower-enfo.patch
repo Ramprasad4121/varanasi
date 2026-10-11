@@ -1,0 +1,164 @@
+From 116f3577b6a27c90e001e376e6f6d71a808dff16 Mon Sep 17 00:00:00 2001
+From: Ramprasad <ramprasadgoud34@gmail.com>
+Date: Sun, 11 Oct 2026 15:54:12 +0000
+Subject: [PATCH 5/8] fix(contracts): desk pays surplus to the borrower,
+ enforces jewellery reserve floor, effects before transfers
+
+Settlement credits the bank its dues and the borrower any surplus, as the RBI
+gold and silver directions require. Jewellery reserve price must be at least
+90% of the bank's value. Redeem and bid update state before pulling money
+(Slither reentrancy-no-eth triage). Registry caches the loop length.
+---
+ contracts/src/assets/AssetRegistry.sol    |  5 +++--
+ contracts/src/assets/BankAssetDesk.sol    | 24 ++++++++++++++++++-----
+ contracts/test/assets/BankAssetDesk.t.sol | 19 ++++++++++++++++--
+ 3 files changed, 39 insertions(+), 9 deletions(-)
+
+diff --git a/contracts/src/assets/AssetRegistry.sol b/contracts/src/assets/AssetRegistry.sol
+index 1460f52..e91933b 100644
+--- a/contracts/src/assets/AssetRegistry.sol
++++ b/contracts/src/assets/AssetRegistry.sol
+@@ -110,8 +110,9 @@ contract AssetRegistry is Ownable {
+ 
+     /// @notice Proof of reserve for every listed metal, one call for the app.
+     function allReserves() external view returns (MetalReserveView[] memory list) {
+-        list = new MetalReserveView[](codes.length);
+-        for (uint256 i; i < codes.length; ++i) {
++        uint256 n = codes.length;
++        list = new MetalReserveView[](n);
++        for (uint256 i; i < n; ++i) {
+             list[i] = reserveOf(codes[i]);
+         }
+     }
+diff --git a/contracts/src/assets/BankAssetDesk.sol b/contracts/src/assets/BankAssetDesk.sol
+index dc24370..92fad4a 100644
+--- a/contracts/src/assets/BankAssetDesk.sol
++++ b/contracts/src/assets/BankAssetDesk.sol
+@@ -23,8 +23,10 @@ import {PledgeReceipt} from "./PledgeReceipt.sol";
+ ///           cancels the auction and refunds every bidder;
+ ///         - only approved buyers can bid;
+ ///         - at settlement the bank re-attests the value, the receipt moves to the
+-///           winner and the winning bid goes to the bank; below reserve, the item
+-///           goes back to the bank and every bid is refunded;
++///           winner, the bank gets its dues and any surplus goes to the borrower;
++///           below reserve, the item goes back to the bank and every bid is refunded;
++///         - jewellery reserve price is at least 90% of the bank's value (RBI 2025);
++///         - the selling bank can never bid on its own listing (RBI 2025, para 42);
+ ///         - escrow is always fully covered: rupee balance == escrowed bids + money
+ ///           waiting to be withdrawn.
+ /// @dev No personal data: the borrower is a wallet address and the item an
+@@ -49,6 +51,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+     error DeskNothingToWithdraw();
+     error DeskNothingToReclaim(uint256 listingId);
+     error DeskSellerCannotBid(uint256 listingId);
++    error DeskReserveTooLow();
+ 
+     event BuyerApproved(address indexed buyer, bool approved);
+     event Listed(
+@@ -71,6 +74,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+     event Withdrawn(address indexed account, uint256 paise);
+ 
+     uint8 public constant ENGLISH = 0;
++    uint8 internal constant JEWELLERY_CLASS = 3; // PledgeReceipt.CLASS_JEWELLERY
+     bytes32 internal constant REVEALED = bytes32(uint256(1));
+     /// @notice If the bank never settles, the high bidder can take the money back
+     ///         this long after the auction and the redemption window have both ended.
+@@ -154,6 +158,9 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+         if (redemptionEnd <= block.timestamp || biddingEnd <= block.timestamp) revert DeskBadParams();
+         if (auctionType == SEALED ? revealEnd <= biddingEnd : revealEnd != biddingEnd) revert DeskBadParams();
+         if (borrower != address(0) && duesPaise == 0) revert DeskBadParams();
++        // RBI gold and silver directions: reserve price at least 90% of current value
++        PledgeReceipt.Receipt memory r = receipts.receiptOf(tokenId);
++        if (r.assetClass == JEWELLERY_CLASS && reservePaise * 100 < r.appraisedPaise * 90) revert DeskReserveTooLow();
+ 
+         listingId = ++listingCount;
+         listings[listingId] = Listing({
+@@ -195,7 +202,14 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+             } else {
+                 totalEscrow -= price;
+             }
+-            _credit(l.bank, price);
++            // RBI gold loan rule, applied to every item: the surplus over the dues goes
++            // back to the borrower; a shortfall is recovered off chain under the loan terms
++            if (l.borrower != address(0) && price > l.duesPaise) {
++                _credit(l.bank, l.duesPaise);
++                _credit(l.borrower, price - l.duesPaise);
++            } else {
++                _credit(l.bank, price);
++            }
+             receipts.moverReappraise(l.tokenId, newAppraisalPaise, newReappraiseBy);
+             receipts.transferFrom(address(this), winner, l.tokenId);
+             emit Sold(listingId, winner, price, newAppraisalPaise);
+@@ -217,8 +231,8 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+         l.status = Status.REDEEMED;
+         _refundHigh(listingId, l);
+         uint256 dues = l.duesPaise;
++        _credit(l.bank, dues); // effects first; the transfer below reverts the lot if unpaid
+         rupee.safeTransferFrom(msg.sender, address(this), dues);
+-        _credit(l.bank, dues);
+         receipts.transferFrom(address(this), msg.sender, l.tokenId);
+         emit RedeemedByBorrower(listingId, msg.sender, dues);
+     }
+@@ -233,7 +247,6 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+         uint256 minimum = l.highBid == 0 ? l.reservePaise : l.highBid + _increment(l.highBid);
+         if (paise < minimum) revert DeskBidTooLow(paise, minimum);
+ 
+-        rupee.safeTransferFrom(msg.sender, address(this), paise);
+         if (l.highBidder != address(0)) {
+             totalEscrow -= l.highBid;
+             _credit(l.highBidder, l.highBid);
+@@ -241,6 +254,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
+         l.highBidder = msg.sender;
+         l.highBid = paise;
+         totalEscrow += paise;
++        rupee.safeTransferFrom(msg.sender, address(this), paise);
+         emit BidPlaced(listingId, msg.sender, paise);
+     }
+ 
+diff --git a/contracts/test/assets/BankAssetDesk.t.sol b/contracts/test/assets/BankAssetDesk.t.sol
+index f6bf849..da93034 100644
+--- a/contracts/test/assets/BankAssetDesk.t.sol
++++ b/contracts/test/assets/BankAssetDesk.t.sol
+@@ -97,7 +97,8 @@ contract BankAssetDeskTest is AssetsBase {
+         desk.settle(lid, 3_50_000_00, uint64(block.timestamp + 365 days));
+         assertEq(receipts.ownerOf(id), buyerB);
+         assertEq(receipts.receiptOf(id).appraisedPaise, 3_50_000_00);
+-        assertEq(desk.credit(bankOps), RESERVE + 3_000_00);
++        assertEq(desk.credit(bankOps), DUES); // bank gets its dues
++        assertEq(desk.credit(alice), RESERVE + 3_000_00 - DUES); // surplus to the borrower
+         _solvent();
+ 
+         // the winner still cannot move it without the bank
+@@ -233,7 +234,8 @@ contract BankAssetDeskTest is AssetsBase {
+         vm.prank(bankOps);
+         desk.settle(lid, bidB, uint64(block.timestamp + 365 days));
+         assertEq(receipts.ownerOf(id), buyerB);
+-        assertEq(desk.credit(bankOps), bidB);
++        assertEq(desk.credit(bankOps), DUES);
++        assertEq(desk.credit(alice), bidB - DUES);
+         assertEq(desk.credit(buyerB), 3_50_000_00 - bidB); // excess deposit back
+         _solvent();
+     }
+@@ -272,6 +274,19 @@ contract BankAssetDeskTest is AssetsBase {
+         _solvent();
+     }
+ 
++    function test_jewelleryReserveAtLeast90PercentOfValue() public {
++        PledgeReceipt.PledgeAttestation memory a =
++            _pledgeAtt(bankOps, 3, 2_00_000_00, uint64(block.timestamp + 365 days));
++        uint256 id = receipts.issue(a, _signPledge(bankKey, a));
++        vm.startPrank(bankOps);
++        receipts.approve(address(desk), id);
++        uint64 w = uint64(block.timestamp + 30 days);
++        vm.expectRevert(BankAssetDesk.DeskReserveTooLow.selector);
++        desk.list(id, 0, 3, 1_79_999_99, w, w, w, alice, DUES);
++        desk.list(id, 0, 3, 1_80_000_00, w, w, w, alice, DUES);
++        vm.stopPrank();
++    }
++
+     function testFuzz_settleBeforeWindow_alwaysReverts(uint64 dt) public {
+         uint256 id = _repossessed();
+         uint256 lid = _list(id, 0);
+-- 
+2.47.3
+
