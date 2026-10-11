@@ -4,16 +4,7 @@
 // touches a public network.
 import fs from "node:fs";
 import path from "node:path";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  keccak256,
-  toHex,
-  encodeAbiParameters,
-  encodeFunctionData,
-  maxUint256,
-} from "viem";
+import { createPublicClient, createWalletClient, http, keccak256, toHex, encodeAbiParameters, encodeFunctionData, maxUint256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 
@@ -45,10 +36,7 @@ const A = {
   GaslessCollateralVault: art("GaslessCollateralVault.sol", "GaslessCollateralVault"),
   GaslessLoanAgreement: art("GaslessLoanAgreement.sol", "GaslessLoanAgreement"),
 };
-fs.writeFileSync(
-  path.join(RUNTIME, "abis.json"),
-  JSON.stringify(Object.fromEntries(Object.entries(A).map(([k, v]) => [k, v.abi])))
-);
+fs.writeFileSync(path.join(RUNTIME, "abis.json"), JSON.stringify(Object.fromEntries(Object.entries(A).map(([k, v]) => [k, v.abi]))));
 
 async function wait(hash) {
   const r = await pub.waitForTransactionReceipt({ hash });
@@ -64,8 +52,7 @@ async function send(key, address, name, functionName, args = []) {
   await wait(hash);
   return hash;
 }
-const read = (address, name, functionName, args = []) =>
-  pub.readContract({ address, abi: A[name].abi, functionName, args });
+const read = (address, name, functionName, args = []) => pub.readContract({ address, abi: A[name].abi, functionName, args });
 
 async function now() {
   return Number((await pub.getBlock()).timestamp);
@@ -111,9 +98,7 @@ async function relay(person, to, name, functionName, args = []) {
   });
   // simulate as the member first so a failure shows the real reason
   await pub.call({ account: person.address, to, data });
-  return send(K.relayer, FWD, "VaranasiForwarder", "execute", [
-    { from: person.address, to, value: 0n, gas: 600000n, deadline, data, signature },
-  ]);
+  return send(K.relayer, FWD, "VaranasiForwarder", "execute", [{ from: person.address, to, value: 0n, gas: 600000n, deadline, data, signature }]);
 }
 
 const RS = (rupees) => BigInt(Math.round(rupees * 100)); // paise
@@ -130,12 +115,7 @@ async function main() {
   await send(K.gov, registry, "GoldRegistry", "bindIssuer", [issuer]);
   const bankId = keccak256(toHex("MOCK-BANK-HYD-01"));
   const bankName = "Mock Bank, Ameerpet branch (demo)";
-  await send(K.gov, issuer, "BankGoldIssuer", "addBank", [
-    bankId,
-    bankName,
-    privateKeyToAccount(K.bankSigner).address,
-    privateKeyToAccount(K.bankOps).address,
-  ]);
+  await send(K.gov, issuer, "BankGoldIssuer", "addBank", [bankId, bankName, privateKeyToAccount(K.bankSigner).address, privateKeyToAccount(K.bankOps).address]);
   // per-bank cap: the mock bank may hold at most 1,000 g of gold for the app
   await send(K.gov, issuer, "BankGoldIssuer", "setBankMintCap", [bankId, 1_000_000n]);
   const rupee = await deploy(K.gov, "MockRupee", [gov, FWD]);
@@ -195,10 +175,12 @@ async function main() {
     [P.srinivas, RS(9000), keccak256(toHex("seed-salt-srinivas-1"))],
   ];
   for (const [p, bid, salt] of bids) {
-    const h = keccak256(encodeAbiParameters(
-      [{ type: "address" }, { type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
-      [fundA, 1n, p.address, bid, salt]
-    ));
+    const h = keccak256(
+      encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+        [fundA, 1n, p.address, bid, salt]
+      )
+    );
     await relay(p, fundA, "ChitFund", "commitBid", [h]);
   }
   await warpTo(Number(await read(fundA, "ChitFund", "graceEnd")));

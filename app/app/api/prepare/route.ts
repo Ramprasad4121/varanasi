@@ -87,7 +87,7 @@ function callFor(action: string, a: Record<string, string>, from: Address): Call
 }
 
 export async function POST(req: Request) {
-  const off = localOnly();
+  const off = localOnly(req);
   if (off) return off;
   const { from, action, args } = (await req.json()) as { from: string; action: string; args: Record<string, string> };
   if (!isAddress(from)) return json({ error: "BAD_ADDRESS" }, 400);

@@ -1,15 +1,16 @@
 "use client";
 // One client API for the screens, two back ends:
-//   local  (default): the app's own server routes, a LOCAL anvil chain, every action
-//                     signed on this device and sent through the relayer.
-//   public (NEXT_PUBLIC_VARANASI_MODE=public): the demo ledger in lib/sim runs in this
-//                     browser. No chain, no server state, TEST money only. For a
-//                     hosted public demo (Vercel) with nothing to keep running.
+//   public (default): the demo ledger in lib/sim runs in this browser. No chain, no
+//                     server state, TEST money only. This is what any host deploys
+//                     when no mode is set, so a plain deploy can never run the chain mode.
+//   local  (NEXT_PUBLIC_VARANASI_MODE=local, set by scripts/app-demo.sh): the app's own
+//                     server routes, a LOCAL anvil chain, every action signed on this
+//                     device and sent through the relayer.
 import { privateKeyToAccount } from "viem/accounts";
 import type { AppState, Mode, SignIn } from "./types";
 import { Sim, type World } from "./sim/engine";
 
-export const MODE: Mode = process.env.NEXT_PUBLIC_VARANASI_MODE === "public" ? "public" : "local";
+export const MODE: Mode = process.env.NEXT_PUBLIC_VARANASI_MODE === "local" ? "local" : "public";
 
 export interface Backend {
   mode: Mode;

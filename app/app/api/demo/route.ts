@@ -65,17 +65,16 @@ async function nextStep(fund: Address, user: Address) {
   const d = deployment();
   const pub = publicClient();
   const now = Number((await pub.getBlock()).timestamp);
-  const [started, finalized, round, graceEnd, revealEnd, members, contribution, maxDiscountBps] =
-    await Promise.all([
-      rdF(fund, "started"),
-      rdF(fund, "finalized"),
-      rdF(fund, "round"),
-      rdF(fund, "graceEnd"),
-      rdF(fund, "revealEnd"),
-      rdF(fund, "members"),
-      rdF(fund, "contribution"),
-      rdF(fund, "maxDiscountBps"),
-    ]);
+  const [started, finalized, round, graceEnd, revealEnd, members, contribution, maxDiscountBps] = await Promise.all([
+    rdF(fund, "started"),
+    rdF(fund, "finalized"),
+    rdF(fund, "round"),
+    rdF(fund, "graceEnd"),
+    rdF(fund, "revealEnd"),
+    rdF(fund, "members"),
+    rdF(fund, "contribution"),
+    rdF(fund, "maxDiscountBps"),
+  ]);
   if (!started) return { step: "waitingForMembers" };
   if (finalized) return { step: "finished" };
   const r = Number(round);
@@ -156,7 +155,7 @@ async function nextStep(fund: Address, user: Address) {
 }
 
 export async function POST(req: Request) {
-  const off = localOnly();
+  const off = localOnly(req);
   if (off) return off;
   const body = (await req.json()) as Record<string, string>;
   const user = body.addr as Address;
@@ -192,7 +191,11 @@ export async function POST(req: Request) {
           functionName: "positionOf",
           args: [l[4]],
         })) as [Address, Address, bigint];
-        const [pricePaise] = (await publicClient().readContract({ address: d.priceFeed, abi: abi("MockGoldPriceFeed"), functionName: "pricePaisePerGram" })) as bigint[];
+        const [pricePaise] = (await publicClient().readContract({
+          address: d.priceFeed,
+          abi: abi("MockGoldPriceFeed"),
+          functionName: "pricePaisePerGram",
+        })) as bigint[];
         if ((l[6] as bigint) > maxLoanPaise(Number(milli / MG), pricePaise)) return refused("LOAN_TOO_LARGE");
         const ref = await sendFrom(d.keys.lender, { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "fundLoan", args: [id] });
         return json({ ref });

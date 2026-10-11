@@ -54,6 +54,7 @@ if [ "$CHECK" = "1" ]; then
   export FAKE_KV_PORT="${FAKE_KV_PORT:-18700}"
   export KV_REST_API_URL="http://127.0.0.1:$FAKE_KV_PORT" KV_REST_API_TOKEN="fake-upstash-token-for-tests"
   export WAITLIST_ADMIN_TOKEN="local-test-admin-token-0123456789"
+  export WAITLIST_UNSUB_SECRET="local-test-unsub-secret-0123456789" TEST_UNSUB_SECRET="local-test-unsub-secret-0123456789"
   (cd "$APPDIR" && exec node scripts/fake-upstash.mjs "$FAKE_KV_PORT" >"$VARANASI_RUNTIME/fake-upstash.log" 2>&1) &
   PIDS+=($!)
   export FAKE_KV_RUNNING=1

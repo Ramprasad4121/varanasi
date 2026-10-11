@@ -2,16 +2,7 @@
 // Everything here runs against a LOCAL anvil chain. Keys are anvil dev keys.
 import fs from "node:fs";
 import path from "node:path";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  keccak256,
-  toHex,
-  type Abi,
-  type Address,
-  type Hex,
-} from "viem";
+import { createPublicClient, createWalletClient, http, keccak256, toHex, type Abi, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 
@@ -94,11 +85,27 @@ export function personFor(addr: string): Person | undefined {
 
 /** The chain routes exist only in the LOCAL demo. A public (hosted) build runs its
  *  demo ledger in the browser and must never look for a local chain. */
-export function localOnly(): Response | null {
-  // Also refuse on Vercel: these routes hand out mock device keys and move demo money,
-  // so they must never run on a public server, even if the mode variable is missing.
-  const off = process.env.NEXT_PUBLIC_VARANASI_MODE === "public" || !!process.env.VERCEL;
-  return off ? json({ error: "PUBLIC_DEMO_NO_CHAIN" }, 404) : null;
+export function localOnly(req?: Request): Response | null {
+  // Off unless the build is explicitly the local chain demo, and always off on Vercel:
+  // these routes hand out mock device keys and move demo money, so a deploy with no
+  // mode set (or a wrong one on Vercel) must never serve them.
+  const off = process.env.NEXT_PUBLIC_VARANASI_MODE !== "local" || !!process.env.VERCEL;
+  if (off) return json({ error: "PUBLIC_DEMO_NO_CHAIN" }, 404);
+  // Self hosted: answer only when the browser reached this computer by a local name
+  // (localhost, 127.0.0.1, ::1), so a local demo exposed on a network by mistake does
+  // not hand out keys or move demo money. ALLOW_DEMO_ROUTES=1 opens them on purpose
+  // (docker compose, where the smoke test calls http://app:3100).
+  if (req && process.env.ALLOW_DEMO_ROUTES !== "1" && !isLocalHost(req.headers.get("host"))) {
+    return json({ error: "PUBLIC_DEMO_NO_CHAIN" }, 404);
+  }
+  return null;
+}
+
+export function isLocalHost(host: string | null): boolean {
+  if (!host) return false;
+  const h = host.trim().toLowerCase();
+  const name = h.startsWith("[") ? h.slice(1, h.indexOf("]")) : h.split(":")[0];
+  return name === "localhost" || name === "127.0.0.1" || name === "::1";
 }
 
 /** A refusal the person can act on (a contract rule, a wrong code, a bad amount)
@@ -110,10 +117,13 @@ export function refused(code: string): Response {
 }
 
 export function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data, (_, v) => (typeof v === "bigint" ? v.toString() : v)), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify(data, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+    {
+      status,
+      headers: { "content-type": "application/json" },
+    }
+  );
 }
 
 export const MG = 10n ** 15n; // gold units per milligram

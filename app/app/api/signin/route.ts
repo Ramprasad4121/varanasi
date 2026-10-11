@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export async function POST(req: Request) {
-  const off = localOnly();
+  const off = localOnly(req);
   if (off) return off;
   const { phone, code } = (await req.json()) as { phone?: string; code?: string };
   const p = normalizePhone(phone || "");

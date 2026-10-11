@@ -26,6 +26,8 @@ export NO_PROXY="127.0.0.1,localhost${NO_PROXY:+,$NO_PROXY}" no_proxy="127.0.0.1
 CHAIN_PORT="${CHAIN_PORT:-18645}"
 export CHAIN_PORT
 export APP_PORT="${APP_PORT:-3100}"
+# the app builds the safe public demo unless told otherwise; this script is the chain demo
+export NEXT_PUBLIC_VARANASI_MODE=local
 RPC="http://127.0.0.1:$CHAIN_PORT"
 MODE="run"
 case "${1:-}" in

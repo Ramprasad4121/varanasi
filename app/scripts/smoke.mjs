@@ -43,8 +43,14 @@ const A = st.chits.find((c) => c.name.startsWith("Ameerpet"));
 const B = st.chits.find((c) => c.name.startsWith("Teachers"));
 ok(A && A.round === 2 && !A.me.paidThisRound, `home: chit "${A?.name}" month ${A?.round}, not paid yet`);
 ok(st.dues.length === 1 && st.dues[0].amountPaise === "200000", `home: next payment ${rs(st.dues[0]?.amountPaise)}`);
-ok(A.results[0].winnerName === "Lakshmi" && A.results[0].payoutPaise === "850000", `who won month 1: Lakshmi took ${rs(A.results[0].payoutPaise)} (lowest of ${A.results[0].bids.length} sealed bids)`);
-ok(A.results[0].commissionPaise === "50000" && A.results[0].dividendEachPaise === "25000", `why: foreman ${rs(A.results[0].commissionPaise)} (5% cap), dividend ${rs(A.results[0].dividendEachPaise)} each`);
+ok(
+  A.results[0].winnerName === "Lakshmi" && A.results[0].payoutPaise === "850000",
+  `who won month 1: Lakshmi took ${rs(A.results[0].payoutPaise)} (lowest of ${A.results[0].bids.length} sealed bids)`
+);
+ok(
+  A.results[0].commissionPaise === "50000" && A.results[0].dividendEachPaise === "25000",
+  `why: foreman ${rs(A.results[0].commissionPaise)} (5% cap), dividend ${rs(A.results[0].dividendEachPaise)} each`
+);
 ok(B && !B.me.joined && !B.started, `invitation: "${B?.name}" ${B?.enrolledCount}/${B?.memberCount} joined`);
 
 // ---- chits
@@ -72,7 +78,10 @@ await post("/api/demo", { op: "nextStep", fund: A.address, addr: s.address });
 st = await state();
 const A2 = st.chits.find((c) => c.address === A.address);
 const r2 = A2.results.find((r) => r.round === 2);
-ok(r2 && r2.winnerIsMe, `month 2 settled: winner ${r2?.winnerName}, took ${rs(r2?.payoutPaise)}, bids ${r2?.bids.map((b) => b.name + " " + rs(b.bidPaise)).join(", ")}`);
+ok(
+  r2 && r2.winnerIsMe,
+  `month 2 settled: winner ${r2?.winnerName}, took ${rs(r2?.payoutPaise)}, bids ${r2?.bids.map((b) => b.name + " " + rs(b.bidPaise)).join(", ")}`
+);
 ok(A2.round === 3 && A2.me.won, "month 3 open, Ravi marked as winner");
 ok(BigInt(A2.me.prizeHeldPaise) === 600000n, `prize kept safe for remaining 3 months: ${rs(A2.me.prizeHeldPaise)}`);
 ok(BigInt(A2.me.canTakePaise) > 0n, `my dividend + free prize ready: ${rs(A2.me.canTakePaise)} (dividends so far ${rs(A2.me.dividendsTotalPaise)})`);
@@ -114,7 +123,10 @@ await act("loan.pledge", { pos: pos1, grams: "5" });
 await act("loan.ask", { pos: pos1, rupees: "40000" });
 st = await state();
 const L1 = st.loans.list.at(-1);
-ok(L1 && L1.status === "ASKED" && st.gold.milli === goldBefore - 5000 && st.gold.pledgedMilli === 5000, `loan: pledged 5.000 g, asked Rs 40,000 (status ${L1?.status})`);
+ok(
+  L1 && L1.status === "ASKED" && st.gold.milli === goldBefore - 5000 && st.gold.pledgedMilli === 5000,
+  `loan: pledged 5.000 g, asked Rs 40,000 (status ${L1?.status})`
+);
 await post("/api/demo", { op: "bankApproveLoan", id: String(L1.id) });
 st = await state();
 ok(loanOf(st, L1.id).status === "APPROVED", "loan: mock bank approved (inside 75% of demo value)");
@@ -122,12 +134,18 @@ const cashBefore = BigInt(st.rupeePaise);
 await act("loan.draw", { id: String(L1.id) });
 st = await state();
 const L1d = loanOf(st, L1.id);
-ok(L1d.status === "ACTIVE" && BigInt(st.rupeePaise) - cashBefore === 4000000n && L1d.dueAt > 0, `loan: took Rs 40,000, repay ${rs(L1d.owedNowPaise)} by due date`);
+ok(
+  L1d.status === "ACTIVE" && BigInt(st.rupeePaise) - cashBefore === 4000000n && L1d.dueAt > 0,
+  `loan: took Rs 40,000, repay ${rs(L1d.owedNowPaise)} by due date`
+);
 const owed = BigInt(L1d.owedNowPaise);
 await act("loan.allowRupee", {});
 await act("loan.repay", { id: String(L1.id), max: ((owed * 101n) / 100n + 100n).toString() });
 st = await state();
-ok(loanOf(st, L1.id).status === "REPAID" && st.gold.milli === goldBefore && st.gold.pledgedMilli === 0, `loan: repaid ${rs(owed)}, 5.000 g back (free gold ${g(st.gold.milli)})`);
+ok(
+  loanOf(st, L1.id).status === "REPAID" && st.gold.milli === goldBefore && st.gold.pledgedMilli === 0,
+  `loan: repaid ${rs(owed)}, 5.000 g back (free gold ${g(st.gold.milli)})`
+);
 
 // 75% cap: 1 g is worth Rs 12,000 (demo price), so the bank lends at most Rs 9,000
 const pos2 = newPos("b");
@@ -136,7 +154,11 @@ await act("loan.pledge", { pos: pos2, grams: "1" });
 await act("loan.ask", { pos: pos2, rupees: "10000" });
 st = await state();
 const L2 = st.loans.list.at(-1);
-const capRes = await fetch(APP + "/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op: "bankApproveLoan", id: String(L2.id) }) }).then((r) => r.json());
+const capRes = await fetch(APP + "/api/demo", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ op: "bankApproveLoan", id: String(L2.id) }),
+}).then((r) => r.json());
 ok(capRes.error === "LOAN_TOO_LARGE" && loanOf(await state(), L2.id).status === "ASKED", `loan above 75% refused by the bank (${capRes.error})`);
 await act("loan.cancel", { id: String(L2.id) });
 st = await state();
@@ -162,7 +184,7 @@ try {
 }
 
 // ---- zero gas
-const bal = await fetch(st.rpc || "http://127.0.0.1:" + (process.env.CHAIN_PORT || "18645"), {
+const bal = await fetch(process.env.CHAIN_RPC || st.rpc || "http://127.0.0.1:" + (process.env.CHAIN_PORT || "18645"), {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [s.address, "latest"] }),
@@ -170,6 +192,24 @@ const bal = await fetch(st.rpc || "http://127.0.0.1:" + (process.env.CHAIN_PORT 
   .then((r) => r.json())
   .catch(() => ({ result: "unknown" }));
 ok(bal.result === "0x0", `Ravi never held or paid network fees (balance ${bal.result})`);
+
+// ---- local demo routes refuse a request that reached the app by a non local name
+if (process.env.ALLOW_DEMO_ROUTES !== "1") {
+  const http = await import("node:http");
+  const u = new URL(APP + "/api/signin");
+  const status = await new Promise((resolve) => {
+    const r = http.request(
+      { hostname: u.hostname, port: u.port, path: u.pathname, method: "POST", headers: { host: "demo.example.com", "content-type": "application/json" } },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      }
+    );
+    r.on("error", () => resolve(0));
+    r.end(JSON.stringify({ phone: "9876543210", code: "123456" }));
+  });
+  ok(status === 404, `demo routes refuse a non local Host header (status ${status})`);
+}
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nall checks passed");
 process.exit(failures ? 1 : 0);

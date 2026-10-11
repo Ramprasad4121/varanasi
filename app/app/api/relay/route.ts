@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export async function POST(req: Request) {
-  const off = localOnly();
+  const off = localOnly(req);
   if (off) return off;
   const { message, signature } = (await req.json()) as { message: ForwardMessage; signature: Hex };
   try {
