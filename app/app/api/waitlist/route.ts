@@ -2,7 +2,8 @@
 // GET lists entries for the team only (Authorization: Bearer $WAITLIST_ADMIN_TOKEN).
 // Works in both the local demo (file) and the public demo (Upstash Redis on Vercel).
 import { createHash, timingSafeEqual } from "node:crypto";
-import { addEntry, listEntries, storeKind, validate } from "@/lib/waitlist";
+import { addEntry, listEntriesForUpdates, storeKind, validate } from "@/lib/waitlist";
+import { reportError } from "@/lib/monitor";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
     return json({ ok: true, added });
   } catch (e) {
     const m = (e as Error).message;
+    if (m !== "WAITLIST_NOT_CONFIGURED") await reportError(e, "waitlist.add");
     return json({ error: m === "WAITLIST_NOT_CONFIGURED" ? m : "STORE_DOWN" }, 503);
   }
 }
@@ -51,7 +53,7 @@ export async function GET(req: Request) {
   // constant time compare of equal length digests; short tokens are ignored
   if (token.length < 16 || !timingSafeEqual(digest(auth), digest(`Bearer ${token}`))) return json({ error: "NOT_FOUND" }, 404);
   try {
-    const entries = await listEntries();
+    const entries = await listEntriesForUpdates(); // updates=false for anyone who unsubscribed
     return json({ store: storeKind(), count: entries.length, entries });
   } catch (e) {
     return json({ error: (e as Error).message }, 503);

@@ -35,6 +35,11 @@ ok(validate({ ...good, name: "A" }).error === "WL_NAME", "one letter name refuse
 ok(validate({ ...good, consent: false }).error === "WL_CONSENT", "no consent refused (WL_CONSENT)");
 ok(validate({ ...good, interest: "crypto" }).error === "WL_INTEREST", "unknown interest refused (WL_INTEREST)");
 ok(validate({ ...good, website: "http://spam" }).error === "SPAM", "hidden field filled -> treated as a bot");
+ok(validate(good).entry?.updates === false, "weekly update is off unless ticked");
+ok(
+  validate({ ...good, updates: true }).entry?.updates === true && validate({ ...good, updates: "yes" }).entry?.updates === false,
+  "weekly update only on an explicit tick (true), not on any other value"
+);
 
 // ---- file store (local demo)
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wl-"));
@@ -61,7 +66,10 @@ process.env.KV_REST_API_TOKEN = TOKEN;
 ok(W.storeKind() === "redis", "with KV_REST_API_URL + token: Upstash store");
 const e2 = validate({ ...good, contact: "anitha@example.com" }).entry;
 ok((await W.addEntry(e2)) === true && (await W.addEntry(e2)) === false, "Upstash: added once, duplicate refused by SADD");
-ok((await W.listEntries()).some((x) => x.contact === "anitha@example.com"), "Upstash: entry listed");
+ok(
+  (await W.listEntries()).some((x) => x.contact === "anitha@example.com"),
+  "Upstash: entry listed"
+);
 process.env.KV_REST_API_TOKEN = "wrong";
 threw = "";
 try {
@@ -72,11 +80,34 @@ try {
 ok(threw === "STORE_DOWN", "Upstash rejects a bad token -> STORE_DOWN, not a fake success");
 process.env.KV_REST_API_TOKEN = TOKEN;
 
+// ---- weekly update opt out (unsubscribe link with an HMAC token)
+delete process.env.WAITLIST_UNSUB_SECRET;
+ok(W.unsubscribePath("anitha@example.com") === "", "no secret set: no unsubscribe link is offered");
+process.env.WAITLIST_UNSUB_SECRET = process.env.TEST_UNSUB_SECRET || "local-test-unsub-secret-0123456789";
+const e3 = validate({ ...good, contact: "lakshmi@example.com", updates: true }).entry;
+await W.addEntry(e3);
+const link = new URL("http://x" + W.unsubscribePath("lakshmi@example.com"));
+const ck = link.searchParams.get("c");
+const tk = link.searchParams.get("t");
+ok(
+  W.checkUnsubscribe(ck, tk) && !W.checkUnsubscribe(ck, "0".repeat(64)) && !W.checkUnsubscribe(W.contactKey("other@example.com"), tk),
+  "unsubscribe token works only for its own contact"
+);
+ok((await W.listEntriesForUpdates()).find((x) => x.contact === "lakshmi@example.com")?.updates === true, "opted in before unsubscribing");
+await W.unsubscribe(ck);
+await W.unsubscribe(ck);
+ok(
+  (await W.listEntriesForUpdates()).find((x) => x.contact === "lakshmi@example.com")?.updates === false,
+  "after unsubscribe (twice, idempotent): updates off, still on the waitlist"
+);
+
 // ---- the running app (public mode, pointed at the fake Upstash)
 const APP = process.env.APP;
 if (APP) {
   const post = (b, ip = "10.0.0.1") =>
-    fetch(APP + "/api/waitlist", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip }, body: JSON.stringify(b) }).then(async (r) => ({ status: r.status, j: await r.json() }));
+    fetch(APP + "/api/waitlist", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip }, body: JSON.stringify(b) }).then(
+      async (r) => ({ status: r.status, j: await r.json() })
+    );
   let r = await post({ ...good, contact: "90000 11111" });
   ok(r.status === 200 && r.j.added === true, "API: join waitlist -> added");
   r = await post({ ...good, contact: "90000 11111" });
@@ -94,6 +125,20 @@ if (APP) {
   let last = 0;
   for (let i = 0; i < 12; i++) last = (await post({ ...good, contact: `9${String(100000000 + i)}` }, "10.9.9.9")).status;
   ok(last === 429, "API: more than 10 joins in 10 minutes from one address -> 429 (per instance only)");
+  r = await post({ ...good, contact: "ravi.updates@example.com", updates: true }, "10.0.0.2");
+  const adm2 = await fetch(APP + "/api/waitlist", { headers: { authorization: `Bearer ${ADMIN}` } }).then((x) => x.json());
+  ok(
+    r.j.added === true && adm2.entries.find((x) => x.contact === "ravi.updates@example.com")?.updates === true,
+    "API: weekly update opt in stored with the signup"
+  );
+  const bad = await fetch(APP + "/api/waitlist/unsubscribe?c=" + W.contactKey("ravi.updates@example.com") + "&t=" + "0".repeat(64)).then((x) => x.status);
+  ok(bad === 400, "API: unsubscribe with a wrong token -> 400, nothing changed");
+  const goodLink = await fetch(APP + W.unsubscribePath("ravi.updates@example.com")).then(async (x) => ({ s: x.status, t: await x.text() }));
+  const adm3 = await fetch(APP + "/api/waitlist", { headers: { authorization: `Bearer ${ADMIN}` } }).then((x) => x.json());
+  ok(
+    goodLink.s === 200 && goodLink.t.includes("weekly update") && adm3.entries.find((x) => x.contact === "ravi.updates@example.com")?.updates === false,
+    "API: unsubscribe link -> plain confirmation page, updates off"
+  );
   const local = await fetch(APP + "/api/state?addr=0x0000000000000000000000000000000000000001").then((x) => x.status);
   ok(local === 404, "API: local chain routes answer 404 in public mode");
 }

@@ -8,12 +8,13 @@
 //      nothing is pretended to be saved.
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { Entry } from "./waitlist-rules";
 export { validate, type Entry, type Interest } from "./waitlist-rules";
 
 const ENTRIES = "varanasi:waitlist:entries";
 const KEYS = "varanasi:waitlist:contacts";
+const UNSUB = "varanasi:waitlist:unsubscribed";
 
 function redisConfig() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -94,4 +95,71 @@ export async function listEntries(): Promise<Entry[]> {
       .map((l) => JSON.parse(l));
   }
   throw new Error("WAITLIST_NOT_CONFIGURED");
+}
+
+// ---- weekly update opt out. The link in every update carries the contact key and an
+// HMAC of it made with WAITLIST_UNSUB_SECRET (server only), so nobody can unsubscribe
+// someone else by guessing. Without the secret, unsubscribe links are not offered.
+function unsubSecret() {
+  const s = process.env.WAITLIST_UNSUB_SECRET || "";
+  return s.length >= 16 ? s : "";
+}
+
+/** Token for the unsubscribe link of `contact`, or "" when no secret is set. */
+export function unsubscribeToken(contact: string): string {
+  const s = unsubSecret();
+  return s ? createHmac("sha256", s).update(contactKey(contact)).digest("hex") : "";
+}
+
+/** Path to put in a weekly update, e.g. /api/waitlist/unsubscribe?c=...&t=... */
+export function unsubscribePath(contact: string): string {
+  const t = unsubscribeToken(contact);
+  return t ? `/api/waitlist/unsubscribe?c=${contactKey(contact)}&t=${t}` : "";
+}
+
+export function checkUnsubscribe(key: string, token: string): boolean {
+  const s = unsubSecret();
+  if (!s || !/^[0-9a-f]{64}$/.test(key) || !/^[0-9a-f]{64}$/.test(token)) return false;
+  const want = createHmac("sha256", s).update(key).digest();
+  return timingSafeEqual(want, Buffer.from(token, "hex"));
+}
+
+function unsubFile() {
+  return filePath().replace(/\.jsonl$/, "") + "-unsubscribed.txt";
+}
+
+/** Records the opt out. Idempotent. */
+export async function unsubscribe(key: string): Promise<void> {
+  const kind = storeKind();
+  if (kind === "redis") {
+    await redis([["SADD", UNSUB, key]]);
+    return;
+  }
+  if (kind === "file") {
+    const f = unsubFile();
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    const have = fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\n") : [];
+    if (!have.includes(key)) fs.appendFileSync(f, key + "\n");
+    return;
+  }
+  throw new Error("WAITLIST_NOT_CONFIGURED");
+}
+
+async function unsubscribedKeys(): Promise<Set<string>> {
+  const kind = storeKind();
+  if (kind === "redis") {
+    const [rows] = await redis([["SMEMBERS", UNSUB]]);
+    return new Set((rows as string[]) || []);
+  }
+  if (kind === "file") {
+    const f = unsubFile();
+    return new Set(fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\n").filter(Boolean) : []);
+  }
+  return new Set();
+}
+
+/** Entries with `updates` turned off for anyone who unsubscribed. */
+export async function listEntriesForUpdates(): Promise<Entry[]> {
+  const [all, off] = await Promise.all([listEntries(), unsubscribedKeys()]);
+  return all.map((e) => ({ ...e, updates: !!e.updates && !off.has(contactKey(e.contact)) }));
 }

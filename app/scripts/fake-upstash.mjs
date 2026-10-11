@@ -1,4 +1,4 @@
-// A tiny FAKE of the Upstash Redis REST API (/pipeline with SADD, RPUSH, LRANGE) for
+// A tiny FAKE of the Upstash Redis REST API (/pipeline with SADD, SMEMBERS, RPUSH, LRANGE) for
 // local tests only. No real Upstash account is used anywhere in the tests.
 // Run alone: node scripts/fake-upstash.mjs [port]   (token: fake-upstash-token-for-tests)
 import http from "node:http";
@@ -36,6 +36,7 @@ export function startFakeUpstash(port, token = "fake-upstash-token-for-tests") {
           return { result: l.length };
         }
         if (cmd === "LRANGE") return { result: lists.get(key) || [] };
+        if (cmd === "SMEMBERS") return { result: [...(sets.get(key) || [])] };
         return { error: "unknown command" };
       });
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(out));
