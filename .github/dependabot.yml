@@ -22,3 +22,16 @@ updates:
     schedule:
       interval: weekly
       day: monday
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      next-react:
+        patterns: ["next", "react", "react-dom", "@types/react*", "eslint-config-next"]
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+      day: monday
