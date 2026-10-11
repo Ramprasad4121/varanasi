@@ -1,0 +1,60 @@
+# Varanasi people app: the full LOCAL demo in containers (test money only).
+#   docker compose up --build        then open http://localhost:3100
+#   docker compose run --rm smoke    API smoke test against the running stack
+# Services: a local anvil chain (clock starts 6 days back so demo dates read
+# naturally), and the app, which deploys the demo contracts and seeds the story on
+# first start. Anvil keys are public dev keys. Nothing here touches a public network.
+name: varanasi-people-app
+
+services:
+  chain:
+    image: ghcr.io/foundry-rs/foundry:stable
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["anvil --host 0.0.0.0 --port 8545 --chain-id 31337 --timestamp $$(( $$(date +%s) - 518400 ))"]
+    ports:
+      - "127.0.0.1:18645:8545"
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://127.0.0.1:8545"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/people-app.Dockerfile
+    environment:
+      SEED: "1"
+      # the smoke container reaches the app as http://app:3100, not localhost
+      ALLOW_DEMO_ROUTES: "1"
+      RPC: http://chain:8545
+      APP_PORT: "3100"
+      VARANASI_RUNTIME: /app/runtime
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      chain:
+        condition: service_healthy
+    volumes:
+      - runtime:/app/runtime
+
+  # one-shot API smoke test (32 checks) against the running stack
+  smoke:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: docker/people-app.Dockerfile
+    entrypoint: ["node", "scripts/smoke.mjs"]
+    environment:
+      APP: http://app:3100
+      ALLOW_DEMO_ROUTES: "1"
+      CHAIN_RPC: http://chain:8545
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  runtime:
