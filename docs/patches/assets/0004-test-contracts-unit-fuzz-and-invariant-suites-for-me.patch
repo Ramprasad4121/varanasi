@@ -1,0 +1,1240 @@
+From f2758d6af22d9fbf207ae831d908caa9d3890f53 Mon Sep 17 00:00:00 2001
+From: Ramprasad <ramprasadgoud34@gmail.com>
+Date: Sun, 11 Oct 2026 15:40:37 +0000
+Subject: [PATCH 4/8] test(contracts): unit, fuzz and invariant suites for
+ metals, pledges and the asset desk
+
+---
+ contracts/test/assets/AssetsBase.sol        | 191 +++++++++++++
+ contracts/test/assets/AssetsInvariant.t.sol | 298 ++++++++++++++++++++
+ contracts/test/assets/BankAssetDesk.t.sol   | 297 +++++++++++++++++++
+ contracts/test/assets/MetalIssuer.t.sol     | 146 ++++++++++
+ contracts/test/assets/Pledge.t.sol          | 256 +++++++++++++++++
+ 5 files changed, 1188 insertions(+)
+ create mode 100644 contracts/test/assets/AssetsBase.sol
+ create mode 100644 contracts/test/assets/AssetsInvariant.t.sol
+ create mode 100644 contracts/test/assets/BankAssetDesk.t.sol
+ create mode 100644 contracts/test/assets/MetalIssuer.t.sol
+ create mode 100644 contracts/test/assets/Pledge.t.sol
+
+diff --git a/contracts/test/assets/AssetsBase.sol b/contracts/test/assets/AssetsBase.sol
+new file mode 100644
+index 0000000..4be6066
+--- /dev/null
++++ b/contracts/test/assets/AssetsBase.sol
+@@ -0,0 +1,191 @@
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.26;
++
++import "forge-std/Test.sol";
++import {GoldToken} from "../../src/gold/GoldToken.sol";
++import {GoldRegistry} from "../../src/gold/GoldRegistry.sol";
++import {BankGoldIssuer} from "../../src/gold/BankGoldIssuer.sol";
++import {MetalToken} from "../../src/assets/MetalToken.sol";
++import {MetalCertificateRegistry} from "../../src/assets/MetalCertificateRegistry.sol";
++import {BankMetalIssuer} from "../../src/assets/BankMetalIssuer.sol";
++import {AssetRegistry} from "../../src/assets/AssetRegistry.sol";
++import {PledgeReceipt} from "../../src/assets/PledgeReceipt.sol";
++import {PledgeLoan} from "../../src/assets/PledgeLoan.sol";
++import {BankAssetDesk} from "../../src/assets/BankAssetDesk.sol";
++import {MockRupee} from "../../src/app/MockRupee.sol";
++
++/// Shared deployment for the multi-asset suites: gold (existing), silver and
++/// platinum (BankMetalIssuer), the asset registry, pledge receipts, the pledge
++/// loan book and the bank asset desk. Bank keys are mock keys.
++abstract contract AssetsBase is Test {
++    address gov = makeAddr("governance");
++    address bankOps = makeAddr("bank-ops");
++    address bank2Ops = makeAddr("bank2-ops");
++    address alice = makeAddr("alice");
++    address bob = makeAddr("bob");
++    address rogue = makeAddr("rogue");
++    address buyerA = makeAddr("buyer-a");
++    address buyerB = makeAddr("buyer-b");
++
++    uint256 bankKey = 0xB4A1C;
++    uint256 bank2Key = 0xB4A2C;
++    address bankSigner;
++    address bank2Signer;
++
++    bytes32 constant BANK = keccak256("MOCK-BANK-1");
++    bytes32 constant BANK2 = keccak256("MOCK-BANK-2");
++    bytes32 constant XAU = "XAU";
++    bytes32 constant XAG = "XAG";
++    bytes32 constant XPT = "XPT";
++    uint256 constant MG = 1e15;
++
++    GoldToken gold;
++    GoldRegistry goldReg;
++    BankGoldIssuer goldIssuer;
++    MetalToken silver;
++    BankMetalIssuer silverIssuer;
++    MetalToken platinum;
++    BankMetalIssuer platinumIssuer;
++    AssetRegistry assets;
++
++    PledgeReceipt receipts;
++    PledgeLoan loans;
++    BankAssetDesk desk;
++    MockRupee rupee;
++
++    uint256 nonceSeq;
++
++    function _deployMetals() internal {
++        bankSigner = vm.addr(bankKey);
++        bank2Signer = vm.addr(bank2Key);
++        gold = new GoldToken(address(0));
++        goldReg = new GoldRegistry();
++        goldIssuer = new BankGoldIssuer(gov, address(gold), address(goldReg), address(0));
++        gold.bindIssuer(address(goldIssuer));
++        goldReg.bindIssuer(address(goldIssuer));
++
++        (silver, silverIssuer) = _newMetal("Varanasi Silver", "vSILVER", XAG, 999);
++        (platinum, platinumIssuer) = _newMetal("Varanasi Platinum", "vPLAT", XPT, 950);
++
++        vm.startPrank(gov);
++        goldIssuer.addBank(BANK, "Mock Bank 1", bankSigner, bankOps);
++        silverIssuer.addBank(BANK, "Mock Bank 1", bankSigner, bankOps);
++        silverIssuer.addBank(BANK2, "Mock Bank 2", bank2Signer, bank2Ops);
++        platinumIssuer.addBank(BANK, "Mock Bank 1", bankSigner, bankOps);
++        assets = new AssetRegistry(gov);
++        assets.listMetal(XAU, "Gold", address(gold), address(goldIssuer));
++        assets.listMetal(XAG, "Silver", address(silver), address(silverIssuer));
++        assets.listMetal(XPT, "Platinum", address(platinum), address(platinumIssuer));
++        vm.stopPrank();
++    }
++
++    function _newMetal(string memory name, string memory symbol, bytes32 code, uint16 minPurity)
++        internal
++        returns (MetalToken t, BankMetalIssuer i)
++    {
++        t = new MetalToken(name, symbol, address(0));
++        MetalCertificateRegistry r = new MetalCertificateRegistry();
++        i = new BankMetalIssuer(gov, address(t), address(r), address(0), code, name, minPurity);
++        t.bindIssuer(address(i));
++        r.bindIssuer(address(i));
++    }
++
++    function _metalAtt(bytes32 bankId, address user, bytes32 cert, uint256 fineMilli, uint256 purity)
++        internal
++        returns (BankMetalIssuer.BankAttestation memory a)
++    {
++        a = BankMetalIssuer.BankAttestation({
++            bankId: bankId,
++            user: user,
++            certificateId: cert,
++            fineGramsMilli: fineMilli,
++            purityPermille: purity,
++            nonce: ++nonceSeq,
++            expiry: block.timestamp + 1 days
++        });
++    }
++
++    function _signMetal(BankMetalIssuer issuer, uint256 key, BankMetalIssuer.BankAttestation memory a)
++        internal
++        view
++        returns (bytes memory)
++    {
++        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, issuer.hashAttestation(a));
++        return abi.encodePacked(r, s, v);
++    }
++
++    function _mintMetal(BankMetalIssuer issuer, address user, uint256 fineMilli) internal returns (bytes32 cert) {
++        cert = keccak256(abi.encode(address(issuer), "cert", nonceSeq + 1));
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, user, cert, fineMilli, 999);
++        issuer.mint(a, _signMetal(issuer, bankKey, a));
++    }
++
++    // ---------------------------------------------------------------- pledge
++    function _deployPledge() internal {
++        if (bankSigner == address(0)) {
++            bankSigner = vm.addr(bankKey);
++            bank2Signer = vm.addr(bank2Key);
++        }
++        vm.startPrank(gov);
++        receipts = new PledgeReceipt(gov);
++        rupee = new MockRupee(gov, address(0));
++        loans = new PledgeLoan(gov, address(receipts), address(rupee));
++        desk = new BankAssetDesk(gov, address(receipts), address(rupee));
++        receipts.addBank(BANK, "Mock Bank 1", bankSigner, bankOps);
++        receipts.addBank(BANK2, "Mock Bank 2", bank2Signer, bank2Ops);
++        receipts.setLienMover(address(loans), true);
++        receipts.setLienMover(address(desk), true);
++        desk.setApprovedBuyer(buyerA, true);
++        desk.setApprovedBuyer(buyerB, true);
++        desk.setApprovedBuyer(bank2Ops, true);
++        rupee.mint(bankOps, 100_000_000_00);
++        rupee.mint(alice, 10_000_000_00);
++        rupee.mint(buyerA, 100_000_000_00);
++        rupee.mint(buyerB, 100_000_000_00);
++        rupee.mint(bank2Ops, 100_000_000_00);
++        vm.stopPrank();
++        vm.prank(bankOps);
++        rupee.approve(address(loans), type(uint256).max);
++        vm.prank(bankOps);
++        loans.fund(BANK, 50_000_000_00); // Rs 5 crore lending pot
++        for (uint256 i; i < 4; ++i) {
++            address who = [alice, buyerA, buyerB, bank2Ops][i];
++            vm.startPrank(who);
++            rupee.approve(address(loans), type(uint256).max);
++            rupee.approve(address(desk), type(uint256).max);
++            vm.stopPrank();
++        }
++    }
++
++    function _pledgeAtt(address holder, uint8 cls, uint256 paise, uint64 reappraiseBy)
++        internal
++        returns (PledgeReceipt.PledgeAttestation memory a)
++    {
++        uint256 n = ++nonceSeq;
++        a = PledgeReceipt.PledgeAttestation({
++            bankId: BANK,
++            holder: holder,
++            receiptRef: keccak256(abi.encode("pledge", n)),
++            assetClass: cls,
++            assetIdHash: keccak256(abi.encode("RC-TS09-hash", n)),
++            detailsHash: keccak256(abi.encode("appraisal-file", n)),
++            appraisedPaise: paise,
++            appraisedAt: uint64(block.timestamp),
++            reappraiseBy: reappraiseBy,
++            nonce: n,
++            expiry: block.timestamp + 1 days
++        });
++    }
++
++    function _signPledge(uint256 key, PledgeReceipt.PledgeAttestation memory a) internal view returns (bytes memory) {
++        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, receipts.hashAttestation(a));
++        return abi.encodePacked(r, s, v);
++    }
++
++    /// Issue a receipt for a Rs 6 lakh car (class 0) valid for a year.
++    function _issueCar(address holder) internal returns (uint256 id) {
++        PledgeReceipt.PledgeAttestation memory a =
++            _pledgeAtt(holder, 0, 6_00_000_00, uint64(block.timestamp + 365 days));
++        id = receipts.issue(a, _signPledge(bankKey, a));
++    }
++}
+diff --git a/contracts/test/assets/AssetsInvariant.t.sol b/contracts/test/assets/AssetsInvariant.t.sol
+new file mode 100644
+index 0000000..c73f592
+--- /dev/null
++++ b/contracts/test/assets/AssetsInvariant.t.sol
+@@ -0,0 +1,298 @@
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.26;
++
++import "./AssetsBase.sol";
++
++/// Random sequences of metal deposits, redemptions, bank releases and transfers
++/// across silver and platinum.
++contract MetalHandler is AssetsBase {
++    BankMetalIssuer[2] public issuers;
++    MetalToken[2] public tokens;
++    address[3] internal users;
++    uint256[] internal pendingIds;
++    uint256[] internal pendingIssuer;
++
++    constructor(BankMetalIssuer s, BankMetalIssuer p, MetalToken st, MetalToken pt, uint256 key, address ops) {
++        issuers = [s, p];
++        tokens = [st, pt];
++        bankKey = key;
++        bankOps = ops;
++        users = [makeAddr("u1"), makeAddr("u2"), makeAddr("u3")];
++    }
++
++    function deposit(uint256 which, uint256 user, uint64 fine) external {
++        BankMetalIssuer i = issuers[which % 2];
++        fine = uint64(bound(fine, 1, 1e9));
++        BankMetalIssuer.BankAttestation memory a =
++            _metalAtt(BANK, users[user % 3], keccak256(abi.encode("inv", nonceSeq + 1)), fine, 999);
++        i.mint(a, _signMetal(i, bankKey, a));
++    }
++
++    function redeem(uint256 which, uint256 user, uint256 amt) external {
++        uint256 w = which % 2;
++        address u = users[user % 3];
++        uint256 bal = tokens[w].balanceOf(u) / MG;
++        if (bal == 0) return;
++        amt = bound(amt, 1, bal);
++        vm.prank(u);
++        uint256 id = issuers[w].requestRedemption(BANK, amt, "inv");
++        pendingIds.push(id);
++        pendingIssuer.push(w);
++    }
++
++    function fulfil(uint256 k) external {
++        if (pendingIds.length == 0) return;
++        k = k % pendingIds.length;
++        uint256 id = pendingIds[k];
++        BankMetalIssuer i = issuers[pendingIssuer[k]];
++        pendingIds[k] = pendingIds[pendingIds.length - 1];
++        pendingIds.pop();
++        pendingIssuer[k] = pendingIssuer[pendingIssuer.length - 1];
++        pendingIssuer.pop();
++        vm.prank(bankOps);
++        if (uint256(keccak256(abi.encode(id))) % 2 == 0) i.fulfilRedemption(id, "r");
++        else i.cancelRedemption(id, "c");
++    }
++
++    function transfer(uint256 which, uint256 from, uint256 to, uint256 amt) external {
++        MetalToken t = tokens[which % 2];
++        address f = users[from % 3];
++        uint256 bal = t.balanceOf(f);
++        if (bal == 0) return;
++        vm.prank(f);
++        t.transfer(users[to % 3], bound(amt, 0, bal));
++    }
++}
++
++contract MetalInvariantTest is AssetsBase {
++    MetalHandler handler;
++
++    function setUp() public {
++        _deployMetals();
++        handler = new MetalHandler(silverIssuer, platinumIssuer, silver, platinum, bankKey, bankOps);
++        targetContract(address(handler));
++    }
++
++    function _check(BankMetalIssuer i, MetalToken t) internal view {
++        (uint256 supply, uint256 attested, uint256 pending, uint256 disputed, bool ok) = i.proofOfReserve();
++        assertTrue(ok, "fully backed");
++        assertLe(supply + pending + disputed, attested, "supply <= attested reserve");
++        assertEq(t.totalSupply() % MG, 0, "whole milligrams only");
++    }
++
++    function invariant_perMetalSupplyWithinReserve() public view {
++        _check(silverIssuer, silver);
++        _check(platinumIssuer, platinum);
++    }
++
++    function invariant_goldUntouchedByOtherMetals() public view {
++        assertEq(gold.totalSupply(), 0);
++    }
++}
++
++/// Random loans, defaults, listings, bids, redemptions and settlements.
++contract DeskHandler is AssetsBase {
++    uint256[] public openLoans;
++    uint256[] public liveListings;
++    uint256 public movedBeforeWindow; // must stay 0
++    uint256 public unapprovedBidAccepted; // must stay 0
++    uint256 public ghostSettled;
++    uint256 public ghostRedeemed;
++
++    constructor(
++        PledgeReceipt r,
++        PledgeLoan l,
++        BankAssetDesk d,
++        MockRupee m,
++        uint256 key,
++        address ops,
++        address a,
++        address ba,
++        address bb
++    ) {
++        receipts = r;
++        loans = l;
++        desk = d;
++        rupee = m;
++        bankKey = key;
++        bankOps = ops;
++        alice = a;
++        buyerA = ba;
++        buyerB = bb;
++    }
++
++    function borrow(uint256 paise, uint8 cls) external {
++        cls = uint8(bound(cls, 0, 4));
++        PledgeReceipt.PledgeAttestation memory a =
++            _pledgeAtt(alice, cls, 6_00_000_00, uint64(block.timestamp + 365 days));
++        uint256 id = receipts.issue(a, _signPledge(bankKey, a));
++        uint256 maxP = loans.maxBorrowPaise(id);
++        paise = bound(paise, 1, maxP);
++        if (paise > loans.liquidityOf(BANK)) return;
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        openLoans.push(loans.borrow(id, paise, uint64(block.timestamp + 10 days)));
++        vm.stopPrank();
++    }
++
++    function repay(uint256 k) external {
++        if (openLoans.length == 0) return;
++        k = k % openLoans.length;
++        uint256 loanId = openLoans[k];
++        _dropLoan(k);
++        vm.prank(alice);
++        loans.repay(loanId);
++    }
++
++    function defaultAndList(uint256 k, bool sealed_) external {
++        if (openLoans.length == 0) return;
++        k = k % openLoans.length;
++        uint256 loanId = openLoans[k];
++        (uint256 tokenId,,,,, uint64 dueAt,) = loans.loans(loanId);
++        if (block.timestamp <= dueAt) vm.warp(dueAt + 1);
++        _dropLoan(k);
++        vm.startPrank(bankOps);
++        loans.claimDefault(loanId);
++        receipts.approve(address(desk), tokenId);
++        uint64 bidEnd = uint64(block.timestamp + 5 days);
++        uint256 lid = desk.list(
++            tokenId,
++            sealed_ ? 1 : 0,
++            3,
++            1_00_000_00,
++            uint64(block.timestamp + 7 days),
++            bidEnd,
++            sealed_ ? bidEnd + 1 days : bidEnd,
++            alice,
++            50_000_00
++        );
++        vm.stopPrank();
++        liveListings.push(lid);
++    }
++
++    function bidEnglish(uint256 k, uint256 bump, bool useB) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        (,,, uint8 kind,, BankAssetDesk.Status st,, uint64 bidEnd,,,,,) = desk.listings(lid);
++        if (kind != 0 || st != BankAssetDesk.Status.LISTED || block.timestamp > bidEnd) return;
++        uint256 amt = desk.minimumBid(lid) + bound(bump, 0, 1_00_000_00);
++        vm.prank(useB ? buyerB : buyerA);
++        desk.bid(lid, amt);
++    }
++
++    function bidStranger(uint256 k) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        vm.prank(makeAddr("stranger"));
++        try desk.bid(lid, 10_00_000_00) {
++            unapprovedBidAccepted++;
++        } catch {}
++    }
++
++    function commitSealed(uint256 k, uint256 amt, bool useB) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        (,,, uint8 kind,, BankAssetDesk.Status st,, uint64 bidEnd,,,,,) = desk.listings(lid);
++        if (kind != 1 || st != BankAssetDesk.Status.LISTED || block.timestamp > bidEnd) return;
++        address who = useB ? buyerB : buyerA;
++        if (desk.commitmentOf(lid, who) != bytes32(0)) return;
++        amt = bound(amt, 1_00_000_00, 5_00_000_00);
++        vm.prank(who);
++        desk.commitBid(lid, keccak256(abi.encode(lid, who, amt, bytes32("s"))), amt);
++    }
++
++    function revealSealed(uint256 k, uint256 amt, bool useB) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        address who = useB ? buyerB : buyerA;
++        amt = bound(amt, 1_00_000_00, 5_00_000_00);
++        vm.prank(who);
++        try desk.revealBid(lid, amt, bytes32("s")) {} catch {}
++    }
++
++    function redeem(uint256 k) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        vm.prank(alice);
++        try desk.redeem(lid) {
++            ghostRedeemed++;
++        } catch {}
++    }
++
++    function settle(uint256 k) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        (,,,,,, uint64 win,,,,,,) = desk.listings(lid);
++        bool early = block.timestamp <= win;
++        vm.prank(bankOps);
++        try desk.settle(lid, 1_00_000_00, uint64(block.timestamp + 30 days)) {
++            ghostSettled++;
++            if (early) movedBeforeWindow++;
++        } catch {}
++    }
++
++    function reclaim(uint256 k, bool useB) external {
++        if (liveListings.length == 0) return;
++        uint256 lid = liveListings[k % liveListings.length];
++        vm.prank(useB ? buyerB : buyerA);
++        try desk.reclaimDeposit(lid) {} catch {}
++    }
++
++    function withdraw(bool useB) external {
++        address who = useB ? buyerB : buyerA;
++        if (desk.credit(who) == 0) return;
++        vm.prank(who);
++        desk.withdraw();
++    }
++
++    function warp(uint32 dt) external {
++        vm.warp(block.timestamp + bound(dt, 1 hours, 3 days));
++    }
++
++    function _dropLoan(uint256 k) internal {
++        openLoans[k] = openLoans[openLoans.length - 1];
++        openLoans.pop();
++    }
++
++    function listingCountLive() external view returns (uint256) {
++        return liveListings.length;
++    }
++
++    function liveListingAt(uint256 i) external view returns (uint256) {
++        return liveListings[i];
++    }
++}
++
++contract DeskInvariantTest is AssetsBase {
++    DeskHandler handler;
++
++    function setUp() public {
++        _deployPledge();
++        handler = new DeskHandler(receipts, loans, desk, rupee, bankKey, bankOps, alice, buyerA, buyerB);
++        targetContract(address(handler));
++    }
++
++    function invariant_deskEscrowFullyCovered() public view {
++        assertEq(rupee.balanceOf(address(desk)), desk.totalEscrow() + desk.totalCredit());
++    }
++
++    function afterInvariant() public view {
++        console.log("settled", handler.ghostSettled(), "redeemed", handler.ghostRedeemed());
++    }
++
++    function invariant_loanBookSolvent() public view {
++        assertEq(rupee.balanceOf(address(loans)), loans.totalLiquidity());
++    }
++
++    function invariant_noTransferBeforeWindow_andOnlyApprovedBidders() public view {
++        assertEq(handler.movedBeforeWindow(), 0);
++        assertEq(handler.unapprovedBidAccepted(), 0);
++        for (uint256 i; i < handler.listingCountLive(); ++i) {
++            uint256 lid = handler.liveListingAt(i);
++            (uint256 tokenId,,,,, BankAssetDesk.Status st,,,,,,,) = desk.listings(lid);
++            if (st == BankAssetDesk.Status.LISTED) {
++                assertEq(receipts.ownerOf(tokenId), address(desk), "receipt stays at desk until window ends");
++            }
++        }
++    }
++}
+diff --git a/contracts/test/assets/BankAssetDesk.t.sol b/contracts/test/assets/BankAssetDesk.t.sol
+new file mode 100644
+index 0000000..f6bf849
+--- /dev/null
++++ b/contracts/test/assets/BankAssetDesk.t.sol
+@@ -0,0 +1,297 @@
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.26;
++
++import "./AssetsBase.sol";
++
++/// Bank asset desk: auctions of items banks hold after a default.
++contract BankAssetDeskTest is AssetsBase {
++    uint256 constant RESERVE = 3_00_000_00; // Rs 3 lakh
++    uint256 constant DUES = 2_10_000_00;
++
++    function setUp() public {
++        _deployPledge();
++    }
++
++    /// alice borrowed against her car, defaulted; the bank now holds the receipt.
++    function _repossessed() internal returns (uint256 id) {
++        id = _issueCar(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        uint256 loanId = loans.borrow(id, 2_00_000_00, uint64(block.timestamp + 30 days));
++        vm.stopPrank();
++        vm.warp(block.timestamp + 31 days);
++        vm.prank(bankOps);
++        loans.claimDefault(loanId);
++    }
++
++    function _list(uint256 id, uint8 kind) internal returns (uint256 listingId) {
++        uint64 win = uint64(block.timestamp + 30 days);
++        uint64 bidEnd = uint64(block.timestamp + 35 days);
++        uint64 revealEnd = kind == 1 ? bidEnd + 2 days : bidEnd;
++        vm.startPrank(bankOps);
++        receipts.approve(address(desk), id);
++        listingId = desk.list(id, kind, 3, RESERVE, win, bidEnd, revealEnd, alice, DUES);
++        vm.stopPrank();
++    }
++
++    function _solvent() internal view {
++        assertEq(rupee.balanceOf(address(desk)), desk.totalEscrow() + desk.totalCredit());
++    }
++
++    function test_list_onlyBankOfReceipt_andSaneParams() public {
++        uint256 id = _repossessed();
++        vm.prank(bank2Ops);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotBank.selector, id, bank2Ops));
++        desk.list(
++            id,
++            0,
++            3,
++            RESERVE,
++            uint64(block.timestamp + 1),
++            uint64(block.timestamp + 2),
++            uint64(block.timestamp + 2),
++            alice,
++            DUES
++        );
++        vm.startPrank(bankOps);
++        receipts.approve(address(desk), id);
++        vm.expectRevert(BankAssetDesk.DeskBadParams.selector); // no legal step
++        desk.list(
++            id,
++            0,
++            0,
++            RESERVE,
++            uint64(block.timestamp + 1),
++            uint64(block.timestamp + 2),
++            uint64(block.timestamp + 2),
++            alice,
++            DUES
++        );
++        vm.expectRevert(BankAssetDesk.DeskBadParams.selector); // sealed needs a reveal phase
++        desk.list(
++            id,
++            1,
++            3,
++            RESERVE,
++            uint64(block.timestamp + 1),
++            uint64(block.timestamp + 2),
++            uint64(block.timestamp + 2),
++            alice,
++            DUES
++        );
++        vm.stopPrank();
++    }
++
++    function test_english_happyPath_settlesAfterWindow_withReattestation() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        vm.prank(buyerB);
++        desk.bid(lid, RESERVE + 3_000_00); // +1 percent
++        assertEq(desk.credit(buyerA), RESERVE); // outbid money waiting
++        _solvent();
++
++        vm.warp(block.timestamp + 36 days);
++        vm.prank(bankOps);
++        desk.settle(lid, 3_50_000_00, uint64(block.timestamp + 365 days));
++        assertEq(receipts.ownerOf(id), buyerB);
++        assertEq(receipts.receiptOf(id).appraisedPaise, 3_50_000_00);
++        assertEq(desk.credit(bankOps), RESERVE + 3_000_00);
++        _solvent();
++
++        // the winner still cannot move it without the bank
++        vm.prank(buyerB);
++        vm.expectRevert();
++        receipts.transferFrom(buyerB, rogue, id);
++
++        uint256 b = rupee.balanceOf(buyerA);
++        vm.prank(buyerA);
++        desk.withdraw();
++        assertEq(rupee.balanceOf(buyerA), b + RESERVE);
++        _solvent();
++    }
++
++    function test_noSettleBeforeRedemptionWindowEnds() public {
++        uint256 id = _repossessed();
++        uint64 win = uint64(block.timestamp + 30 days);
++        vm.startPrank(bankOps);
++        receipts.approve(address(desk), id);
++        // auction ends before the window: settlement still has to wait for the window
++        uint256 lid = desk.list(
++            id, 0, 3, RESERVE, win, uint64(block.timestamp + 1 days), uint64(block.timestamp + 1 days), alice, DUES
++        );
++        vm.stopPrank();
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        vm.warp(block.timestamp + 2 days);
++        vm.prank(bankOps);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskWindowOpen.selector, lid, win));
++        desk.settle(lid, 1, uint64(block.timestamp + 1 days));
++        assertEq(receipts.ownerOf(id), address(desk));
++    }
++
++    function test_borrowerRedeemsBeforeWindow_refundsBidders() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        vm.prank(alice);
++        desk.redeem(lid);
++        assertEq(receipts.ownerOf(id), alice);
++        assertEq(desk.credit(buyerA), RESERVE);
++        assertEq(desk.credit(bankOps), DUES);
++        _solvent();
++        vm.prank(buyerB);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotListed.selector, lid));
++        desk.bid(lid, RESERVE * 2);
++    }
++
++    function test_borrowerCannotRedeemAfterWindow_orIfNotBorrower() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(rogue);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotBorrower.selector, lid, rogue));
++        desk.redeem(lid);
++        vm.warp(block.timestamp + 30 days + 1);
++        vm.prank(alice);
++        vm.expectRevert();
++        desk.redeem(lid);
++    }
++
++    function test_onlyApprovedBuyers_andSellerCannotBid() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(rogue);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotApprovedBuyer.selector, rogue));
++        desk.bid(lid, RESERVE);
++        vm.prank(gov);
++        desk.setApprovedBuyer(bankOps, true);
++        vm.prank(bankOps);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskSellerCannotBid.selector, lid));
++        desk.bid(lid, RESERVE);
++    }
++
++    function test_english_bidRules() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(buyerA);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskBidTooLow.selector, RESERVE - 1, RESERVE));
++        desk.bid(lid, RESERVE - 1);
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        uint256 min = desk.minimumBid(lid);
++        assertEq(min, RESERVE + RESERVE / 100);
++        vm.prank(buyerB);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskBidTooLow.selector, min - 1, min));
++        desk.bid(lid, min - 1);
++        vm.warp(block.timestamp + 36 days);
++        vm.prank(buyerB);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskBiddingClosed.selector, lid));
++        desk.bid(lid, min);
++    }
++
++    function test_noBids_unsold_returnsToBank() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.warp(block.timestamp + 36 days);
++        vm.prank(bankOps);
++        desk.settle(lid, 1, uint64(block.timestamp + 1 days));
++        assertEq(receipts.ownerOf(id), bankOps);
++    }
++
++    function test_sealed_highestRevealWins_othersRefunded() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 1);
++        bytes32 sa = "salt-a";
++        bytes32 sb = "salt-b";
++        uint256 bidA = 3_20_000_00;
++        uint256 bidB = 3_40_000_00;
++        vm.prank(buyerA);
++        desk.commitBid(lid, keccak256(abi.encode(lid, buyerA, bidA, sa)), 4_00_000_00);
++        vm.prank(buyerB);
++        desk.commitBid(lid, keccak256(abi.encode(lid, buyerB, bidB, sb)), 3_50_000_00);
++        _solvent();
++        vm.prank(buyerA);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotRevealPhase.selector, lid));
++        desk.revealBid(lid, bidA, sa);
++
++        vm.warp(block.timestamp + 36 days);
++        vm.prank(buyerA);
++        desk.revealBid(lid, bidA, sa);
++        vm.prank(buyerB);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskBadReveal.selector, lid));
++        desk.revealBid(lid, bidB + 1, sb); // lie about the amount
++        vm.prank(buyerB);
++        desk.revealBid(lid, bidB, sb);
++        assertEq(desk.credit(buyerA), 4_00_000_00); // outbid, whole deposit back
++        vm.prank(buyerB);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskBadReveal.selector, lid));
++        desk.revealBid(lid, bidB, sb); // twice
++
++        vm.warp(block.timestamp + 3 days);
++        vm.prank(bankOps);
++        desk.settle(lid, bidB, uint64(block.timestamp + 365 days));
++        assertEq(receipts.ownerOf(id), buyerB);
++        assertEq(desk.credit(bankOps), bidB);
++        assertEq(desk.credit(buyerB), 3_50_000_00 - bidB); // excess deposit back
++        _solvent();
++    }
++
++    function test_sealed_unrevealedDepositReclaimable() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 1);
++        vm.prank(buyerA);
++        desk.commitBid(lid, keccak256("never-revealed"), RESERVE);
++        vm.prank(buyerA);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskAuctionRunning.selector, lid));
++        desk.reclaimDeposit(lid);
++        vm.warp(block.timestamp + 38 days);
++        vm.prank(buyerA);
++        desk.reclaimDeposit(lid);
++        assertEq(desk.credit(buyerA), RESERVE);
++        _solvent();
++    }
++
++    function test_bankNeverSettles_highBidderReclaimsAfterTimeout() public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        vm.warp(block.timestamp + 36 days);
++        vm.prank(buyerA);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskAuctionRunning.selector, lid));
++        desk.reclaimUnsettled(lid);
++        vm.warp(block.timestamp + 31 days);
++        vm.prank(buyerA);
++        desk.reclaimUnsettled(lid);
++        assertEq(desk.credit(buyerA), RESERVE);
++        vm.prank(bankOps);
++        desk.settle(lid, 1, uint64(block.timestamp + 1 days));
++        assertEq(receipts.ownerOf(id), bankOps); // unsold
++        _solvent();
++    }
++
++    function testFuzz_settleBeforeWindow_alwaysReverts(uint64 dt) public {
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        vm.prank(buyerA);
++        desk.bid(lid, RESERVE);
++        dt = uint64(bound(dt, 0, 30 days));
++        vm.warp(block.timestamp + dt);
++        vm.prank(bankOps);
++        vm.expectRevert();
++        desk.settle(lid, 1, uint64(block.timestamp + 400 days));
++        assertEq(receipts.ownerOf(id), address(desk));
++    }
++
++    function testFuzz_onlyApprovedCanBid(address who, uint256 amt) public {
++        vm.assume(!desk.approvedBuyer(who));
++        uint256 id = _repossessed();
++        uint256 lid = _list(id, 0);
++        amt = bound(amt, RESERVE, RESERVE * 10);
++        vm.prank(who);
++        vm.expectRevert(abi.encodeWithSelector(BankAssetDesk.DeskNotApprovedBuyer.selector, who));
++        desk.bid(lid, amt);
++    }
++}
+diff --git a/contracts/test/assets/MetalIssuer.t.sol b/contracts/test/assets/MetalIssuer.t.sol
+new file mode 100644
+index 0000000..aac82fb
+--- /dev/null
++++ b/contracts/test/assets/MetalIssuer.t.sol
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.26;
++
++import "./AssetsBase.sol";
++
++/// Silver and platinum on BankMetalIssuer, listed next to the untouched gold issuer.
++contract MetalIssuerTest is AssetsBase {
++    function setUp() public {
++        _deployMetals();
++    }
++
++    function test_registry_listsThreeMetals_andReadsEachReserve() public {
++        assertEq(assets.metalCount(), 3);
++        _mintMetal(silverIssuer, alice, 100_000); // 100 g silver
++        AssetRegistry.MetalReserveView[] memory all = assets.allReserves();
++        assertEq(all.length, 3);
++        assertEq(all[1].name, "Silver");
++        assertEq(all[1].supplyMilli, 100_000);
++        assertEq(all[1].attestedMilli, 100_000);
++        assertTrue(all[1].fullyBacked);
++        assertEq(all[0].supplyMilli, 0); // gold untouched
++        assertEq(all[2].supplyMilli, 0);
++    }
++
++    function test_registry_rejectsUnboundPair() public {
++        vm.prank(gov);
++        vm.expectRevert(
++            abi.encodeWithSelector(AssetRegistry.AssetNotBound.selector, address(silver), address(platinumIssuer))
++        );
++        assets.listMetal("BAD", "Bad", address(silver), address(platinumIssuer));
++    }
++
++    function test_registry_onlyOwner_andNoDuplicates() public {
++        vm.prank(rogue);
++        vm.expectRevert();
++        assets.listMetal("ZZZ", "x", address(silver), address(silverIssuer));
++        vm.prank(gov);
++        vm.expectRevert(abi.encodeWithSelector(AssetRegistry.AssetExists.selector, XAG));
++        assets.listMetal(XAG, "Silver", address(silver), address(silverIssuer));
++        vm.prank(gov);
++        assets.setActive(XPT, false);
++        assertFalse(assets.metalOf(XPT).active);
++    }
++
++    function test_silver_mintOneGramPerGram() public {
++        _mintMetal(silverIssuer, alice, 250_500); // 250.5 g
++        assertEq(silver.balanceOf(alice), 250_500 * MG);
++        assertEq(silver.milligramsOf(alice), 250_500);
++        assertEq(silver.symbol(), "vSILVER");
++        assertEq(silverIssuer.metalCode(), XAG);
++    }
++
++    function test_silverAttestation_cannotMintPlatinum_crossDomain() public {
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c1", 1000, 999);
++        bytes memory sig = _signMetal(silverIssuer, bankKey, a);
++        vm.expectRevert(BankMetalIssuer.MetalBadSignature.selector);
++        platinumIssuer.mint(a, sig);
++    }
++
++    function test_silver_purityFloorEnforced() public {
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c1", 1000, 925); // sterling, below 999 floor
++        bytes memory sig = _signMetal(silverIssuer, bankKey, a);
++        vm.expectRevert(abi.encodeWithSelector(BankMetalIssuer.MetalBadPurity.selector, 925));
++        silverIssuer.mint(a, sig);
++    }
++
++    function test_constructor_rejectsBadPurityFloor() public {
++        MetalToken t = new MetalToken("x", "x", address(0));
++        MetalCertificateRegistry r = new MetalCertificateRegistry();
++        vm.expectRevert(abi.encodeWithSelector(BankMetalIssuer.MetalBadPurity.selector, 0));
++        new BankMetalIssuer(gov, address(t), address(r), address(0), "X", "x", 0);
++    }
++
++    function test_certificateSingleUse() public {
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c1", 1000, 999);
++        silverIssuer.mint(a, _signMetal(silverIssuer, bankKey, a));
++        BankMetalIssuer.BankAttestation memory b = _metalAtt(BANK, alice, "c1", 1000, 999); // same cert, new nonce
++        bytes memory sig = _signMetal(silverIssuer, bankKey, b);
++        vm.expectRevert();
++        silverIssuer.mint(b, sig);
++    }
++
++    function test_perMetalPause_onlyStopsThatMetal() public {
++        vm.prank(gov);
++        silverIssuer.pause();
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c1", 1000, 999);
++        bytes memory sig = _signMetal(silverIssuer, bankKey, a);
++        vm.expectRevert();
++        silverIssuer.mint(a, sig);
++        _mintMetal(platinumIssuer, alice, 1000); // platinum still works
++        assertEq(platinum.milligramsOf(alice), 1000);
++        assertTrue(assets.reserveOf(XAG).paused);
++        assertFalse(assets.reserveOf(XPT).paused);
++    }
++
++    function test_redeemAndFulfil_reduceReserve() public {
++        _mintMetal(silverIssuer, alice, 5000);
++        vm.prank(alice);
++        uint256 id = silverIssuer.requestRedemption(BANK, 2000, "branch-1");
++        (uint256 supply,, uint256 pending,, bool ok) = silverIssuer.proofOfReserve();
++        assertEq(supply, 3000);
++        assertEq(pending, 2000);
++        assertTrue(ok);
++        vm.prank(bankOps);
++        silverIssuer.fulfilRedemption(id, "released");
++        (, uint256 attested,,,) = silverIssuer.proofOfReserve();
++        assertEq(attested, 3000);
++    }
++
++    function test_shortReserveReport_haltsThatMetalOnly() public {
++        _mintMetal(silverIssuer, alice, 5000);
++        BankMetalIssuer.ReserveReport memory rep =
++            BankMetalIssuer.ReserveReport({bankId: BANK, reservesMilli: 4000, asOf: block.timestamp, seq: 1});
++        bytes32 sh =
++            keccak256(abi.encode(silverIssuer.RESERVE_TYPEHASH(), rep.bankId, rep.reservesMilli, rep.asOf, rep.seq));
++        (uint8 v, bytes32 r, bytes32 s) =
++            vm.sign(bankKey, keccak256(abi.encodePacked("\x19\x01", silverIssuer.domainSeparator(), sh)));
++        silverIssuer.submitReserveReport(rep, abi.encodePacked(r, s, v));
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c9", 1000, 999);
++        bytes memory sig = _signMetal(silverIssuer, bankKey, a);
++        vm.expectRevert(abi.encodeWithSelector(BankMetalIssuer.MetalReserveShortfall.selector, BANK));
++        silverIssuer.mint(a, sig);
++        _mintMetal(platinumIssuer, alice, 1000);
++    }
++
++    function testFuzz_mintThenRedeem_supplyNeverAboveReserve(uint64 fine, uint64 redeem) public {
++        fine = uint64(bound(fine, 1, 1e9));
++        redeem = uint64(bound(redeem, 1, fine));
++        _mintMetal(silverIssuer, alice, fine);
++        vm.prank(alice);
++        silverIssuer.requestRedemption(BANK, redeem, "b");
++        (uint256 supply, uint256 attested, uint256 pending, uint256 disputed, bool ok) = silverIssuer.proofOfReserve();
++        assertTrue(ok);
++        assertLe(supply + pending + disputed, attested);
++        assertEq(silver.totalSupply(), uint256(fine - redeem) * MG);
++    }
++
++    function testFuzz_wrongSignerNeverMints(uint256 key) public {
++        key = bound(key, 1, 1e30);
++        vm.assume(key != bankKey);
++        BankMetalIssuer.BankAttestation memory a = _metalAtt(BANK, alice, "c1", 1000, 999);
++        bytes memory sig = _signMetal(silverIssuer, key, a);
++        vm.expectRevert(BankMetalIssuer.MetalBadSignature.selector);
++        silverIssuer.mint(a, sig);
++    }
++}
+diff --git a/contracts/test/assets/Pledge.t.sol b/contracts/test/assets/Pledge.t.sol
+new file mode 100644
+index 0000000..93a7708
+--- /dev/null
++++ b/contracts/test/assets/Pledge.t.sol
+@@ -0,0 +1,256 @@
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.26;
++
++import "./AssetsBase.sol";
++
++/// Pledge receipts for unique valuables and loans against them.
++contract PledgeTest is AssetsBase {
++    function setUp() public {
++        _deployPledge();
++    }
++
++    // ------------------------------------------------------------ issue
++    function test_issue_storesHashesOnly_andValue() public {
++        uint256 id = _issueCar(alice);
++        assertEq(receipts.ownerOf(id), alice);
++        PledgeReceipt.Receipt memory r = receipts.receiptOf(id);
++        assertEq(r.bankId, BANK);
++        assertEq(r.appraisedPaise, 6_00_000_00);
++        // Rs 6 lakh car, 30 percent haircut -> Rs 4.2 lakh lendable value
++        assertEq(receipts.collateralValuePaise(id), 4_20_000_00);
++    }
++
++    function test_issue_rejectsWrongSigner_replay_andRefReuse() public {
++        PledgeReceipt.PledgeAttestation memory a = _pledgeAtt(alice, 0, 1_00_000_00, uint64(block.timestamp + 30 days));
++        bytes memory bad = _signPledge(bank2Key, a);
++        vm.expectRevert(PledgeReceipt.PledgeBadSignature.selector);
++        receipts.issue(a, bad);
++        bytes memory sig = _signPledge(bankKey, a);
++        receipts.issue(a, sig);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNonceUsed.selector, BANK, a.nonce));
++        receipts.issue(a, sig);
++        a.nonce = 999_999;
++        sig = _signPledge(bankKey, a);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeRefUsed.selector, a.receiptRef));
++        receipts.issue(a, sig);
++    }
++
++    function test_issue_rejectsBadClassDatesExpiry() public {
++        PledgeReceipt.PledgeAttestation memory a = _pledgeAtt(alice, 7, 1, uint64(block.timestamp + 1 days));
++        bytes memory sig = _signPledge(bankKey, a);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeBadClass.selector, 7));
++        receipts.issue(a, sig);
++        a = _pledgeAtt(alice, 0, 1, uint64(block.timestamp));
++        sig = _signPledge(bankKey, a);
++        vm.expectRevert(PledgeReceipt.PledgeBadDates.selector);
++        receipts.issue(a, sig);
++        a = _pledgeAtt(alice, 0, 1, uint64(block.timestamp + 10 days));
++        sig = _signPledge(bankKey, a);
++        vm.warp(block.timestamp + 2 days);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeExpired.selector, a.expiry));
++        receipts.issue(a, sig);
++    }
++
++    // ------------------------------------------------------------ transfer gate
++    function test_transfer_blockedWithoutBankApproval() public {
++        uint256 id = _issueCar(alice);
++        vm.prank(alice);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeTransferNotApproved.selector, id, bob));
++        receipts.transferFrom(alice, bob, id);
++    }
++
++    function test_transfer_bankApprovedIsOneShot() public {
++        uint256 id = _issueCar(alice);
++        vm.prank(bankOps);
++        receipts.approveTransfer(id, bob);
++        vm.prank(alice);
++        receipts.transferFrom(alice, bob, id);
++        assertEq(receipts.ownerOf(id), bob);
++        assertEq(receipts.approvedTo(id), address(0));
++        vm.prank(bob);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeTransferNotApproved.selector, id, alice));
++        receipts.transferFrom(bob, alice, id);
++    }
++
++    function test_cannotPushReceiptIntoLienMover() public {
++        uint256 id = _issueCar(alice);
++        vm.prank(alice);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeTransferNotApproved.selector, id, address(desk)));
++        receipts.transferFrom(alice, address(desk), id);
++    }
++
++    function test_onlyBankOperatorActs() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(rogue);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNotBankOperator.selector, BANK, rogue));
++        receipts.approveTransfer(id, rogue);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNotBankOperator.selector, BANK, rogue));
++        receipts.freeze(id, "x");
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNotBankOperator.selector, BANK, rogue));
++        receipts.release(id, "x");
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNotLienMover.selector, rogue));
++        receipts.moverReappraise(id, 1, uint64(block.timestamp + 1));
++        vm.stopPrank();
++        vm.prank(bank2Ops); // other bank's operator has no say
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeNotBankOperator.selector, BANK, bank2Ops));
++        receipts.freeze(id, "x");
++    }
++
++    function test_freeze_blocksMoves_andZeroesValue() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(bankOps);
++        receipts.approveTransfer(id, bob);
++        receipts.freeze(id, "court-order");
++        vm.stopPrank();
++        assertEq(receipts.collateralValuePaise(id), 0);
++        vm.prank(alice);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeFrozen.selector, id));
++        receipts.transferFrom(alice, bob, id);
++        vm.prank(bankOps);
++        receipts.unfreeze(id);
++        assertGt(receipts.collateralValuePaise(id), 0);
++    }
++
++    function test_value_zeroAfterReappraisalDate_andReappraiseRestores() public {
++        uint256 id = _issueCar(alice);
++        vm.warp(block.timestamp + 366 days);
++        assertEq(receipts.collateralValuePaise(id), 0);
++        vm.prank(bankOps);
++        receipts.reappraise(id, 5_00_000_00, uint64(block.timestamp + 180 days));
++        assertEq(receipts.collateralValuePaise(id), 3_50_000_00);
++    }
++
++    function test_release_burns_butNotWhileInLoan() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        loans.borrow(id, 1_00_000_00, uint64(block.timestamp + 90 days));
++        vm.stopPrank();
++        vm.prank(bankOps);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeHeldByLienMover.selector, id));
++        receipts.release(id, "x");
++    }
++
++    function test_setHaircut_bounds() public {
++        vm.startPrank(gov);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeBadHaircut.selector, 10_000));
++        receipts.setHaircut(0, 10_000);
++        vm.expectRevert(abi.encodeWithSelector(PledgeReceipt.PledgeBadClass.selector, 5));
++        receipts.setHaircut(5, 1);
++        receipts.setHaircut(0, 2000);
++        vm.stopPrank();
++        assertEq(receipts.haircutBps(0), 2000);
++    }
++
++    // ------------------------------------------------------------ loans
++    function test_borrowRepay_receiptComesBack() public {
++        uint256 id = _issueCar(alice);
++        // max = 4.2 lakh * 60 percent = Rs 2.52 lakh
++        assertEq(loans.maxBorrowPaise(id), 2_52_000_00);
++        uint256 before = rupee.balanceOf(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        uint256 loanId = loans.borrow(id, 2_52_000_00, uint64(block.timestamp + 90 days));
++        assertEq(receipts.ownerOf(id), address(loans));
++        assertEq(rupee.balanceOf(alice), before + 2_52_000_00);
++        loans.repay(loanId);
++        vm.stopPrank();
++        assertEq(receipts.ownerOf(id), alice);
++        assertEq(rupee.balanceOf(alice), before);
++    }
++
++    function test_borrow_aboveLtv_reverts() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        vm.expectRevert(abi.encodeWithSelector(PledgeLoan.LoanTooLarge.selector, 2_52_000_01, 2_52_000_00));
++        loans.borrow(id, 2_52_000_01, uint64(block.timestamp + 90 days));
++        vm.stopPrank();
++    }
++
++    function test_borrow_termPastReappraisal_reverts() public {
++        uint256 id = _issueCar(alice);
++        PledgeReceipt.Receipt memory r = receipts.receiptOf(id);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        vm.expectRevert(abi.encodeWithSelector(PledgeLoan.LoanBadTerm.selector, r.reappraiseBy + 1, r.reappraiseBy));
++        loans.borrow(id, 1, r.reappraiseBy + 1);
++        vm.stopPrank();
++    }
++
++    function test_borrow_frozen_reverts() public {
++        uint256 id = _issueCar(alice);
++        vm.prank(bankOps);
++        receipts.freeze(id, "x");
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        vm.expectRevert(abi.encodeWithSelector(PledgeLoan.LoanTooLarge.selector, 1, 0));
++        loans.borrow(id, 1, uint64(block.timestamp + 1 days));
++        vm.stopPrank();
++    }
++
++    function test_default_onlyAfterDue_onlyBank() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        uint256 loanId = loans.borrow(id, 1_00_000_00, uint64(block.timestamp + 30 days));
++        vm.stopPrank();
++        vm.prank(bankOps);
++        vm.expectRevert();
++        loans.claimDefault(loanId);
++        vm.warp(block.timestamp + 31 days);
++        vm.prank(rogue);
++        vm.expectRevert(abi.encodeWithSelector(PledgeLoan.LoanNotBank.selector, BANK, rogue));
++        loans.claimDefault(loanId);
++        vm.prank(bankOps);
++        loans.claimDefault(loanId);
++        assertEq(receipts.ownerOf(id), bankOps);
++    }
++
++    function test_onlyBorrowerRepays_andLiquidityBounds() public {
++        uint256 id = _issueCar(alice);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        uint256 loanId = loans.borrow(id, 1_00_000_00, uint64(block.timestamp + 30 days));
++        vm.stopPrank();
++        vm.prank(buyerA);
++        vm.expectRevert(abi.encodeWithSelector(PledgeLoan.LoanNotBorrower.selector, loanId, buyerA));
++        loans.repay(loanId);
++        vm.prank(bankOps);
++        vm.expectRevert();
++        loans.withdraw(BANK, 50_000_000_00); // part of the pot is lent out
++    }
++
++    function testFuzz_borrow_neverAboveLtvValue(uint256 paise, uint8 cls, uint256 appraised) public {
++        cls = uint8(bound(cls, 0, 4));
++        appraised = bound(appraised, 1_000_00, 1_00_00_000_00);
++        PledgeReceipt.PledgeAttestation memory a = _pledgeAtt(alice, cls, appraised, uint64(block.timestamp + 200 days));
++        uint256 id = receipts.issue(a, _signPledge(bankKey, a));
++        uint256 maxP = loans.maxBorrowPaise(id);
++        paise = bound(paise, 1, appraised);
++        vm.startPrank(alice);
++        receipts.approve(address(loans), id);
++        if (paise > maxP) {
++            vm.expectRevert();
++            loans.borrow(id, paise, uint64(block.timestamp + 100 days));
++        } else {
++            loans.borrow(id, paise, uint64(block.timestamp + 100 days));
++            assertLe(paise, appraised);
++            assertEq(rupee.balanceOf(address(loans)), loans.totalLiquidity());
++        }
++        vm.stopPrank();
++    }
++
++    function testFuzz_strangerNeverMovesReceipt(address stranger, address to) public {
++        vm.assume(stranger != address(0) && to != address(0) && to != alice);
++        vm.assume(!receipts.lienMover(to) && !receipts.lienMover(stranger));
++        uint256 id = _issueCar(alice);
++        vm.prank(stranger);
++        vm.expectRevert();
++        receipts.transferFrom(alice, to, id);
++        vm.prank(alice);
++        vm.expectRevert();
++        receipts.transferFrom(alice, to, id);
++        assertEq(receipts.ownerOf(id), alice);
++    }
++}
+-- 
+2.47.3
+
