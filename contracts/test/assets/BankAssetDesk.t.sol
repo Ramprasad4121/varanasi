@@ -97,7 +97,8 @@ contract BankAssetDeskTest is AssetsBase {
         desk.settle(lid, 3_50_000_00, uint64(block.timestamp + 365 days));
         assertEq(receipts.ownerOf(id), buyerB);
         assertEq(receipts.receiptOf(id).appraisedPaise, 3_50_000_00);
-        assertEq(desk.credit(bankOps), RESERVE + 3_000_00);
+        assertEq(desk.credit(bankOps), DUES); // bank gets its dues
+        assertEq(desk.credit(alice), RESERVE + 3_000_00 - DUES); // surplus to the borrower
         _solvent();
 
         // the winner still cannot move it without the bank
@@ -233,7 +234,8 @@ contract BankAssetDeskTest is AssetsBase {
         vm.prank(bankOps);
         desk.settle(lid, bidB, uint64(block.timestamp + 365 days));
         assertEq(receipts.ownerOf(id), buyerB);
-        assertEq(desk.credit(bankOps), bidB);
+        assertEq(desk.credit(bankOps), DUES);
+        assertEq(desk.credit(alice), bidB - DUES);
         assertEq(desk.credit(buyerB), 3_50_000_00 - bidB); // excess deposit back
         _solvent();
     }
@@ -270,6 +272,19 @@ contract BankAssetDeskTest is AssetsBase {
         desk.settle(lid, 1, uint64(block.timestamp + 1 days));
         assertEq(receipts.ownerOf(id), bankOps); // unsold
         _solvent();
+    }
+
+    function test_jewelleryReserveAtLeast90PercentOfValue() public {
+        PledgeReceipt.PledgeAttestation memory a =
+            _pledgeAtt(bankOps, 3, 2_00_000_00, uint64(block.timestamp + 365 days));
+        uint256 id = receipts.issue(a, _signPledge(bankKey, a));
+        vm.startPrank(bankOps);
+        receipts.approve(address(desk), id);
+        uint64 w = uint64(block.timestamp + 30 days);
+        vm.expectRevert(BankAssetDesk.DeskReserveTooLow.selector);
+        desk.list(id, 0, 3, 1_79_999_99, w, w, w, alice, DUES);
+        desk.list(id, 0, 3, 1_80_000_00, w, w, w, alice, DUES);
+        vm.stopPrank();
     }
 
     function testFuzz_settleBeforeWindow_alwaysReverts(uint64 dt) public {

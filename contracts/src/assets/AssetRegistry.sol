@@ -110,8 +110,9 @@ contract AssetRegistry is Ownable {
 
     /// @notice Proof of reserve for every listed metal, one call for the app.
     function allReserves() external view returns (MetalReserveView[] memory list) {
-        list = new MetalReserveView[](codes.length);
-        for (uint256 i; i < codes.length; ++i) {
+        uint256 n = codes.length;
+        list = new MetalReserveView[](n);
+        for (uint256 i; i < n; ++i) {
             list[i] = reserveOf(codes[i]);
         }
     }

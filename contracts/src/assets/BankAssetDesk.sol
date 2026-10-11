@@ -23,8 +23,10 @@ import {PledgeReceipt} from "./PledgeReceipt.sol";
 ///           cancels the auction and refunds every bidder;
 ///         - only approved buyers can bid;
 ///         - at settlement the bank re-attests the value, the receipt moves to the
-///           winner and the winning bid goes to the bank; below reserve, the item
-///           goes back to the bank and every bid is refunded;
+///           winner, the bank gets its dues and any surplus goes to the borrower;
+///           below reserve, the item goes back to the bank and every bid is refunded;
+///         - jewellery reserve price is at least 90% of the bank's value (RBI 2025);
+///         - the selling bank can never bid on its own listing (RBI 2025, para 42);
 ///         - escrow is always fully covered: rupee balance == escrowed bids + money
 ///           waiting to be withdrawn.
 /// @dev No personal data: the borrower is a wallet address and the item an
@@ -49,6 +51,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
     error DeskNothingToWithdraw();
     error DeskNothingToReclaim(uint256 listingId);
     error DeskSellerCannotBid(uint256 listingId);
+    error DeskReserveTooLow();
 
     event BuyerApproved(address indexed buyer, bool approved);
     event Listed(
@@ -71,6 +74,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
     event Withdrawn(address indexed account, uint256 paise);
 
     uint8 public constant ENGLISH = 0;
+    uint8 internal constant JEWELLERY_CLASS = 3; // PledgeReceipt.CLASS_JEWELLERY
     bytes32 internal constant REVEALED = bytes32(uint256(1));
     /// @notice If the bank never settles, the high bidder can take the money back
     ///         this long after the auction and the redemption window have both ended.
@@ -154,6 +158,9 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
         if (redemptionEnd <= block.timestamp || biddingEnd <= block.timestamp) revert DeskBadParams();
         if (auctionType == SEALED ? revealEnd <= biddingEnd : revealEnd != biddingEnd) revert DeskBadParams();
         if (borrower != address(0) && duesPaise == 0) revert DeskBadParams();
+        // RBI gold and silver directions: reserve price at least 90% of current value
+        PledgeReceipt.Receipt memory r = receipts.receiptOf(tokenId);
+        if (r.assetClass == JEWELLERY_CLASS && reservePaise * 100 < r.appraisedPaise * 90) revert DeskReserveTooLow();
 
         listingId = ++listingCount;
         listings[listingId] = Listing({
@@ -195,7 +202,14 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
             } else {
                 totalEscrow -= price;
             }
-            _credit(l.bank, price);
+            // RBI gold loan rule, applied to every item: the surplus over the dues goes
+            // back to the borrower; a shortfall is recovered off chain under the loan terms
+            if (l.borrower != address(0) && price > l.duesPaise) {
+                _credit(l.bank, l.duesPaise);
+                _credit(l.borrower, price - l.duesPaise);
+            } else {
+                _credit(l.bank, price);
+            }
             receipts.moverReappraise(l.tokenId, newAppraisalPaise, newReappraiseBy);
             receipts.transferFrom(address(this), winner, l.tokenId);
             emit Sold(listingId, winner, price, newAppraisalPaise);
@@ -217,8 +231,8 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
         l.status = Status.REDEEMED;
         _refundHigh(listingId, l);
         uint256 dues = l.duesPaise;
+        _credit(l.bank, dues); // effects first; the transfer below reverts the lot if unpaid
         rupee.safeTransferFrom(msg.sender, address(this), dues);
-        _credit(l.bank, dues);
         receipts.transferFrom(address(this), msg.sender, l.tokenId);
         emit RedeemedByBorrower(listingId, msg.sender, dues);
     }
@@ -233,7 +247,6 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
         uint256 minimum = l.highBid == 0 ? l.reservePaise : l.highBid + _increment(l.highBid);
         if (paise < minimum) revert DeskBidTooLow(paise, minimum);
 
-        rupee.safeTransferFrom(msg.sender, address(this), paise);
         if (l.highBidder != address(0)) {
             totalEscrow -= l.highBid;
             _credit(l.highBidder, l.highBid);
@@ -241,6 +254,7 @@ contract BankAssetDesk is Ownable, ReentrancyGuard {
         l.highBidder = msg.sender;
         l.highBid = paise;
         totalEscrow += paise;
+        rupee.safeTransferFrom(msg.sender, address(this), paise);
         emit BidPlaced(listingId, msg.sender, paise);
     }
 
