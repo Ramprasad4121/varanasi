@@ -12,6 +12,7 @@ import { createPublicClient, createWalletClient, http, type Address, type Hex } 
 import { privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 import { json, preflight } from "@/lib/api-cors";
+import { requireApiKey } from "@/lib/api-auth";
 import { createJob } from "@/lib/roster";
 import { TASK_ESCROW } from "@/lib/site";
 
@@ -106,6 +107,8 @@ export function GET() {
 }
 
 export async function POST(req: Request) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
   const key = validatorKey();
   if (!key) {
     return json(
@@ -221,8 +224,15 @@ export async function POST(req: Request) {
       409,
     );
   }
-  if (task.state === 2 && Number(task.scoreBps) === scoreBps) {
-    return json({ ok: true, already: true, job, scoreBps, tx: null });
+  if (task.state === 2) {
+    if (Number(task.scoreBps) === scoreBps) {
+      return json({ ok: true, already: true, job, scoreBps, tx: null });
+    }
+    // Never let a caller re-roll inputs to flip a stored score (last-write-wins onchain).
+    return json(
+      { ok: false, error: "task already validated with a different score; dispute path required", job, scoreBps },
+      409,
+    );
   }
 
   const wallet = createWalletClient({ account, chain: sepolia, transport });

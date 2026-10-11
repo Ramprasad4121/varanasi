@@ -27,3 +27,7 @@ service/data/receipts.json
 .vercel
 .env*
 .gstack/
+demo/out/
+demo/cache/
+demo/.run/
+!.env.example

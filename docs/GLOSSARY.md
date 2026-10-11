@@ -56,7 +56,7 @@ use these definitions. When unsure of a term, look here first.
 | **LoanAgreement** | Term-loan contract between lender and borrower with a repayment schedule. |
 | **CollateralVault** | Holds collateral backing community loans. |
 | **FinancialReputation** | Tracked credit/reputation of members across the finance contracts. |
-| **GoldRegistry / GoldAttestor / GoldToken** | Gold-backed collateral: registry stores gold tokens, attestor verifies gold, token is the metal-collateralized asset. |
+| **BankGoldIssuer / GoldRegistry / GoldToken (vGOLD)** | Bank-backed gold: a partner bank signs an EIP-712 attestation for a gold deposit, the issuer mints 1 vGOLD per gram of fine gold, the registry makes each certificate single use, any holder can redeem through the bank. See docs/GOLD.md. |
 | **community-finance demo** | All `/v1/finance*` + `/finance` data is SIMULATED (address-seeded, deterministic). Agent `execute()` throws until contracts are deployed — no demo state broadcasts. |
 
 ## Services / surfaces

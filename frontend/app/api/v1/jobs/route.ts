@@ -4,6 +4,7 @@
  */
 import { createJob, listJobs } from "@/lib/roster";
 import { json, preflight } from "@/lib/api-cors";
+import { requireApiKey } from "@/lib/api-auth";
 import { POST as attestPost } from "../attest/route";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,15 @@ export function OPTIONS() {
   return preflight();
 }
 
-export function GET() {
+export function GET(req: Request) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
   return json({ ok: true, jobs: listJobs() });
 }
 
 export async function POST(req: Request) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
   let body: { agent?: unknown; agentId?: unknown; input?: unknown; taskId?: unknown } = {};
   try {
     body = (await req.json()) as typeof body;
@@ -47,7 +52,10 @@ export async function POST(req: Request) {
   try {
     const attReq = new Request(new URL("/api/v1/attest", req.url), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: req.headers.get("authorization") ?? "",
+      },
       body: JSON.stringify({ taskId, agent, input }),
     });
     const attRes = await attestPost(attReq);

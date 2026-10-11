@@ -5,7 +5,8 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-/// @title ChitPool — deterministic-rotation chit fund.
+/// @title ChitPool: deterministic-rotation chit fund (legacy; see ChitFund for
+///        the auction/draw chit with collateral and foreman commission).
 /// @author Ramprasad
 /// @dev A fixed number of members contribute a fixed amount each round; one member
 ///      (the round's designated slot among contributors) receives the round corpus.
@@ -28,6 +29,8 @@ contract ChitPool is ReentrancyGuard {
     error ZeroAmount();
     error ZeroAddress();
     error ChitNotStarter(address who);
+    error ChitNotFull();
+    error ChitTooManyRounds();
 
     event ChitMemberJoined(address indexed member, uint256 totalMembers);
     event ChitContributed(address indexed member, uint256 indexed round, uint256 amount);
@@ -40,6 +43,7 @@ contract ChitPool is ReentrancyGuard {
     event ChitMissed(address indexed member, uint256 indexed round);
     event ChitPoolTerminated(address indexed initiator);
     event ChitRefunded(address indexed to, uint256 amount);
+    event ChitNoEligibleWinner(uint256 indexed round, uint256 refunded);
 
     struct PoolConfig {
         IERC20 token;
@@ -62,6 +66,8 @@ contract ChitPool is ReentrancyGuard {
     mapping(address => bool) public isMember;
     mapping(address => uint256) public missedRounds;
     mapping(uint256 => mapping(address => bool)) public contributed;
+    /// @notice Audit fix (Oct 2026): a member wins at most once.
+    mapping(address => bool) public hasWon;
 
     /// @param starter_ Pool creator, stored as the pool's privileged owner for
     ///               early termination. The starter does NOT auto-join: member
@@ -82,6 +88,8 @@ contract ChitPool is ReentrancyGuard {
         if (token == address(0)) revert ZeroAddress();
         if (contributionAmount == 0) revert ZeroAmount();
         if (memberCapacity == 0 || totalRounds == 0 || roundDuration == 0) revert ZeroAmount();
+        // Audit fix: more rounds than members forces a repeat winner.
+        if (totalRounds > memberCapacity) revert ChitTooManyRounds();
 
         starter = starter_;
         config = PoolConfig({
@@ -110,6 +118,11 @@ contract ChitPool is ReentrancyGuard {
         isMember[who] = true;
         members.push(who);
         emit ChitMemberJoined(who, members.length);
+        // Audit fix: round 1 clock starts when the group is complete, so a pool
+        // that fills late can still take round 1 contributions.
+        if (members.length == config.memberCapacity) {
+            _openRound(1);
+        }
     }
 
     // --- Contributing ---
@@ -136,6 +149,8 @@ contract ChitPool is ReentrancyGuard {
         if (poolEnded) revert ChitPoolEnded();
         uint256 r = round;
         if (settledRounds >= config.totalRounds) revert ChitPoolEnded();
+        // Audit fix: no settlement until every slot is filled (rotation is fixed).
+        if (members.length != config.memberCapacity) revert ChitNotFull();
         uint256 openUntil = roundDeadline;
         uint256 openMembers = members.length;
         for (uint256 i; i < openMembers; ++i) {
@@ -160,25 +175,31 @@ contract ChitPool is ReentrancyGuard {
                 emit ChitMissed(members[i], r);
             }
         }
-        if (contributedCount == 0) revert ChitNoContributors(r);
-
-        // Deterministic winner scan from the round-designated slot.
+        // Deterministic winner scan from the round-designated slot. Audit fix:
+        // past winners are skipped so nobody wins twice; an empty round (no
+        // contributors) no longer bricks the pool, it just advances.
         uint256 startSlot = (r - 1) % openMembers;
         address winner;
         for (uint256 step; step < openMembers; ++step) {
             uint256 idx = (startSlot + step) % openMembers;
             address candidate = members[idx];
-            if (contributed[r][candidate]) {
+            if (contributed[r][candidate] && !hasWon[candidate]) {
                 winner = candidate;
                 break;
             }
         }
 
         uint256 corpus = contributedCount * config.contributionAmount;
-        config.token.safeTransfer(winner, corpus);
-
         settledRounds = r;
-        emit ChitRoundSettled(r, winner, corpus, contributedCount);
+        if (winner != address(0)) {
+            hasWon[winner] = true;
+            config.token.safeTransfer(winner, corpus);
+            emit ChitRoundSettled(r, winner, corpus, contributedCount);
+        } else if (contributedCount != 0) {
+            // Only past winners paid: hand every contribution back.
+            _refundRound(r);
+            emit ChitNoEligibleWinner(r, corpus);
+        }
         if (settledRounds >= config.totalRounds) {
             poolEnded = true;
             emit ChitPoolTerminated(msg.sender);
@@ -192,17 +213,26 @@ contract ChitPool is ReentrancyGuard {
         roundDeadline = block.timestamp + config.roundDuration;
     }
 
-    /// @notice Early termination (only the pool starter): refund any remainder if a
-    ///         settle was interrupted, then freeze the pool.
-    function terminate() external {
+    /// @notice Early termination (only the pool starter). Audit fix: the open
+    ///         round's contributions go back to the members who paid them; the
+    ///         starter can no longer sweep the pool balance to itself.
+    function terminate() external nonReentrant {
         if (msg.sender != starter) revert ChitNotStarter(msg.sender);
         if (poolEnded) revert ChitPoolEnded();
         poolEnded = true;
-        uint256 leftover = config.token.balanceOf(address(this));
-        if (leftover != 0) {
-            config.token.safeTransfer(msg.sender, leftover);
-            emit ChitRefunded(msg.sender, leftover);
-        }
+        _refundRound(round);
         emit ChitPoolTerminated(msg.sender);
+    }
+
+    function _refundRound(uint256 r) private {
+        uint256 n = members.length;
+        uint256 amount = config.contributionAmount;
+        for (uint256 i; i < n; ++i) {
+            address who = members[i];
+            if (contributed[r][who]) {
+                config.token.safeTransfer(who, amount);
+                emit ChitRefunded(who, amount);
+            }
+        }
     }
 }

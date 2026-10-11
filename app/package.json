@@ -1,0 +1,33 @@
+{
+  "name": "varanasi-people-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Varanasi people app: bank-backed gold savings and chit funds, Telugu + English, local demo",
+  "scripts": {
+    "dev": "next dev -p ${APP_PORT:-3100}",
+    "build": "next build",
+    "start": "next start -p ${APP_PORT:-3100}",
+    "typecheck": "tsc --noEmit",
+    "seed": "node scripts/seed.mjs",
+    "lint": "next lint --dir app --dir components --dir lib",
+    "format": "prettier --write \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
+    "format:check": "prettier --check \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
+    "test:unit": "node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs && FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs scripts/waitlist-test.mjs",
+    "coverage": "FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs --test --experimental-test-coverage --test-coverage-include=lib/**/*.ts scripts/sim-test.mjs scripts/waitlist-test.mjs"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "viem": "2.21.54"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.35",
+    "prettier": "3.3.3",
+    "typescript": "5.5.4"
+  }
+}

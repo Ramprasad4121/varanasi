@@ -1,0 +1,72 @@
+
+==== 0. local anvil chain on http://127.0.0.1:18546 ====
+anvil up (chain 31337)
+
+==== 1. deploy vGOLD + registry + BankGoldIssuer, register Mock Bank ====
+contracts/ built
+vGOLD          0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+GoldRegistry   0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+BankGoldIssuer 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+Forwarder      0x5FbDB2315678afecb367f032d93F642f64180aa3 (gasless relay)
+Price feed     0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 (display only: Rs 12,000.00 per gram, mock)
+Mock bank signer 0x90F79bf6EB2c4f870365E785982E1f101E93b906, operator 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+  proof of reserve | vGOLD supply      0.000 g | bank-attested      0.000 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 0.000 g (Rs 0.00) | Bob 0.000 g (Rs 0.00)
+
+==== 2. Alice deposits 10 g at the bank; assay 995 fine -> bank signs attestation for 9.950 g fine ====
+certificate 0x0ecf33c433228d3af1a6ea5121d66abcecbe365717b1f9e37773ec803b2f4b96
+bank EIP-712 signature 0xa32e3ab06b39608e9bae...
+
+==== 3. attacks before the honest mint ====
+  BLOCKED  Mallory signs her own 1 kg attestation -> GoldBadSignature
+  BLOCKED  Mallory relays Alice's attestation with user=Mallory -> GoldBadSignature
+  BLOCKED  Mallory bumps the grams to 99.950 g -> GoldBadSignature
+
+==== 4. relayer submits; issuer verifies the bank signature and mints 9.950 vGOLD to Alice ====
+mint tx 0xb5fe2a85bf1cad85ef483c03db40f467c3d90eda04de3767db657d346052b727
+  BLOCKED  replay the same attestation -> GoldNonceUsed
+  proof of reserve | vGOLD supply      9.950 g | bank-attested      9.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 9.950 g (Rs 1,19,400.00) | Bob 0.000 g (Rs 0.00)
+
+==== 5. Alice sends 4 vGOLD to Bob (plain ERC20; gold never leaves the bank) ====
+  proof of reserve | vGOLD supply      9.950 g | bank-attested      9.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 5.950 g (Rs 71,400.00) | Bob 4.000 g (Rs 48,000.00)
+
+==== 6. Bob (not the depositor, zero gas) signs a redemption for 4 g; a relayer submits it ====
+Bob paid 0 gas (relayer paid)
+redemption #1 requested for Bob (event RedemptionRequested -> bank back office)
+Bob's redemption status: PENDING
+  proof of reserve | vGOLD supply      5.950 g | bank-attested      9.950 g | pending release    4.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 5.950 g (Rs 71,400.00) | Bob 0.000 g (Rs 0.00)
+
+==== 7. bank KYCs Bob, hands over 4 g, confirms release on chain ====
+  BLOCKED  Mallory fakes the bank's fulfilment -> GoldNotBankOperator
+Bob's redemption status: FULFILLED
+  proof of reserve | vGOLD supply      5.950 g | bank-attested      5.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 5.950 g (Rs 71,400.00) | Bob 0.000 g (Rs 0.00)
+
+==== 8. bank signs a periodic reserve report (5.000 g held, owes 5.950 g) -> minting halts at that bank ====
+  BLOCKED  new mint while bank reports a shortfall -> GoldReserveShortfall
+covering report (5.950 g) accepted; minting resumes
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 6.950 g (Rs 83,400.00) | Bob 0.000 g (Rs 0.00)
+
+==== 9. dispute: bank flags certificate 000124 (assay error); minting pauses, balances untouched ====
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  1.000 g | fully backed: false
+  my gold          | Alice 6.950 g (Rs 83,400.00) | Bob 0.000 g (Rs 0.00)
+governance re-checked custody: dispute cleared, bank unpaused
+  proof of reserve | vGOLD supply      6.950 g | bank-attested      6.950 g | pending release    0.000 g | disputed  0.000 g | fully backed: true
+  my gold          | Alice 6.950 g (Rs 83,400.00) | Bob 0.000 g (Rs 0.00)
+
+==== 10. proof of reserve per bank, as an app would show it ====
+  bank             Mock Bank gold deposit desk
+  gold held        6.950 g
+  owed to holders  6.950 g
+  awaiting release 0.000 g
+  under dispute    0.000 g
+  fully backed     true
+  new deposits paused false
+  last bank report 5.950 g
+  value of gold held Rs 83,400.00 (mock price)
+
+==== done ====

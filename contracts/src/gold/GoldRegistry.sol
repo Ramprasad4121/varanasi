@@ -1,164 +1,109 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-
-/// @title GoldRegistry — the single source of truth for gold positions.
+/// @title GoldRegistry: single-use bank gold certificates.
 /// @author Ramprasad
-/// @dev Each position claims a physical gold item (weight, purity, custodian).
-///      Only an AUTHORIZED ATTESTOR may verify or revoke. Verification enables the
-///      GoldToken to mint the corresponding tokenized claim; redemption marks the
-///      position redeemed. Replay protection disabled for revoked positions:
-///      an assetId can be (re)verified only while it is NONE or REVOKED, and a
-///      verified assetId can be minted/redeemed exactly once.
-contract GoldRegistry is Ownable {
-    error GoldNotAuthorizedAttestor(address caller);
-    error GoldPositionExists(bytes32 assetId);
-    error GoldPositionUnknown(bytes32 assetId);
-    error GoldNotVerified(bytes32 assetId);
-    error GoldNotMinted(bytes32 assetId);
-    error GoldInvalidWeight();
-    error GoldInvalidPurity();
+/// @notice Records every bank deposit certificate that was ever used or cancelled.
+///         A certificateId moves NONE -> MINTED or NONE -> REVOKED and can never
+///         return to NONE, so a signed attestation can mint at most once.
+///         A MINTED certificate can be DISPUTED, then restored to MINTED or
+///         WRITTEN_OFF (after the bank has burned the matching tokens).
+/// @dev Every state transition is restricted to the bound issuer (audit fix F1/F2:
+///      the old markMinted/markRedeemed had no access control).
+contract GoldRegistry {
+    error GoldRegistryOnlyIssuer(address caller);
+    error GoldRegistryOnlyDeployer(address caller);
+    error GoldRegistryIssuerAlreadySet();
+    error GoldRegistryZeroAddress();
+    error GoldRegistryBadTransition(bytes32 certificateId, Status from, Status to);
 
     enum Status {
         NONE,
-        VERIFIED,
-        REVOKED,
         MINTED,
-        REDEEMED
+        REVOKED, // cancelled by the bank before any mint
+        DISPUTED, // minted, custody under dispute; bank minting paused
+        WRITTEN_OFF // dispute upheld; bank burned the matching tokens
     }
 
-    struct GoldPosition {
-        uint256 weightGrams; // integer grams
-        uint256 purityBps; // basis points of purity (0..10000, 10000 = 999 fine)
-        string custodian; // custodian identity/name
-        address owner; // beneficial owner of the position
-        address attestor; // the attestor who verified this position (accountability)
+    struct Certificate {
+        bytes32 bankId;
+        address depositor; // who deposited the gold (first token recipient)
+        uint64 fineMilli; // milligrams of fine gold
+        uint16 purityPermille; // assayed fineness, e.g. 995
         Status status;
-        uint256 version; // bumped on re-verify after revoke
-        uint256 attestedAt;
-        uint256 revokedAt;
+        uint64 updatedAt;
     }
 
-    event GoldVerified(
-        bytes32 indexed assetId,
-        uint256 weightGrams,
-        uint256 purityBps,
-        string custodian,
-        address indexed owner,
-        address indexed attestor,
-        uint256 version
-    );
-    event GoldRevoked(bytes32 indexed assetId, address indexed attestor);
-    event GoldMinted(bytes32 indexed assetId, address indexed minter);
-    event GoldRedeemed(bytes32 indexed assetId, address indexed redeemer);
-    event AttestorAdded(address indexed attestor);
-    event AttestorRemoved(address indexed attestor);
+    event IssuerBound(address indexed issuer);
+    event CertificateStatus(bytes32 indexed certificateId, bytes32 indexed bankId, Status status);
 
-    uint256 private constant _BPS_BASE = 10000;
+    address public immutable deployer;
+    address public issuer;
+    mapping(bytes32 => Certificate) internal _certs;
 
-    mapping(bytes32 => GoldPosition) public positions;
-    mapping(address => bool) public isAttestor;
-    address[] public attestorList;
-    uint256 public attestorCount;
+    constructor() {
+        deployer = msg.sender;
+    }
 
-    /// @param admin Owner (attestor management).
-    constructor(address admin) Ownable(admin) {}
+    function bindIssuer(address issuer_) external {
+        if (msg.sender != deployer) revert GoldRegistryOnlyDeployer(msg.sender);
+        if (issuer != address(0)) revert GoldRegistryIssuerAlreadySet();
+        if (issuer_ == address(0)) revert GoldRegistryZeroAddress();
+        issuer = issuer_;
+        emit IssuerBound(issuer_);
+    }
 
-    modifier onlyAttestor() {
-        if (!isAttestor[msg.sender]) revert GoldNotAuthorizedAttestor(msg.sender);
+    modifier onlyIssuer() {
+        if (msg.sender != issuer) revert GoldRegistryOnlyIssuer(msg.sender);
         _;
     }
 
-    // --- Attestor management ---
-
-    /// @notice Authorize an attestor. Only the owner may manage the allowlist.
-    function addAttestor(address attestor) external onlyOwner {
-        if (isAttestor[attestor]) return;
-        isAttestor[attestor] = true;
-        attestorList.push(attestor);
-        attestorCount++;
-        emit AttestorAdded(attestor);
+    /// @notice NONE -> MINTED. Only the issuer, after verifying the bank signature.
+    function recordMint(
+        bytes32 certificateId,
+        bytes32 bankId,
+        address depositor,
+        uint64 fineMilli,
+        uint16 purityPermille
+    ) external onlyIssuer {
+        Certificate storage c = _certs[certificateId];
+        if (c.status != Status.NONE) revert GoldRegistryBadTransition(certificateId, c.status, Status.MINTED);
+        c.bankId = bankId;
+        c.depositor = depositor;
+        c.fineMilli = fineMilli;
+        c.purityPermille = purityPermille;
+        c.status = Status.MINTED;
+        c.updatedAt = uint64(block.timestamp);
+        emit CertificateStatus(certificateId, bankId, Status.MINTED);
     }
 
-    /// @notice De-authorize an attestor.
-    function removeAttestor(address attestor) external onlyOwner {
-        if (!isAttestor[attestor]) return;
-        isAttestor[attestor] = false;
-        for (uint256 i; i < attestorList.length; ++i) {
-            if (attestorList[i] == attestor) {
-                attestorList[i] = attestorList[attestorList.length - 1];
-                attestorList.pop();
-                break;
-            }
-        }
-        attestorCount--;
-        emit AttestorRemoved(attestor);
+    /// @notice NONE -> REVOKED (bank cancels an unused attestation).
+    function recordRevoke(bytes32 certificateId, bytes32 bankId) external onlyIssuer {
+        Certificate storage c = _certs[certificateId];
+        if (c.status != Status.NONE) revert GoldRegistryBadTransition(certificateId, c.status, Status.REVOKED);
+        c.bankId = bankId;
+        c.status = Status.REVOKED;
+        c.updatedAt = uint64(block.timestamp);
+        emit CertificateStatus(certificateId, bankId, Status.REVOKED);
     }
 
-    // --- Verification (only authorized attestors) ---
-
-    /// @notice Verify a gold position. Reverts if the assetId is currently
-    ///         VERIFIED/MINTED/REDEEMED (replay protection); a REVOKED position
-    ///         can be re-verified, bumping its version.
-    function verifyAsset(
-        bytes32 assetId,
-        uint256 weightGrams,
-        uint256 purityBps,
-        string calldata custodian,
-        address owner
-    ) external onlyAttestor {
-        GoldPosition storage pos = positions[assetId];
-        Status cur = pos.status;
-        if (cur == Status.VERIFIED || cur == Status.MINTED || cur == Status.REDEEMED) {
-            revert GoldPositionExists(assetId);
-        }
-        if (weightGrams == 0) revert GoldInvalidWeight();
-        if (purityBps == 0 || purityBps > _BPS_BASE) revert GoldInvalidPurity();
-
-        if (cur == Status.REVOKED) {
-            pos.version += 1;
-        }
-
-        pos.weightGrams = weightGrams;
-        pos.purityBps = purityBps;
-        pos.custodian = custodian;
-        pos.owner = owner;
-        pos.attestor = msg.sender;
-        pos.status = Status.VERIFIED;
-        pos.attestedAt = block.timestamp;
-        emit GoldVerified(assetId, weightGrams, purityBps, custodian, owner, msg.sender, pos.version);
+    /// @notice MINTED -> DISPUTED, DISPUTED -> MINTED, DISPUTED -> WRITTEN_OFF.
+    function setStatus(bytes32 certificateId, Status to) external onlyIssuer {
+        Certificate storage c = _certs[certificateId];
+        Status from = c.status;
+        bool ok = (from == Status.MINTED && to == Status.DISPUTED)
+            || (from == Status.DISPUTED && (to == Status.MINTED || to == Status.WRITTEN_OFF));
+        if (!ok) revert GoldRegistryBadTransition(certificateId, from, to);
+        c.status = to;
+        c.updatedAt = uint64(block.timestamp);
+        emit CertificateStatus(certificateId, c.bankId, to);
     }
 
-    /// @notice Revoke a verified or minted position (e.g. custody loss).
-    function revokeAsset(bytes32 assetId) external onlyAttestor {
-        GoldPosition storage pos = positions[assetId];
-        Status cur = pos.status;
-        if (cur != Status.VERIFIED && cur != Status.MINTED) revert GoldPositionUnknown(assetId);
-        pos.status = Status.REVOKED;
-        pos.revokedAt = block.timestamp;
-        emit GoldRevoked(assetId, msg.sender);
+    function certificateOf(bytes32 certificateId) external view returns (Certificate memory) {
+        return _certs[certificateId];
     }
 
-    // --- Mint / redeem lifecycle (only the GoldToken may advance states) ---
-
-    /// @notice Transition VERIFIED -> MINTED. Only GoldToken.
-    function markMinted(bytes32 assetId) external {
-        GoldPosition storage pos = positions[assetId];
-        if (pos.status != Status.VERIFIED) revert GoldNotVerified(assetId);
-        pos.status = Status.MINTED;
-        emit GoldMinted(assetId, msg.sender);
-    }
-
-    /// @notice Transition MINTED -> REDEEMED. Only GoldToken.
-    function markRedeemed(bytes32 assetId) external {
-        GoldPosition storage pos = positions[assetId];
-        if (pos.status != Status.MINTED) revert GoldNotMinted(assetId);
-        pos.status = Status.REDEEMED;
-        emit GoldRedeemed(assetId, msg.sender);
-    }
-
-    function positionOf(bytes32 assetId) external view returns (GoldPosition memory) {
-        return positions[assetId];
+    function statusOf(bytes32 certificateId) external view returns (Status) {
+        return _certs[certificateId].status;
     }
 }
