@@ -1,0 +1,444 @@
+From 7994081e136cbdb43de2d7ee93369e7e2585a809 Mon Sep 17 00:00:00 2001
+From: Ramprasad <ramprasadgoud34@gmail.com>
+Date: Sun, 11 Oct 2026 15:58:14 +0000
+Subject: [PATCH 7/8] test(app): asset ledger unit tests and a phone
+ walk-through for silver, pledge and desk
+
+---
+ app/e2e/assets_e2e.py       | 186 ++++++++++++++++++++++++++++++++++++
+ app/package.json            |   6 +-
+ app/scripts/assets-test.mjs | 182 +++++++++++++++++++++++++++++++++++
+ scripts/app-public.sh       |   4 +
+ 4 files changed, 375 insertions(+), 3 deletions(-)
+ create mode 100644 app/e2e/assets_e2e.py
+ create mode 100644 app/scripts/assets-test.mjs
+
+diff --git a/app/e2e/assets_e2e.py b/app/e2e/assets_e2e.py
+new file mode 100644
+index 0000000..4b588fe
+--- /dev/null
++++ b/app/e2e/assets_e2e.py
+@@ -0,0 +1,186 @@
++"""Browser walk-through of the new asset screens on a phone sized screen (360 x 780).
++
++Silver: save 100 g at the demo bank counter, see grams + rupees + proof line, receipt,
++Telugu. Pledge: pick an item, bank pledges it, receipt card, a refused oversized loan,
++borrow, pay back. Bank asset desk: approved buyer bids, an unapproved buyer is refused,
++settling is refused while the borrower can still pay, the clock moves, the auction
++settles. Fails on any browser console error. Optional axe scan (AXE_JS) per screen.
++
++Env: APP (default http://127.0.0.1:3200), SHOTS (folder for screenshots), AXE_JS.
++Test money only. Needs: pip install playwright==1.48.0 && python3 -m playwright install chromium
++"""
++import os
++import re
++import sys
++
++from playwright.sync_api import expect, sync_playwright
++
++APP = os.environ.get("APP", "http://127.0.0.1:3200").rstrip("/")
++SHOTS = os.environ.get("SHOTS", "")
++AXE_JS = os.environ.get("AXE_JS", "")
++PHONE = {"width": 360, "height": 780}
++
++passes, failures = 0, 0
++console_errors = []
++
++
++def ok(cond, msg):
++    global passes, failures
++    print(("PASS  " if cond else "FAIL  ") + msg, flush=True)
++    if cond:
++        passes += 1
++    else:
++        failures += 1
++
++
++def shot(page, name):
++    if SHOTS:
++        os.makedirs(SHOTS, exist_ok=True)
++        page.add_style_tag(content=".nav{position:static!important}")
++        page.screenshot(path=os.path.join(SHOTS, f"{name}.png"), full_page=True)
++        page.evaluate("() => document.querySelectorAll('style').forEach(s => { if (s.textContent.includes('.nav{position:static')) s.remove(); })")
++
++
++def axe(page, name):
++    if not AXE_JS:
++        return
++    page.add_script_tag(path=AXE_JS)
++    res = page.evaluate(
++        "async () => { const r = await axe.run(document, { runOnly: ['wcag2a','wcag2aa','best-practice'] });"
++        " return r.violations.map(v => ({id: v.id, impact: v.impact})); }"
++    )
++    bad = [v for v in res if v["impact"] in ("serious", "critical")]
++    ok(not bad, f"axe {name}: {len(res)} issue(s), serious/critical: {', '.join(v['id'] for v in bad) or 'none'}")
++
++
++def tap(page, name, exact=False):
++    try:
++        page.get_by_role("button", name=name, exact=exact).first.click(timeout=20000)
++    except Exception as e:
++        raise RuntimeError(f"could not tap '{name}' on {page.url}: {str(e).splitlines()[0]}") from None
++
++
++def toast(page):
++    return page.locator(".toast[role=alert]")
++
++
++def close_toast(page):
++    page.get_by_role("button", name="Close").first.click()
++
++
++def done(page):
++    btn = page.get_by_role("button", name="Done")
++    btn.wait_for(timeout=20000)
++    btn.click()
++
++
++def main():
++    with sync_playwright() as p:
++        browser = p.chromium.launch()
++        ctx = browser.new_context(viewport=PHONE, device_scale_factor=2, is_mobile=True, has_touch=True, locale="en-IN")
++        page = ctx.new_page()
++        page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
++        page.on("pageerror", lambda e: console_errors.append(str(e)))
++
++        page.goto(APP + "/")
++        page.evaluate("() => { localStorage.clear(); localStorage.setItem('vr.lang', JSON.stringify('en')); }")
++        page.reload()
++        tap(page, "Try the demo")
++        tap(page, "Use demo account (Ravi)")
++        expect(page.get_by_text("Next payment")).to_be_visible(timeout=20000)
++
++        # ---- silver
++        page.goto(APP + "/#gold")
++        tap(page, "Silver", exact=True)
++        expect(page.get_by_role("heading", name="Silver", exact=True)).to_be_visible()
++        expect(page.get_by_test_id("silver-grams")).to_have_text(re.compile(r"^0\.000"))
++        tap(page, "Bank adds 100 g silver (demo)")
++        done(page)
++        expect(page.get_by_test_id("silver-grams")).to_have_text(re.compile(r"^100\.000"))
++        expect(page.get_by_text("Fully backed").first).to_be_visible()
++        ok(True, "silver: 100 g saved at the demo bank counter, shown in grams and rupees, fully backed")
++        shot(page, "a1-silver-en")
++        axe(page, "silver")
++        page.get_by_role("button", name="తెలుగులో చూడండి").click()
++        expect(page.get_by_role("heading", name="వెండి", exact=True)).to_be_visible()
++        shot(page, "a2-silver-te")
++        page.get_by_role("button", name="Show in English").click()
++        ok(True, "silver: Telugu and back")
++
++        # ---- pledge an item
++        page.goto(APP + "/#gold")
++        tap(page, "Pledge an item")
++        page.get_by_text("Car", exact=True).click()
++        shot(page, "a3-pledge-pick-en")
++        axe(page, "pledge-pick")
++        tap(page, "Bank checks and pledges it (demo)")
++        done(page)
++        rc = page.get_by_test_id("pledge-receipt")
++        expect(rc).to_contain_text("Car")
++        expect(rc).to_contain_text("₹6,00,000")
++        expect(rc).to_contain_text("₹4,20,000")
++        expect(page.get_by_text("₹2,52,000").first).to_be_visible()
++        ok(True, "pledge: receipt shows bank value Rs 6 lakh, Rs 4.2 lakh counts, borrow up to Rs 2.52 lakh")
++        shot(page, "a4-pledge-receipt-en")
++        axe(page, "pledge-receipt")
++        page.get_by_label("Amount in rupees").fill("300000")
++        tap(page, "Borrow against it")
++        expect(toast(page)).to_contain_text("more than the bank lends")
++        close_toast(page)
++        ok(True, "pledge: a loan above the limit is refused in plain words")
++        page.get_by_label("Amount in rupees").fill("100000")
++        tap(page, "Borrow against it")
++        done(page)
++        expect(page.get_by_text("Loan running")).to_be_visible()
++        shot(page, "a5-pledge-loan-en")
++        tap(page, "Pay back")
++        done(page)
++        expect(page.get_by_text("Your receipt is free again")).to_be_visible()
++        ok(True, "pledge: borrow Rs 1 lakh and pay it back, receipt free again")
++
++        # ---- bank asset desk
++        page.goto(APP + "/#home")
++        tap(page, "Bank asset desk")
++        expect(page.get_by_test_id("desk-status")).to_have_text("On auction")
++        tap(page, re.compile(r"^Mock Bank 2 bids"))
++        expect(page.get_by_test_id("desk-high")).to_contain_text("Mock Bank 2")
++        tap(page, "Unapproved buyer tries to bid")
++        expect(toast(page)).to_contain_text("Only approved banks and dealers")
++        close_toast(page)
++        ok(True, "desk: approved buyer bids, unapproved buyer refused")
++        shot(page, "a6-desk-en")
++        axe(page, "desk")
++        tap(page, re.compile(r"^Approved Dealer A bids"))
++        tap(page, "Move the clock 36 days (demo)")
++        expect(page.get_by_role("button", name="Borrower pays dues and takes it back")).to_have_count(0)
++        tap(page, "Settle auction")
++        expect(page.get_by_test_id("desk-status")).to_have_text("Sold")
++        expect(page.get_by_test_id("desk-high")).to_contain_text("Approved Dealer A")
++        expect(page.get_by_test_id("desk-surplus")).to_contain_text("₹93,000")
++        ok(True, "desk: borrower window closes, auction settles to the highest approved bid")
++        shot(page, "a7-desk-sold-en")
++
++        # ---- borrower redeems on a fresh listing
++        tap(page, "List another repossessed item (demo)")
++        tap(page, re.compile(r"bids"))
++        tap(page, "Borrower pays dues and takes it back")
++        expect(page.get_by_test_id("desk-status")).to_have_text(re.compile("Borrower paid dues"))
++        ok(True, "desk: borrower pays dues inside the window and gets the item back")
++
++        page.goto(APP + "/#pledge")
++        text = page.inner_text("body").lower()
++        bad = [w for w in ["wallet", "gas fee", "token", "blockchain", "crypto", "nft"] if w in text]
++        ok(not bad, f"pledge screen has no crypto words ({', '.join(bad) or 'none'})")
++
++        real = [e for e in console_errors if "favicon" not in e]
++        ok(not real, f"no browser console errors ({len(real)})" + ("" if not real else ": " + "; ".join(real[:3])))
++        browser.close()
++
++
++if __name__ == "__main__":
++    try:
++        main()
++    except Exception as e:
++        ok(False, f"asset walk-through stopped: {str(e).splitlines()[0][:300]}")
++    print(f"\n{passes} passed, {failures} failed")
++    sys.exit(1 if failures else 0)
+diff --git a/app/package.json b/app/package.json
+index 54aba5f..6259bf6 100644
+--- a/app/package.json
++++ b/app/package.json
+@@ -2,7 +2,7 @@
+   "name": "varanasi-people-app",
+   "version": "0.1.0",
+   "private": true,
+-  "description": "Varanasi people app: bank-backed gold savings and chit funds, Telugu + English, local demo",
++  "description": "Varanasi people app: bank-backed gold and silver savings, pledged items and chit funds, Telugu + English, local demo",
+   "scripts": {
+     "dev": "next dev -p ${APP_PORT:-3100}",
+     "build": "next build",
+@@ -12,8 +12,8 @@
+     "lint": "next lint --dir app --dir components --dir lib",
+     "format": "prettier --write \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
+     "format:check": "prettier --check \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
+-    "test:unit": "node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs && FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs scripts/waitlist-test.mjs",
+-    "coverage": "FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs --test --experimental-test-coverage --test-coverage-include=lib/**/*.ts scripts/sim-test.mjs scripts/waitlist-test.mjs"
++    "test:unit": "node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs && node --no-warnings --import ./scripts/ts-hook.mjs --test scripts/assets-test.mjs && FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs scripts/waitlist-test.mjs",
++    "coverage": "FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs --test --experimental-test-coverage --test-coverage-include=lib/**/*.ts scripts/sim-test.mjs scripts/assets-test.mjs scripts/waitlist-test.mjs"
+   },
+   "dependencies": {
+     "next": "14.2.35",
+diff --git a/app/scripts/assets-test.mjs b/app/scripts/assets-test.mjs
+new file mode 100644
+index 0000000..b9dbe8f
+--- /dev/null
++++ b/app/scripts/assets-test.mjs
+@@ -0,0 +1,182 @@
++// Asset test ledger checks (app/lib/assets.ts): silver savings, pledge receipts,
++// loans against items and the bank asset desk. Same rules and numbers as the
++// contracts in contracts/src/assets. TEST money only.
++// Usage (Node 22.18+): node --import ./scripts/ts-hook.mjs scripts/assets-test.mjs
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import {
++  DAY,
++  bid,
++  borrow,
++  deskHeldPaise,
++  lendableValue,
++  maxBorrow,
++  minimumBid,
++  pledgeItem,
++  redeemListing,
++  releaseItem,
++  repay,
++  saveSilver,
++  seedAssets,
++  settleListing,
++  silverBacked,
++  silverValuePaise,
++  stepAssets,
++  warp,
++} from "../lib/assets.ts";
++
++const T0 = 1_790_000_000;
++const code = (fn) => {
++  try {
++    fn();
++    return "OK";
++  } catch (e) {
++    return e.message;
++  }
++};
++
++test("silver: 100 g of 99.9% is saved, backed, valued", () => {
++  const w = seedAssets(T0);
++  const c = saveSilver(w, 100, 999);
++  assert.equal(c.milli, 100_000);
++  assert.equal(w.silverMilli, 100_000);
++  assert.ok(silverBacked(w));
++  assert.equal(silverValuePaise(w), 100 * 110_00);
++  assert.equal(
++    code(() => saveSilver(w, 10, 925)),
++    "SILVER_PURITY"
++  );
++  assert.equal(
++    code(() => saveSilver(w, 0, 999)),
++    "BAD_AMOUNT"
++  );
++});
++
++test("pledge: haircut and LTV per item kind match the contracts", () => {
++  const w = seedAssets(T0);
++  const car = pledgeItem(w, "car");
++  assert.equal(lendableValue(w, car), 4_20_000_00); // Rs 6 lakh less 30%
++  assert.equal(maxBorrow(w, car), 2_52_000_00); // 60% of that
++  const bike = pledgeItem(w, "bike");
++  assert.equal(maxBorrow(w, bike), Math.floor((80_000_00 * 0.6 * 5000) / 10_000));
++  assert.match(car.assetIdHash, /^0x[0-9a-f]{16}\.\.\.$/);
++  assert.equal(
++    code(() => pledgeItem(w, "boat")),
++    "BAD_ITEM"
++  );
++});
++
++test("pledge: borrow, repay, limits, stale value", () => {
++  const w = seedAssets(T0);
++  const p = pledgeItem(w, "car");
++  assert.equal(
++    code(() => borrow(w, p.id, maxBorrow(w, p) + 1)),
++    "ITEM_LOAN_TOO_LARGE"
++  );
++  assert.equal(
++    code(() => borrow(w, p.id, 0)),
++    "BAD_AMOUNT"
++  );
++  assert.equal(
++    code(() => borrow(w, p.id, 1, 400)),
++    "ITEM_LOAN_TOO_LONG"
++  );
++  const l = borrow(w, p.id, 1_00_000_00);
++  assert.equal(w.rupeePaise, 1_00_000_00);
++  assert.equal(
++    code(() => borrow(w, p.id, 1)),
++    "ITEM_BUSY"
++  );
++  assert.equal(
++    code(() => releaseItem(w, p.id)),
++    "ITEM_BUSY"
++  );
++  repay(w, l.id);
++  assert.equal(w.rupeePaise, 0);
++  assert.equal(
++    code(() => repay(w, l.id)),
++    "LoanNotActive"
++  );
++  warp(w, 366);
++  assert.equal(lendableValue(w, p), 0);
++  assert.equal(releaseItem(w, p.id).status, "RELEASED");
++  assert.equal(
++    code(() => borrow(w, 999, 1)),
++    "NO_SUCH_ITEM"
++  );
++});
++
++test("desk: English auction settles only after window, escrow always covered", () => {
++  const w = seedAssets(T0);
++  const l = w.listings[0];
++  assert.equal(
++    code(() => bid(w, l.id, "Unknown buyer", l.reservePaise)),
++    "DeskNotApprovedBuyer"
++  );
++  assert.equal(
++    code(() => bid(w, l.id, "Mock Bank 1", l.reservePaise)),
++    "DeskNotApprovedBuyer"
++  );
++  assert.equal(
++    code(() => bid(w, l.id, "Mock Bank 2", l.reservePaise - 1)),
++    "DeskBidTooLow"
++  );
++  bid(w, l.id, "Mock Bank 2", l.reservePaise);
++  bid(w, l.id, "Approved Dealer A", minimumBid(l));
++  assert.equal(w.credits["Mock Bank 2"], l.reservePaise);
++  assert.equal(deskHeldPaise(w), l.reservePaise + minimumBid({ ...l, bids: [l.bids[0]] }));
++  assert.equal(
++    code(() => settleListing(w, l.id, 1)),
++    "DeskWindowOpen"
++  );
++  warp(w, 31);
++  assert.equal(
++    code(() => settleListing(w, l.id, 1)),
++    "DeskAuctionRunning"
++  );
++  assert.equal(
++    code(() => redeemListing(w, l.id)),
++    "DeskWindowClosed"
++  );
++  warp(w, 5);
++  assert.equal(
++    code(() => bid(w, l.id, "Approved Dealer B", minimumBid(l))),
++    "DeskBiddingClosed"
++  );
++  const s = settleListing(w, l.id, 3_20_000_00);
++  assert.equal(s.status, "SOLD");
++  assert.equal(s.winner, "Approved Dealer A");
++  assert.equal(w.escrowPaise, 0);
++  assert.equal(w.credits["Mock Bank 1"], l.duesPaise); // bank gets its dues
++  assert.equal(w.credits["Borrower"], s.pricePaise - l.duesPaise); // surplus to the borrower
++  assert.equal(
++    code(() => settleListing(w, l.id, 1)),
++    "DeskNotListed"
++  );
++});
++
++test("desk: borrower redeems in the window, bidders refunded; no bids means unsold", () => {
++  const w = seedAssets(T0);
++  const l = w.listings[0];
++  bid(w, l.id, "Mock Bank 2", l.reservePaise);
++  redeemListing(w, l.id);
++  assert.equal(l.status, "REDEEMED");
++  assert.equal(w.credits["Mock Bank 2"], l.reservePaise);
++  assert.equal(w.credits["Mock Bank 1"], l.duesPaise);
++  assert.equal(w.escrowPaise, 0);
++
++  const w2 = seedAssets(T0);
++  warp(w2, 36);
++  assert.equal(settleListing(w2, w2.listings[0].id, 1).status, "UNSOLD");
++  assert.equal(w2.now, T0 + 36 * DAY);
++});
++
++test("stepAssets: a refused step leaves the world unchanged", () => {
++  const w = seedAssets(T0);
++  const before = JSON.stringify(w);
++  assert.throws(() => stepAssets(w, (c) => saveSilver(c, 1, 900)));
++  assert.equal(JSON.stringify(w), before);
++  const { world } = stepAssets(w, (c) => saveSilver(c, 1, 999));
++  assert.equal(world.silverMilli, 1000);
++  assert.equal(w.silverMilli, 0);
++});
+diff --git a/scripts/app-public.sh b/scripts/app-public.sh
+index 6f1b241..7bb0fec 100755
+--- a/scripts/app-public.sh
++++ b/scripts/app-public.sh
+@@ -41,6 +41,8 @@ fi
+ if [ "$CHECK" = "1" ]; then
+   echo "==> demo ledger test"
+   (cd "$APPDIR" && node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs)
++  echo "==> asset ledger test"
++  (cd "$APPDIR" && node --no-warnings --import ./scripts/ts-hook.mjs --test scripts/assets-test.mjs)
+ fi
+ 
+ echo "==> build (public mode, into .next-public)"
+@@ -71,6 +73,8 @@ if [ "$CHECK" = "1" ]; then
+   if [ "${SKIP_E2E:-0}" != "1" ]; then
+     echo "==> browser walk-through (public mode)"
+     APP="http://127.0.0.1:$APP_PORT" MODE_NAME=public SHOTS="${SHOTS:-}" python3 "$ROOT/app/e2e/e2e.py"
++    echo "==> browser walk-through (silver, pledged items, bank asset desk)"
++    APP="http://127.0.0.1:$APP_PORT" SHOTS="${SHOTS:-}" python3 "$ROOT/app/e2e/assets_e2e.py"
+   fi
+   echo "==> all good"
+   exit 0
+-- 
+2.47.3
+

@@ -39,7 +39,10 @@ is fully green.
 | `src/finance/LoanAgreement.sol` | LoanAgreement | term-loan between lender + borrower |
 | `src/finance/FinancialReputation.sol` | FinancialReputation | member credit/reputation tracking |
 | `src/collateral/CollateralVault.sol` | CollateralVault | collateral backing community loans |
-| `src/gold/BankGoldIssuer.sol` + `GoldRegistry.sol` + `GoldToken.sol` | gold stack | bank-attested gold token: EIP-712 bank signatures, single-use certificates, fungible redemption, disputes, proof of reserve ([docs/GOLD.md](../docs/GOLD.md)) |
+| `src/gold/BankGoldIssuer.sol` + `GoldRegistry.sol` + `GoldToken.sol` | gold stack | bank-attested gold token: EIP-712 bank signatures, single-use certificates, fungible redemption, disputes, proof of reserve ([docs/ASSETS.md](../docs/ASSETS.md)) |
+| `src/assets/BankMetalIssuer.sol` + `MetalToken.sol` + `MetalCertificateRegistry.sol` + `AssetRegistry.sol` | metal stack | silver, platinum and any other fungible metal: one token, EIP-712 domain, purity floor, reserve and pause per metal; registry lists every metal with its reserve ([docs/ASSETS.md](../docs/ASSETS.md)) |
+| `src/assets/PledgeReceipt.sol` + `PledgeLoan.sol` | pledged items | ERC-721 receipt per bank-appraised item, bank-gated transfers, freeze, re-appraisal expiry; loans from the lien-holding bank with haircut and LTV per class |
+| `src/assets/BankAssetDesk.sol` | bank asset desk | English or sealed auctions of bank-held items among approved buyers, escrowed, borrower redemption window, surplus to borrower |
 
 Not yet deployed — demo state is address-seeded and simulated; the agent's
 `execute()` throws until they go live. Protocol tests: 54 (see

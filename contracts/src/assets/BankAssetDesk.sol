@@ -1,0 +1,377 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {PledgeReceipt} from "./PledgeReceipt.sol";
+
+/// @title BankAssetDesk: transparent auctions of assets banks already hold.
+/// @author Ramprasad
+/// @notice For items a bank holds after a default: gold loan jewellery, repossessed
+///         vehicles, property taken under SARFAESI. The bank lists the item's pledge
+///         receipt with a reserve price, the legal step it has reached and the date
+///         the borrower's redemption window closes. Only approved buyers (banks,
+///         NBFCs, registered dealers vetted off chain) can bid, in an English
+///         (open, rising) or sealed (commit, then reveal) auction. Every rupee bid is
+///         escrowed here.
+///
+///         Rules the chain enforces:
+///         - the item never moves before the borrower's redemption window ends;
+///         - until then the borrower can pay the dues and get the item back, which
+///           cancels the auction and refunds every bidder;
+///         - only approved buyers can bid;
+///         - at settlement the bank re-attests the value, the receipt moves to the
+///           winner, the bank gets its dues and any surplus goes to the borrower;
+///           below reserve, the item goes back to the bank and every bid is refunded;
+///         - jewellery reserve price is at least 90% of the bank's value (RBI 2025);
+///         - the selling bank can never bid on its own listing (RBI 2025, para 42);
+///         - escrow is always fully covered: rupee balance == escrowed bids + money
+///           waiting to be withdrawn.
+/// @dev No personal data: the borrower is a wallet address and the item an
+///      assetIdHash inside the receipt. Demo money is MockRupee (paise).
+contract BankAssetDesk is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
+    error DeskNotBank(uint256 tokenId, address caller);
+    error DeskNotApprovedBuyer(address caller);
+    error DeskBadParams();
+    error DeskNotListed(uint256 listingId);
+    error DeskWrongAuction(uint256 listingId);
+    error DeskBiddingClosed(uint256 listingId);
+    error DeskBidTooLow(uint256 bid, uint256 minimum);
+    error DeskNotRevealPhase(uint256 listingId);
+    error DeskBadReveal(uint256 listingId);
+    error DeskAlreadyCommitted(uint256 listingId, address bidder);
+    error DeskWindowOpen(uint256 listingId, uint64 redemptionEnd);
+    error DeskWindowClosed(uint256 listingId, uint64 redemptionEnd);
+    error DeskAuctionRunning(uint256 listingId);
+    error DeskNotBorrower(uint256 listingId, address caller);
+    error DeskNothingToWithdraw();
+    error DeskNothingToReclaim(uint256 listingId);
+    error DeskSellerCannotBid(uint256 listingId);
+    error DeskReserveTooLow();
+
+    event BuyerApproved(address indexed buyer, bool approved);
+    event Listed(
+        uint256 indexed listingId,
+        uint256 indexed tokenId,
+        address indexed bank,
+        uint8 auctionType,
+        uint8 legalStatus,
+        uint256 reservePaise,
+        uint64 redemptionEnd,
+        uint64 biddingEnd
+    );
+    event BidPlaced(uint256 indexed listingId, address indexed bidder, uint256 paise);
+    event BidCommitted(uint256 indexed listingId, address indexed bidder, uint256 depositPaise);
+    event BidRevealed(uint256 indexed listingId, address indexed bidder, uint256 paise);
+    event RedeemedByBorrower(uint256 indexed listingId, address indexed borrower, uint256 duesPaise);
+    event Sold(uint256 indexed listingId, address indexed winner, uint256 paise, uint256 newAppraisalPaise);
+    event Unsold(uint256 indexed listingId);
+    event Credited(address indexed account, uint256 paise);
+    event Withdrawn(address indexed account, uint256 paise);
+
+    uint8 public constant ENGLISH = 0;
+    uint8 internal constant JEWELLERY_CLASS = 3; // PledgeReceipt.CLASS_JEWELLERY
+    bytes32 internal constant REVEALED = bytes32(uint256(1));
+    /// @notice If the bank never settles, the high bidder can take the money back
+    ///         this long after the auction and the redemption window have both ended.
+    uint256 public constant SETTLE_TIMEOUT = 30 days;
+    uint8 public constant SEALED = 1;
+
+    /// @notice Legal step the bank has reached. Listing needs one of these.
+    uint8 public constant LEGAL_DEMAND_NOTICE = 1; // SARFAESI 13(2) / gold loan default notice served
+    uint8 public constant LEGAL_POSSESSION_TAKEN = 2; // 13(4) possession, vehicle repossessed
+    uint8 public constant LEGAL_AUCTION_NOTICE = 3; // public auction notice served and published
+    uint8 public constant LEGAL_MAX = 3;
+
+    enum Status {
+        NONE,
+        LISTED,
+        REDEEMED,
+        SOLD,
+        UNSOLD
+    }
+
+    struct Listing {
+        uint256 tokenId;
+        address bank; // bank operator that listed and receives proceeds
+        address borrower; // may redeem by paying dues before redemptionEnd (0 = none)
+        uint8 auctionType;
+        uint8 legalStatus;
+        Status status;
+        uint64 redemptionEnd;
+        uint64 biddingEnd;
+        uint64 revealEnd; // sealed only; equals biddingEnd for English
+        uint256 reservePaise;
+        uint256 duesPaise;
+        address highBidder;
+        uint256 highBid;
+    }
+
+    PledgeReceipt public immutable receipts;
+    IERC20 public immutable rupee;
+
+    mapping(address => bool) public approvedBuyer;
+    mapping(uint256 => Listing) public listings;
+    uint256 public listingCount;
+    /// @notice Sealed auctions: commitment and escrowed deposit per bidder.
+    mapping(uint256 => mapping(address => bytes32)) public commitmentOf;
+    mapping(uint256 => mapping(address => uint256)) public depositOf;
+    /// @notice Pull payments: refunds, outbid money and sale proceeds.
+    mapping(address => uint256) public credit;
+
+    /// @notice Money held for live bids (English high bid + all sealed deposits).
+    uint256 public totalEscrow;
+    /// @notice Money waiting for its owner to withdraw.
+    uint256 public totalCredit;
+
+    constructor(address admin, address receipts_, address rupee_) Ownable(admin) {
+        receipts = PledgeReceipt(receipts_);
+        rupee = IERC20(rupee_);
+    }
+
+    function setApprovedBuyer(address buyer, bool approved) external onlyOwner {
+        approvedBuyer[buyer] = approved;
+        emit BuyerApproved(buyer, approved);
+    }
+
+    // ------------------------------------------------------------------ bank
+    /// @notice Bank lists a receipt it holds (approve this desk first).
+    function list(
+        uint256 tokenId,
+        uint8 auctionType,
+        uint8 legalStatus,
+        uint256 reservePaise,
+        uint64 redemptionEnd,
+        uint64 biddingEnd,
+        uint64 revealEnd,
+        address borrower,
+        uint256 duesPaise
+    ) external nonReentrant returns (uint256 listingId) {
+        if (msg.sender != receipts.bankOperatorOf(tokenId)) revert DeskNotBank(tokenId, msg.sender);
+        if (auctionType > SEALED || legalStatus == 0 || legalStatus > LEGAL_MAX || reservePaise == 0) {
+            revert DeskBadParams();
+        }
+        if (redemptionEnd <= block.timestamp || biddingEnd <= block.timestamp) revert DeskBadParams();
+        if (auctionType == SEALED ? revealEnd <= biddingEnd : revealEnd != biddingEnd) revert DeskBadParams();
+        if (borrower != address(0) && duesPaise == 0) revert DeskBadParams();
+        // RBI gold and silver directions: reserve price at least 90% of current value
+        PledgeReceipt.Receipt memory r = receipts.receiptOf(tokenId);
+        if (r.assetClass == JEWELLERY_CLASS && reservePaise * 100 < r.appraisedPaise * 90) revert DeskReserveTooLow();
+
+        listingId = ++listingCount;
+        listings[listingId] = Listing({
+            tokenId: tokenId,
+            bank: msg.sender,
+            borrower: borrower,
+            auctionType: auctionType,
+            legalStatus: legalStatus,
+            status: Status.LISTED,
+            redemptionEnd: redemptionEnd,
+            biddingEnd: biddingEnd,
+            revealEnd: revealEnd,
+            reservePaise: reservePaise,
+            duesPaise: duesPaise,
+            highBidder: address(0),
+            highBid: 0
+        });
+        receipts.transferFrom(msg.sender, address(this), tokenId);
+        emit Listed(listingId, tokenId, msg.sender, auctionType, legalStatus, reservePaise, redemptionEnd, biddingEnd);
+    }
+
+    /// @notice After the redemption window and the auction end, the bank settles.
+    ///         It re-attests the value (fresh appraisal for the new holder).
+    function settle(uint256 listingId, uint256 newAppraisalPaise, uint64 newReappraiseBy) external nonReentrant {
+        Listing storage l = _listed(listingId);
+        if (msg.sender != l.bank) revert DeskNotBank(l.tokenId, msg.sender);
+        if (block.timestamp <= l.redemptionEnd) revert DeskWindowOpen(listingId, l.redemptionEnd);
+        if (block.timestamp <= l.revealEnd) revert DeskAuctionRunning(listingId);
+
+        address winner = l.highBidder;
+        if (winner != address(0) && l.highBid >= l.reservePaise) {
+            uint256 price = l.highBid;
+            l.status = Status.SOLD;
+            if (l.auctionType == SEALED) {
+                uint256 dep = depositOf[listingId][winner];
+                depositOf[listingId][winner] = 0;
+                totalEscrow -= dep;
+                _credit(winner, dep - price);
+            } else {
+                totalEscrow -= price;
+            }
+            // RBI gold loan rule, applied to every item: the surplus over the dues goes
+            // back to the borrower; a shortfall is recovered off chain under the loan terms
+            if (l.borrower != address(0) && price > l.duesPaise) {
+                _credit(l.bank, l.duesPaise);
+                _credit(l.borrower, price - l.duesPaise);
+            } else {
+                _credit(l.bank, price);
+            }
+            receipts.moverReappraise(l.tokenId, newAppraisalPaise, newReappraiseBy);
+            receipts.transferFrom(address(this), winner, l.tokenId);
+            emit Sold(listingId, winner, price, newAppraisalPaise);
+        } else {
+            l.status = Status.UNSOLD;
+            _refundHigh(listingId, l);
+            receipts.transferFrom(address(this), l.bank, l.tokenId);
+            emit Unsold(listingId);
+        }
+    }
+
+    // ------------------------------------------------------------------ borrower
+    /// @notice Before the window closes the borrower pays the dues and gets the item
+    ///         back. Every bid is refunded.
+    function redeem(uint256 listingId) external nonReentrant {
+        Listing storage l = _listed(listingId);
+        if (l.borrower == address(0) || msg.sender != l.borrower) revert DeskNotBorrower(listingId, msg.sender);
+        if (block.timestamp > l.redemptionEnd) revert DeskWindowClosed(listingId, l.redemptionEnd);
+        l.status = Status.REDEEMED;
+        _refundHigh(listingId, l);
+        uint256 dues = l.duesPaise;
+        _credit(l.bank, dues); // effects first; the transfer below reverts the lot if unpaid
+        rupee.safeTransferFrom(msg.sender, address(this), dues);
+        receipts.transferFrom(address(this), msg.sender, l.tokenId);
+        emit RedeemedByBorrower(listingId, msg.sender, dues);
+    }
+
+    // ------------------------------------------------------------------ English auction
+    function bid(uint256 listingId, uint256 paise) external nonReentrant {
+        if (!approvedBuyer[msg.sender]) revert DeskNotApprovedBuyer(msg.sender);
+        Listing storage l = _listed(listingId);
+        if (msg.sender == l.bank) revert DeskSellerCannotBid(listingId);
+        if (l.auctionType != ENGLISH) revert DeskWrongAuction(listingId);
+        if (block.timestamp > l.biddingEnd) revert DeskBiddingClosed(listingId);
+        uint256 minimum = l.highBid == 0 ? l.reservePaise : l.highBid + _increment(l.highBid);
+        if (paise < minimum) revert DeskBidTooLow(paise, minimum);
+
+        if (l.highBidder != address(0)) {
+            totalEscrow -= l.highBid;
+            _credit(l.highBidder, l.highBid);
+        }
+        l.highBidder = msg.sender;
+        l.highBid = paise;
+        totalEscrow += paise;
+        rupee.safeTransferFrom(msg.sender, address(this), paise);
+        emit BidPlaced(listingId, msg.sender, paise);
+    }
+
+    // ------------------------------------------------------------------ sealed auction
+    /// @param commitment keccak256(abi.encode(listingId, bidder, paise, salt))
+    /// @param depositPaise escrowed now; must be at least the bid revealed later
+    function commitBid(uint256 listingId, bytes32 commitment, uint256 depositPaise) external nonReentrant {
+        if (!approvedBuyer[msg.sender]) revert DeskNotApprovedBuyer(msg.sender);
+        Listing storage l = _listed(listingId);
+        if (msg.sender == l.bank) revert DeskSellerCannotBid(listingId);
+        if (l.auctionType != SEALED) revert DeskWrongAuction(listingId);
+        if (block.timestamp > l.biddingEnd) revert DeskBiddingClosed(listingId);
+        if (commitmentOf[listingId][msg.sender] != bytes32(0)) revert DeskAlreadyCommitted(listingId, msg.sender);
+        if (depositPaise < l.reservePaise) revert DeskBidTooLow(depositPaise, l.reservePaise);
+        commitmentOf[listingId][msg.sender] = commitment;
+        depositOf[listingId][msg.sender] = depositPaise;
+        totalEscrow += depositPaise;
+        rupee.safeTransferFrom(msg.sender, address(this), depositPaise);
+        emit BidCommitted(listingId, msg.sender, depositPaise);
+    }
+
+    function revealBid(uint256 listingId, uint256 paise, bytes32 salt) external nonReentrant {
+        Listing storage l = _listed(listingId);
+        if (l.auctionType != SEALED) revert DeskWrongAuction(listingId);
+        if (block.timestamp <= l.biddingEnd || block.timestamp > l.revealEnd) revert DeskNotRevealPhase(listingId);
+        bytes32 c = commitmentOf[listingId][msg.sender];
+        uint256 dep = depositOf[listingId][msg.sender];
+        if (c == bytes32(0) || c != keccak256(abi.encode(listingId, msg.sender, paise, salt))) {
+            revert DeskBadReveal(listingId);
+        }
+        if (paise > dep || paise < l.reservePaise) revert DeskBadReveal(listingId);
+        commitmentOf[listingId][msg.sender] = REVEALED; // a second reveal can never match
+
+        if (paise > l.highBid) {
+            address prev = l.highBidder;
+            if (prev != address(0)) _releaseDeposit(listingId, prev);
+            l.highBidder = msg.sender;
+            l.highBid = paise;
+        } else {
+            _releaseDeposit(listingId, msg.sender);
+        }
+        emit BidRevealed(listingId, msg.sender, paise);
+    }
+
+    /// @notice A sealed bidder who is not the live winner gets the deposit back:
+    ///         after the auction ends, or at once if the borrower redeemed.
+    function reclaimDeposit(uint256 listingId) external nonReentrant {
+        Listing storage l = listings[listingId];
+        if (l.status == Status.NONE) revert DeskNotListed(listingId);
+        bool over = l.status != Status.LISTED || block.timestamp > l.revealEnd;
+        if (!over || msg.sender == l.highBidder && l.status == Status.LISTED) revert DeskAuctionRunning(listingId);
+        if (depositOf[listingId][msg.sender] == 0) revert DeskNothingToReclaim(listingId);
+        _releaseDeposit(listingId, msg.sender);
+    }
+
+    /// @notice The bank did not settle in time: the high bidder takes the bid back and
+    ///         the item can then only be settled as unsold.
+    function reclaimUnsettled(uint256 listingId) external nonReentrant {
+        Listing storage l = _listed(listingId);
+        if (msg.sender != l.highBidder) revert DeskNothingToReclaim(listingId);
+        uint256 end = l.revealEnd > l.redemptionEnd ? l.revealEnd : l.redemptionEnd;
+        if (block.timestamp <= end + SETTLE_TIMEOUT) revert DeskAuctionRunning(listingId);
+        _refundHigh(listingId, l);
+        l.highBidder = address(0);
+        l.highBid = 0;
+    }
+
+    // ------------------------------------------------------------------ money out
+    function withdraw() external nonReentrant {
+        uint256 amt = credit[msg.sender];
+        if (amt == 0) revert DeskNothingToWithdraw();
+        credit[msg.sender] = 0;
+        totalCredit -= amt;
+        rupee.safeTransfer(msg.sender, amt);
+        emit Withdrawn(msg.sender, amt);
+    }
+
+    // ------------------------------------------------------------------ views
+    /// @notice Smallest bid that is accepted now (English).
+    function minimumBid(uint256 listingId) external view returns (uint256) {
+        Listing storage l = listings[listingId];
+        return l.highBid == 0 ? l.reservePaise : l.highBid + _increment(l.highBid);
+    }
+
+    // ------------------------------------------------------------------ internals
+    function _increment(uint256 high) internal pure returns (uint256) {
+        uint256 step = high / 100; // 1 percent
+        return step < 100 ? 100 : step; // at least Rs 1
+    }
+
+    function _refundHigh(uint256 listingId, Listing storage l) internal {
+        if (l.highBidder == address(0)) return;
+        if (l.auctionType == ENGLISH) {
+            totalEscrow -= l.highBid;
+            _credit(l.highBidder, l.highBid);
+        } else {
+            _releaseDeposit(listingId, l.highBidder);
+        }
+    }
+
+    function _releaseDeposit(uint256 listingId, address bidder) internal {
+        uint256 dep = depositOf[listingId][bidder];
+        if (dep == 0) return;
+        depositOf[listingId][bidder] = 0;
+        totalEscrow -= dep;
+        _credit(bidder, dep);
+    }
+
+    function _credit(address account, uint256 paise) internal {
+        if (paise == 0) return;
+        credit[account] += paise;
+        totalCredit += paise;
+        emit Credited(account, paise);
+    }
+
+    function _listed(uint256 listingId) internal view returns (Listing storage l) {
+        l = listings[listingId];
+        if (l.status != Status.LISTED) revert DeskNotListed(listingId);
+    }
+}

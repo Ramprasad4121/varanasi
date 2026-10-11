@@ -38,6 +38,18 @@ export function Gold({ t, lang, state, go }: P) {
           </span>
           {t.proofTitle}
         </button>
+        <button className="tile" onClick={() => go("silver")}>
+          <span className="ic">
+            <Icon name="silver" />
+          </span>
+          {t.tileSilver}
+        </button>
+        <button className="tile" onClick={() => go("pledge")}>
+          <span className="ic">
+            <Icon name="pledge" />
+          </span>
+          {t.tilePledge}
+        </button>
       </div>
       <h2>{t.certificates}</h2>
       {state.reserve.certificates

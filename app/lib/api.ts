@@ -119,7 +119,8 @@ const publicDemo: Backend = {
   },
   async reset() {
     window.localStorage.removeItem(WORLD_KEY);
-    for (const k of Object.keys(window.localStorage)) if (k.startsWith("vr.receipts.") || k.startsWith("vr.bid.")) window.localStorage.removeItem(k);
+    for (const k of Object.keys(window.localStorage))
+      if (k.startsWith("vr.receipts.") || k.startsWith("vr.bid.") || k.startsWith("vr.assets.")) window.localStorage.removeItem(k);
     loadWorld();
   },
 };

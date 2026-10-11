@@ -716,3 +716,26 @@ a:focus-visible {
 .tile.wide .ic {
   margin-bottom: 0;
 }
+/* silver, pledged items, bank asset desk (multi-asset) */
+.card.balance.silver {
+  background: #f3f4f6;
+  border-color: #d5d8dd;
+}
+.card.receipt-card {
+  border-style: dashed;
+  border-width: 2px;
+}
+.link-btn {
+  display: block;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 14px 4px;
+  min-height: 48px;
+  background: none;
+  border: 0;
+  color: var(--gold-dark);
+  font-size: 17px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}

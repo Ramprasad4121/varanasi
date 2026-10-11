@@ -1,0 +1,1055 @@
+From 4e3b5a9c7f6967f91f16e1071d1fbeb66cf64919 Mon Sep 17 00:00:00 2001
+From: Ramprasad <ramprasadgoud34@gmail.com>
+Date: Sun, 11 Oct 2026 15:58:13 +0000
+Subject: [PATCH 6/8] feat(app): silver savings, pledge an item and a bank
+ asset desk on a test ledger
+
+Silver in grams and rupees with a proof line, Telugu and English. Pledge a
+car, two wheeler, land papers or jewellery set, see the receipt, borrow
+against it and pay back. Bank side desk: approved buyers bid, borrower can
+pay dues inside the window, settle pays surplus to the borrower. Same rules
+and numbers as contracts/src/assets. Test money only.
+---
+ app/app/globals.css             |  23 ++
+ app/components/App.tsx          |   4 +
+ app/components/AssetScreens.tsx | 433 ++++++++++++++++++++++++++++++++
+ app/components/GoldScreens.tsx  |  12 +
+ app/components/HomeScreens.tsx  |  17 ++
+ app/components/Icon.tsx         |   2 +
+ app/lib/api.ts                  |   3 +-
+ app/lib/assets.ts               | 317 +++++++++++++++++++++++
+ app/lib/i18n.ts                 | 110 ++++++++
+ docs/{GOLD.md => ASSETS.md}     |   0
+ 10 files changed, 920 insertions(+), 1 deletion(-)
+ create mode 100644 app/components/AssetScreens.tsx
+ create mode 100644 app/lib/assets.ts
+ rename docs/{GOLD.md => ASSETS.md} (100%)
+
+diff --git a/app/app/globals.css b/app/app/globals.css
+index 71bdbc7..3aa5966 100644
+--- a/app/app/globals.css
++++ b/app/app/globals.css
+@@ -716,3 +716,26 @@ a:focus-visible {
+ .tile.wide .ic {
+   margin-bottom: 0;
+ }
++/* silver, pledged items, bank asset desk (multi-asset) */
++.card.balance.silver {
++  background: #f3f4f6;
++  border-color: #d5d8dd;
++}
++.card.receipt-card {
++  border-style: dashed;
++  border-width: 2px;
++}
++.link-btn {
++  display: block;
++  width: 100%;
++  margin: 14px 0 4px;
++  padding: 14px 4px;
++  min-height: 48px;
++  background: none;
++  border: 0;
++  color: var(--gold-dark);
++  font-size: 17px;
++  font-weight: 800;
++  text-align: left;
++  cursor: pointer;
++}
+diff --git a/app/components/App.tsx b/app/components/App.tsx
+index c8c5bd8..e106b7e 100644
+--- a/app/components/App.tsx
++++ b/app/components/App.tsx
+@@ -12,6 +12,7 @@ import { LS, type P, type Receipt } from "./shared";
+ import { Gold, GoldDeposit, GoldProof, GoldRedeem, GoldSend } from "./GoldScreens";
+ import { Chits, ChitScreen } from "./ChitScreens";
+ import { Loans } from "./Loans";
++import { BankDesk, Pledge, Silver } from "./AssetScreens";
+ import { Home, Receipts, ReceiptSheet } from "./HomeScreens";
+ import { Icon } from "./Icon";
+ 
+@@ -199,6 +200,9 @@ export default function App() {
+     else if (s0 === "gold" && s1 === "proof") body = <GoldProof {...p} />;
+     else if (s0 === "gold" && s1 === "loan") body = <Loans {...p} />;
+     else if (s0 === "gold") body = <Gold {...p} />;
++    else if (s0 === "silver") body = <Silver {...p} />;
++    else if (s0 === "pledge") body = <Pledge {...p} />;
++    else if (s0 === "bank") body = <BankDesk {...p} />;
+     else if (s0 === "chit" && s1) body = <ChitScreen {...p} address={s1} />;
+     else if (s0 === "chits") body = <Chits {...p} />;
+     else if (s0 === "receipts") body = <Receipts {...p} receiptsKey={receiptsKey} />;
+diff --git a/app/components/AssetScreens.tsx b/app/components/AssetScreens.tsx
+new file mode 100644
+index 0000000..21496ad
+--- /dev/null
++++ b/app/components/AssetScreens.tsx
+@@ -0,0 +1,433 @@
++"use client";
++// Silver savings, pledged items and the bank asset desk. They run on the asset test
++// ledger (lib/assets.ts), which follows the contracts in contracts/src/assets.
++// TEST money only. One primary action per screen.
++import { useCallback, useState } from "react";
++import { day, grams, rupees } from "@/lib/format";
++import {
++  BUYERS,
++  CLASS_RULES,
++  bid,
++  borrow,
++  deskHeldPaise,
++  lendableValue,
++  maxBorrow,
++  minimumBid,
++  pledgeItem,
++  redeemListing,
++  repay,
++  saveSilver,
++  seedAssets,
++  settleListing,
++  silverBacked,
++  silverValuePaise,
++  stepAssets,
++  warp,
++  type AssetWorld,
++  type ItemKind,
++  type Listing,
++} from "@/lib/assets";
++import { Back, LS, type P } from "./shared";
++import { Icon } from "./Icon";
++
++const KINDS: ItemKind[] = ["car", "bike", "land", "jewellery"];
++
++/** The asset ledger for this person, kept in this browser. */
++function useAssets(p: P) {
++  const key = `vr.assets.${p.state.ledgerId}.${p.session.address}`;
++  const load = useCallback(() => {
++    const w = LS.get<AssetWorld | null>(key, null);
++    return w && w.v === 1 ? w : seedAssets(p.state.now);
++  }, [key, p.state.now]);
++  const [world, setWorld] = useState<AssetWorld>(load);
++  /** Runs one step on a copy; a refused step changes nothing. */
++  const doStep = <T,>(fn: (w: AssetWorld) => T): T => {
++    const { world: next, out } = stepAssets(load(), fn);
++    LS.set(key, next);
++    setWorld(next);
++    return out;
++  };
++  return { world, doStep };
++}
++
++// ---------------------------------------------------------------- silver
++export function Silver(p: P) {
++  const { t, lang, go, busy, run, addReceipt } = p;
++  const { world, doStep } = useAssets(p);
++  const backed = silverBacked(world);
++  return (
++    <div>
++      <Back t={t} to="gold" go={go} />
++      <h1>{t.silverTitle}</h1>
++      <section className="card balance silver" aria-label={t.mySilver}>
++        <div className="label">{t.mySilver}</div>
++        <div className="big" data-testid="silver-grams">
++          {grams(world.silverMilli)}
++        </div>
++        <div className="mid">
++          {rupees(silverValuePaise(world), false)} <span className="muted">{t.worth}</span>
++        </div>
++        <div className="muted small">
++          {t.priceNote}: {rupees(world.silverPricePaisePerGram, false)} (demo)
++        </div>
++        <div className={"trust " + (backed ? "ok" : "no")}>
++          <span aria-hidden>{backed ? "✓" : "!"}</span>
++          <span>
++            {t.silverHeld} {grams(world.silverHeldMilli)} · {t.silverIssued} {grams(world.silverMilli)} · <b>{backed ? t.fullyBacked : t.notBacked}</b>
++          </span>
++        </div>
++      </section>
++      <p>{t.silverHow}</p>
++      <p className="muted">{t.silverNote}</p>
++      <div className="demo-box">
++        <div className="label">{t.bankCounter}</div>
++        <p className="muted">{t.silverCounterHint}</p>
++        <button
++          className="btn"
++          disabled={busy}
++          onClick={() =>
++            run(async () => {
++              const c = doStep((w) => saveSilver(w, 100, 999));
++              addReceipt({ kind: "silver", title: t.r_silver, amount: `${grams(c.milli)} ${t.pureSilver}`, to: c.no, ref: c.no, at: world.now });
++            })
++          }
++        >
++          {busy ? t.working : t.doSilverDeposit}
++        </button>
++      </div>
++      <h2>{t.silverCerts}</h2>
++      {world.silverCerts.length === 0 && <p className="muted">{t.noSilver}</p>}
++      {[...world.silverCerts].reverse().map((c) => (
++        <div className="cert" key={c.no}>
++          <div className="mono">{c.no}</div>
++          <div className="row">
++            <span>{t.pureSilver}</span>
++            <span className="v">{grams(c.milli)}</span>
++          </div>
++          <div className="row">
++            <span>{t.purity}</span>
++            <span className="v">{(c.purity / 10).toFixed(1)}%</span>
++          </div>
++          <div className="row">
++            <span>{t.depositedOn}</span>
++            <span className="v">{day(c.at, lang)}</span>
++          </div>
++        </div>
++      ))}
++    </div>
++  );
++}
++
++// ---------------------------------------------------------------- pledge an item
++export function Pledge(p: P) {
++  const { t, lang, go, busy, run, addReceipt } = p;
++  const { world, doStep } = useAssets(p);
++  const [kind, setKind] = useState<ItemKind>("bike");
++  const [amount, setAmount] = useState("");
++  const [fresh, setFresh] = useState(false);
++  const current = fresh ? undefined : [...world.pledges].reverse().find((x) => x.status !== "RELEASED");
++  const loan = current ? world.loans.find((l) => l.pledgeId === current.id && l.status === "ACTIVE") : undefined;
++  const repaid = current ? world.loans.some((l) => l.pledgeId === current.id && l.status === "REPAID") : false;
++
++  if (!current) {
++    return (
++      <div>
++        <Back t={t} to="gold" go={go} />
++        <h1>{t.pledgeTitle}</h1>
++        <p>{t.pledgeIntro}</p>
++        <fieldset className="field choices">
++          <legend>{t.pickItem}</legend>
++          {KINDS.map((k) => (
++            <label key={k} className={"choice" + (kind === k ? " on" : "")}>
++              <input type="radio" name="item" value={k} checked={kind === k} onChange={() => setKind(k)} />
++              {t[`item_${k}` as const]}
++            </label>
++          ))}
++        </fieldset>
++        <button
++          className="btn"
++          disabled={busy}
++          onClick={() =>
++            run(async () => {
++              const r = doStep((w) => pledgeItem(w, kind));
++              setFresh(false);
++              addReceipt({
++                kind: "pledge",
++                title: t.r_itemPledge,
++                amount: `${t[`item_${r.kind}` as const]} · ${rupees(r.appraisedPaise, false)}`,
++                to: r.bank,
++                ref: `PR-${r.id}`,
++                at: world.now,
++              });
++            })
++          }
++        >
++          {busy ? t.working : t.doPledge}
++        </button>
++      </div>
++    );
++  }
++
++  const max = maxBorrow(world, current);
++  const want = amount === "" ? max : Math.round((Number(amount) || 0) * 100);
++  return (
++    <div>
++      <Back t={t} to="gold" go={go} />
++      <h1>{t.pledgeTitle}</h1>
++      <section className="card receipt-card" aria-label={t.pledgeReceipt} data-testid="pledge-receipt">
++        <div className="label">
++          {t.pledgeReceipt} · PR-{current.id}
++        </div>
++        <div className="mid">{t[`item_${current.kind}` as const]}</div>
++        <div className="row">
++          <span>{t.appraised}</span>
++          <span className="v">{rupees(current.appraisedPaise, false)}</span>
++        </div>
++        <div className="row">
++          <span>{t.lendable}</span>
++          <span className="v">{rupees(lendableValue(world, current), false)}</span>
++        </div>
++        <div className="row">
++          <span>{t.validTill}</span>
++          <span className="v">{day(current.reappraiseBy, lang)}</span>
++        </div>
++        <div className="row">
++          <span>{t.keptAt}</span>
++          <span className="v">{current.bank}</span>
++        </div>
++        <p className="muted small">{t.lienNote}</p>
++        <p className="muted small mono">{current.assetIdHash}</p>
++        <p className="muted small">{t.cannotSell}</p>
++      </section>
++
++      {loan ? (
++        <div className="card">
++          <div className="label">{t.itemLoanActive}</div>
++          <div className="row">
++            <span>{t.owedBack}</span>
++            <span className="v">{rupees(loan.principalPaise, false)}</span>
++          </div>
++          <div className="row">
++            <span>{t.loanDue}</span>
++            <span className="v">{day(loan.dueAt, lang)}</span>
++          </div>
++          <button
++            className="btn green"
++            disabled={busy}
++            onClick={() =>
++              run(async () => {
++                const l = doStep((w) => repay(w, loan.id));
++                addReceipt({
++                  kind: "itemRepay",
++                  title: t.r_itemRepay,
++                  amount: rupees(l.principalPaise, false),
++                  to: current.bank,
++                  ref: `IL-${l.id}`,
++                  at: world.now,
++                });
++              })
++            }
++          >
++            {busy ? t.working : t.payBackItem}
++          </button>
++        </div>
++      ) : (
++        <>
++          {repaid && (
++            <div className="card ok mid" role="status">
++              ✓ {t.itemFree}
++            </div>
++          )}
++          <p>
++            {t.canBorrow} <b>{rupees(max, false)}</b>
++          </p>
++          <div className="field">
++            <label htmlFor="ia">{t.borrowAmount}</label>
++            <input id="ia" inputMode="decimal" placeholder={String(max / 100)} value={amount} onChange={(e) => setAmount(e.target.value)} />
++            <p className="muted small">
++              {Math.round(CLASS_RULES[current.kind].ltvBps / 100)}% {t.lendable.toLowerCase()} · 90 d
++            </p>
++          </div>
++          <button
++            className="btn"
++            disabled={busy}
++            onClick={() =>
++              run(async () => {
++                const l = doStep((w) => borrow(w, current.id, want));
++                addReceipt({
++                  kind: "itemLoan",
++                  title: t.r_itemLoan,
++                  amount: rupees(l.principalPaise, false),
++                  to: current.bank,
++                  ref: `IL-${l.id}`,
++                  at: world.now,
++                });
++              })
++            }
++          >
++            {busy ? t.working : t.borrowAgainst}
++          </button>
++          <button className="back" onClick={() => setFresh(true)}>
++            + {t.newPledge}
++          </button>
++        </>
++      )}
++    </div>
++  );
++}
++
++// ---------------------------------------------------------------- bank asset desk (bank side, English)
++const LEGAL: Record<Listing["legal"], string> = {
++  DEMAND_NOTICE: "Demand notice served",
++  POSSESSION_TAKEN: "Possession taken",
++  AUCTION_NOTICE: "Auction notice served and published",
++};
++
++export function BankDesk(p: P) {
++  const { lang, go, busy, run, t } = p;
++  const { world, doStep } = useAssets(p);
++  const l = world.listings[world.listings.length - 1];
++  const high = l?.bids[l.bids.length - 1];
++  const windowOpen = l ? world.now <= l.redemptionEnd : false;
++  const biddingOpen = l ? world.now <= l.biddingEnd : false;
++  const canSettle = l && l.status === "LISTED" && !windowOpen && !biddingOpen;
++  // one primary action: bid while bidding is open, settle once both clocks have run out
++  const primary = canSettle ? "settle" : l?.status === "LISTED" && biddingOpen ? "bid" : "none";
++  const nextBuyer = BUYERS[(l?.bids.length || 0) % BUYERS.length];
++  const status: Record<Listing["status"], string> = {
++    LISTED: "On auction",
++    REDEEMED: "Borrower paid dues, item returned",
++    SOLD: "Sold",
++    UNSOLD: "Not sold, back with the bank",
++  };
++  return (
++    <div>
++      <Back t={t} to="home" go={go} />
++      <h1>Bank asset desk</h1>
++      <p className="muted">
++        For banks: items held after a loan default (gold loan jewellery, repossessed vehicles, property under SARFAESI). Only approved banks and dealers can
++        bid. Test money only.
++      </p>
++      {l && (
++        <section className="card" aria-label="Listing" data-testid="desk-listing">
++          <div className="label">Listing {l.id}</div>
++          <div className="mid with-ic">
++            <Icon name="bank" /> {l.title}
++          </div>
++          <div className="row">
++            <span>Status</span>
++            <span className="v" data-testid="desk-status">
++              {status[l.status]}
++            </span>
++          </div>
++          <div className="row">
++            <span>Legal step</span>
++            <span className="v">{LEGAL[l.legal]}</span>
++          </div>
++          <div className="row">
++            <span>Reserve price</span>
++            <span className="v">{rupees(l.reservePaise, false)}</span>
++          </div>
++          <div className="row">
++            <span>Borrower can pay {rupees(l.duesPaise, false)} till</span>
++            <span className="v">{day(l.redemptionEnd, lang)}</span>
++          </div>
++          <div className="row">
++            <span>Bidding ends</span>
++            <span className="v">{day(l.biddingEnd, lang)}</span>
++          </div>
++          <div className="row">
++            <span>Highest bid</span>
++            <span className="v" data-testid="desk-high">
++              {high ? `${rupees(high.paise, false)} (${high.bidder})` : "None yet"}
++            </span>
++          </div>
++          {l.status === "SOLD" && (
++            <div className="row">
++              <span>Surplus back to borrower</span>
++              <span className="v" data-testid="desk-surplus">
++                {rupees(l.surplusPaise || 0, false)}
++              </span>
++            </div>
++          )}
++          {l.status === "SOLD" && (
++            <div className="row">
++              <span>Bank re-checked value</span>
++              <span className="v">{rupees(l.newAppraisalPaise || 0, false)}</span>
++            </div>
++          )}
++          <div className="row">
++            <span>Money held in escrow</span>
++            <span className="v">{rupees(deskHeldPaise(world), false)}</span>
++          </div>
++          <div className="row">
++            <span>Today (demo clock)</span>
++            <span className="v">{day(world.now, lang)}</span>
++          </div>
++        </section>
++      )}
++      {l && l.status === "LISTED" && (
++        <>
++          {primary === "bid" && (
++            <button
++              className="btn"
++              disabled={busy}
++              onClick={() =>
++                run(async () => {
++                  doStep((w) => bid(w, l.id, nextBuyer, minimumBid(l)));
++                })
++              }
++            >
++              {busy ? t.working : `${nextBuyer} bids ${rupees(minimumBid(l), false)}`}
++            </button>
++          )}
++          {primary === "settle" && (
++            <button
++              className="btn"
++              disabled={busy}
++              onClick={() =>
++                run(async () => {
++                  doStep((w) => settleListing(w, l.id, high ? high.paise : l.reservePaise));
++                })
++              }
++            >
++              {busy ? t.working : "Settle auction"}
++            </button>
++          )}
++          <div className="demo-box">
++            <div className="label">Demo controls</div>
++            {windowOpen && (
++              <button className="btn demo" disabled={busy} onClick={() => run(async () => void doStep((w) => redeemListing(w, l.id)))}>
++                Borrower pays dues and takes it back
++              </button>
++            )}
++            <button className="btn demo" disabled={busy} onClick={() => run(async () => void doStep((w) => warp(w, 36)))}>
++              Move the clock 36 days (demo)
++            </button>
++            <button className="btn demo" disabled={busy} onClick={() => run(async () => void doStep((w) => bid(w, l.id, "Unknown buyer", minimumBid(l))))}>
++              Unapproved buyer tries to bid
++            </button>
++          </div>
++        </>
++      )}
++      {l && l.status !== "LISTED" && (
++        <button
++          className="btn secondary"
++          disabled={busy}
++          onClick={() =>
++            run(async () => {
++              doStep((w) => {
++                const fresh = seedAssets(w.now);
++                const next = fresh.listings[0];
++                next.id = ++w.seq;
++                w.listings.push(next);
++              });
++            })
++          }
++        >
++          List another repossessed item (demo)
++        </button>
++      )}
++    </div>
++  );
++}
+diff --git a/app/components/GoldScreens.tsx b/app/components/GoldScreens.tsx
+index 60e8a25..0e509c6 100644
+--- a/app/components/GoldScreens.tsx
++++ b/app/components/GoldScreens.tsx
+@@ -38,6 +38,18 @@ export function Gold({ t, lang, state, go }: P) {
+           </span>
+           {t.proofTitle}
+         </button>
++        <button className="tile" onClick={() => go("silver")}>
++          <span className="ic">
++            <Icon name="silver" />
++          </span>
++          {t.tileSilver}
++        </button>
++        <button className="tile" onClick={() => go("pledge")}>
++          <span className="ic">
++            <Icon name="pledge" />
++          </span>
++          {t.tilePledge}
++        </button>
+       </div>
+       <h2>{t.certificates}</h2>
+       {state.reserve.certificates
+diff --git a/app/components/HomeScreens.tsx b/app/components/HomeScreens.tsx
+index 9481ab3..6505cc1 100644
+--- a/app/components/HomeScreens.tsx
++++ b/app/components/HomeScreens.tsx
+@@ -120,6 +120,23 @@ export function Home({ t, lang, state, go, name }: P & { name: string }) {
+         </span>
+         {t.loanTitle}
+       </button>
++      <div className="tiles">
++        <button className="tile" onClick={() => go("silver")}>
++          <span className="ic">
++            <Icon name="silver" />
++          </span>
++          {t.tileSilver}
++        </button>
++        <button className="tile" onClick={() => go("pledge")}>
++          <span className="ic">
++            <Icon name="pledge" />
++          </span>
++          {t.tilePledge}
++        </button>
++      </div>
++      <button className="link-btn" onClick={() => go("bank")}>
++        {t.tileBankDesk} →
++      </button>
+     </div>
+   );
+ }
+diff --git a/app/components/Icon.tsx b/app/components/Icon.tsx
+index e53ac89..d725fdf 100644
+--- a/app/components/Icon.tsx
++++ b/app/components/Icon.tsx
+@@ -10,6 +10,8 @@ const PATHS: Record<string, string> = {
+   send: "M4 12 20 4l-5 16-3.5-6.5L4 12Zm7.5 1.5L20 4",
+   out: "M12 3.5v11m0 0-4-4m4 4 4-4M5 15.5v3.5h14v-3.5",
+   loan: "M3 12.5 7 8.5l4 2.5 3-3 3 2 4-2M5 16.5h14M8 19.5h8",
++  silver: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm0 3.5v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4",
++  pledge: "M6 3.5h9l3 3v14H6v-17Zm9 0v3h3M9 11h6M9 14.5h4",
+   check: "M12 3.5 19.5 6v5.5c0 4.4-3.1 7.7-7.5 9-4.4-1.3-7.5-4.6-7.5-9V6L12 3.5Zm-3.5 8.5 2.5 2.5 4.5-5",
+ };
+ 
+diff --git a/app/lib/api.ts b/app/lib/api.ts
+index 7cd2bfe..9dc5cbe 100644
+--- a/app/lib/api.ts
++++ b/app/lib/api.ts
+@@ -119,7 +119,8 @@ const publicDemo: Backend = {
+   },
+   async reset() {
+     window.localStorage.removeItem(WORLD_KEY);
+-    for (const k of Object.keys(window.localStorage)) if (k.startsWith("vr.receipts.") || k.startsWith("vr.bid.")) window.localStorage.removeItem(k);
++    for (const k of Object.keys(window.localStorage))
++      if (k.startsWith("vr.receipts.") || k.startsWith("vr.bid.") || k.startsWith("vr.assets.")) window.localStorage.removeItem(k);
+     loadWorld();
+   },
+ };
+diff --git a/app/lib/assets.ts b/app/lib/assets.ts
+new file mode 100644
+index 0000000..d5978a8
+--- /dev/null
++++ b/app/lib/assets.ts
+@@ -0,0 +1,317 @@
++// Test ledger for the new asset screens: silver savings, pledge receipts for unique
++// items (car, two wheeler, land papers, jewellery set) and the bank asset desk.
++// It follows the same rules as the contracts in contracts/src/assets (BankMetalIssuer,
++// PledgeReceipt, PledgeLoan, BankAssetDesk) with the same numbers, and runs in the
++// browser in both app modes. TEST money only; nothing here touches a chain yet.
++// Amounts: milligrams for metal, paise for rupees, unix seconds for time.
++
++export const DAY = 86_400;
++
++export type ItemKind = "car" | "bike" | "land" | "jewellery";
++
++/** Haircut and loan to value per item kind, in basis points (same as the contracts). */
++export const CLASS_RULES: Record<ItemKind, { cls: number; haircutBps: number; ltvBps: number }> = {
++  car: { cls: 0, haircutBps: 3000, ltvBps: 6000 },
++  bike: { cls: 1, haircutBps: 4000, ltvBps: 5000 },
++  land: { cls: 2, haircutBps: 2500, ltvBps: 6000 },
++  jewellery: { cls: 3, haircutBps: 1500, ltvBps: 7500 },
++};
++
++/** Demo appraisal per item kind, in paise. A real bank appraises each item. */
++export const DEMO_APPRAISAL: Record<ItemKind, number> = {
++  car: 6_00_000_00,
++  bike: 80_000_00,
++  land: 12_00_000_00,
++  jewellery: 2_50_000_00,
++};
++
++export type SilverCert = { no: string; milli: number; purity: number; at: number };
++
++export type Pledge = {
++  id: number;
++  kind: ItemKind;
++  bank: string;
++  assetIdHash: string; // hash of the RC / survey number / hallmark id, never the number itself
++  appraisedPaise: number;
++  appraisedAt: number;
++  reappraiseBy: number;
++  frozen: boolean;
++  status: "HELD" | "IN_LOAN" | "RELEASED";
++};
++
++export type ItemLoan = {
++  id: number;
++  pledgeId: number;
++  principalPaise: number;
++  openedAt: number;
++  dueAt: number;
++  status: "ACTIVE" | "REPAID";
++};
++
++export type Bid = { bidder: string; paise: number; at: number };
++
++export type Listing = {
++  id: number;
++  kind: ItemKind;
++  title: string;
++  bank: string;
++  legal: "DEMAND_NOTICE" | "POSSESSION_TAKEN" | "AUCTION_NOTICE";
++  reservePaise: number;
++  duesPaise: number;
++  redemptionEnd: number;
++  biddingEnd: number;
++  status: "LISTED" | "REDEEMED" | "SOLD" | "UNSOLD";
++  bids: Bid[]; // English auction, highest last
++  winner?: string;
++  pricePaise?: number;
++  newAppraisalPaise?: number;
++  surplusPaise?: number; // paid back to the borrower after the bank's dues
++};
++
++export type AssetWorld = {
++  v: 1;
++  now: number;
++  seq: number;
++  silverMilli: number;
++  silverPricePaisePerGram: number; // display only, demo
++  silverHeldMilli: number; // bank attested silver reserve
++  silverCerts: SilverCert[];
++  rupeePaise: number; // test money from item loans
++  pledges: Pledge[];
++  loans: ItemLoan[];
++  listings: Listing[];
++  approvedBuyers: string[];
++  credits: Record<string, number>; // desk money waiting to be withdrawn
++  escrowPaise: number;
++};
++
++export class AssetError extends Error {}
++const fail = (code: string): never => {
++  throw new AssetError(code);
++};
++
++const BANK = "Mock Bank 1";
++export const BORROWER = "Borrower";
++export const BUYERS = ["Mock Bank 2", "Approved Dealer A", "Approved Dealer B"];
++
++/** A small, readable fake hash so the screens can show "only a hash is stored". */
++export function shortHash(seed: string): string {
++  let h = 2166136261;
++  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
++  const a = h.toString(16).padStart(8, "0");
++  const b = Math.imul(h, 2654435761 >>> 0) >>> 0;
++  return "0x" + a + b.toString(16).padStart(8, "0") + "...";
++}
++
++export function seedAssets(now: number): AssetWorld {
++  const w: AssetWorld = {
++    v: 1,
++    now,
++    seq: 0,
++    silverMilli: 0,
++    silverPricePaisePerGram: 110_00,
++    silverHeldMilli: 0,
++    silverCerts: [],
++    rupeePaise: 0,
++    pledges: [],
++    loans: [],
++    listings: [],
++    approvedBuyers: [...BUYERS],
++    credits: {},
++    escrowPaise: 0,
++  };
++  // the bank already holds a car from a defaulted loan; it is on the desk
++  listItem(w, "car", "Hatchback car, 2021 (repossessed)", 3_00_000_00, 2_10_000_00);
++  return w;
++}
++
++// ------------------------------------------------------------------ silver
++export const SILVER_MIN_PURITY = 999;
++
++export function saveSilver(w: AssetWorld, grams: number, purity: number): SilverCert {
++  const milli = Math.round(grams * 1000);
++  if (!(milli > 0)) fail("BAD_AMOUNT");
++  if (purity < SILVER_MIN_PURITY || purity > 1000) fail("SILVER_PURITY");
++  const cert: SilverCert = { no: `AG-${1000 + ++w.seq}`, milli, purity, at: w.now };
++  w.silverCerts.push(cert);
++  w.silverMilli += milli;
++  w.silverHeldMilli += milli;
++  return cert;
++}
++
++export function silverValuePaise(w: AssetWorld): number {
++  return Math.round((w.silverMilli * w.silverPricePaisePerGram) / 1000);
++}
++
++/** Proof of reserve for silver: what the bank holds against what the app issued. */
++export function silverBacked(w: AssetWorld): boolean {
++  return w.silverMilli <= w.silverHeldMilli;
++}
++
++// ------------------------------------------------------------------ pledges
++export function pledgeItem(w: AssetWorld, kind: ItemKind): Pledge {
++  if (!CLASS_RULES[kind]) fail("BAD_ITEM");
++  const id = ++w.seq;
++  const p: Pledge = {
++    id,
++    kind,
++    bank: BANK,
++    assetIdHash: shortHash(`${kind}-${id}-${w.now}`),
++    appraisedPaise: DEMO_APPRAISAL[kind],
++    appraisedAt: w.now,
++    reappraiseBy: w.now + 365 * DAY,
++    frozen: false,
++    status: "HELD",
++  };
++  w.pledges.push(p);
++  return p;
++}
++
++/** Appraisal minus the haircut; 0 when frozen or past the re-appraisal date. */
++export function lendableValue(w: AssetWorld, p: Pledge): number {
++  if (p.frozen || w.now > p.reappraiseBy) return 0;
++  return Math.floor((p.appraisedPaise * (10_000 - CLASS_RULES[p.kind].haircutBps)) / 10_000);
++}
++
++export function maxBorrow(w: AssetWorld, p: Pledge): number {
++  return Math.floor((lendableValue(w, p) * CLASS_RULES[p.kind].ltvBps) / 10_000);
++}
++
++export function borrow(w: AssetWorld, pledgeId: number, paise: number, days = 90): ItemLoan {
++  const p = w.pledges.find((x) => x.id === pledgeId) || fail("NO_SUCH_ITEM");
++  if (p.status !== "HELD") fail("ITEM_BUSY");
++  if (!(paise > 0)) fail("BAD_AMOUNT");
++  if (paise > maxBorrow(w, p)) fail("ITEM_LOAN_TOO_LARGE");
++  const dueAt = w.now + days * DAY;
++  if (dueAt > p.reappraiseBy) fail("ITEM_LOAN_TOO_LONG");
++  p.status = "IN_LOAN";
++  const l: ItemLoan = { id: ++w.seq, pledgeId, principalPaise: paise, openedAt: w.now, dueAt, status: "ACTIVE" };
++  w.loans.push(l);
++  w.rupeePaise += paise;
++  return l;
++}
++
++export function repay(w: AssetWorld, loanId: number): ItemLoan {
++  const l = w.loans.find((x) => x.id === loanId) || fail("NO_SUCH_LOAN");
++  if (l.status !== "ACTIVE") fail("LoanNotActive");
++  if (w.rupeePaise < l.principalPaise) fail("ERC20InsufficientBalance");
++  w.rupeePaise -= l.principalPaise;
++  l.status = "REPAID";
++  const p = w.pledges.find((x) => x.id === l.pledgeId);
++  if (p) p.status = "HELD";
++  return l;
++}
++
++/** Bank hands the item back and cancels the receipt (only when no loan is open). */
++export function releaseItem(w: AssetWorld, pledgeId: number): Pledge {
++  const p = w.pledges.find((x) => x.id === pledgeId) || fail("NO_SUCH_ITEM");
++  if (p.status !== "HELD") fail("ITEM_BUSY");
++  p.status = "RELEASED";
++  return p;
++}
++
++// ------------------------------------------------------------------ bank asset desk
++export function listItem(w: AssetWorld, kind: ItemKind, title: string, reservePaise: number, duesPaise: number): Listing {
++  if (!(reservePaise > 0)) fail("BAD_AMOUNT");
++  const l: Listing = {
++    id: ++w.seq,
++    kind,
++    title,
++    bank: BANK,
++    legal: "AUCTION_NOTICE",
++    reservePaise,
++    duesPaise,
++    redemptionEnd: w.now + 30 * DAY,
++    biddingEnd: w.now + 35 * DAY,
++    status: "LISTED",
++    bids: [],
++  };
++  w.listings.push(l);
++  return l;
++}
++
++function listed(w: AssetWorld, id: number): Listing {
++  const l = w.listings.find((x) => x.id === id) || fail("NO_SUCH_LISTING");
++  if (l.status !== "LISTED") fail("DeskNotListed");
++  return l;
++}
++
++const credit = (w: AssetWorld, who: string, paise: number) => {
++  w.credits[who] = (w.credits[who] || 0) + paise;
++};
++
++export function minimumBid(l: Listing): number {
++  const high = l.bids.length ? l.bids[l.bids.length - 1].paise : 0;
++  if (!high) return l.reservePaise;
++  return high + Math.max(100, Math.floor(high / 100));
++}
++
++export function bid(w: AssetWorld, id: number, bidder: string, paise: number): Bid {
++  if (!w.approvedBuyers.includes(bidder)) fail("DeskNotApprovedBuyer");
++  const l = listed(w, id);
++  if (bidder === l.bank) fail("DeskSellerCannotBid");
++  if (w.now > l.biddingEnd) fail("DeskBiddingClosed");
++  if (paise < minimumBid(l)) fail("DeskBidTooLow");
++  const prev = l.bids[l.bids.length - 1];
++  if (prev) {
++    w.escrowPaise -= prev.paise;
++    credit(w, prev.bidder, prev.paise);
++  }
++  const b: Bid = { bidder, paise, at: w.now };
++  l.bids.push(b);
++  w.escrowPaise += paise;
++  return b;
++}
++
++/** Borrower pays the dues before the window closes: item back, every bid refunded. */
++export function redeemListing(w: AssetWorld, id: number): Listing {
++  const l = listed(w, id);
++  if (w.now > l.redemptionEnd) fail("DeskWindowClosed");
++  const high = l.bids[l.bids.length - 1];
++  if (high) {
++    w.escrowPaise -= high.paise;
++    credit(w, high.bidder, high.paise);
++  }
++  credit(w, l.bank, l.duesPaise);
++  l.status = "REDEEMED";
++  return l;
++}
++
++/** After the window and the auction: highest bid at or above reserve wins. */
++export function settleListing(w: AssetWorld, id: number, newAppraisalPaise: number): Listing {
++  const l = listed(w, id);
++  if (w.now <= l.redemptionEnd) fail("DeskWindowOpen");
++  if (w.now <= l.biddingEnd) fail("DeskAuctionRunning");
++  const high = l.bids[l.bids.length - 1];
++  if (high && high.paise >= l.reservePaise) {
++    w.escrowPaise -= high.paise;
++    // the bank takes its dues; any surplus goes back to the borrower (RBI 2025 rule)
++    const toBank = Math.min(high.paise, l.duesPaise);
++    credit(w, l.bank, toBank);
++    if (high.paise > toBank) credit(w, BORROWER, high.paise - toBank);
++    l.surplusPaise = high.paise - toBank;
++    l.status = "SOLD";
++    l.winner = high.bidder;
++    l.pricePaise = high.paise;
++    l.newAppraisalPaise = newAppraisalPaise;
++  } else {
++    l.status = "UNSOLD";
++  }
++  return l;
++}
++
++export function warp(w: AssetWorld, days: number) {
++  w.now += Math.round(days * DAY);
++}
++
++/** Escrow check the desk contract enforces: money held equals live bids plus credits. */
++export function deskHeldPaise(w: AssetWorld): number {
++  return w.escrowPaise + Object.values(w.credits).reduce((a, b) => a + b, 0);
++}
++
++/** Runs one step on a copy and keeps it only if it succeeds (like a reverted transaction). */
++export function stepAssets<T>(w: AssetWorld, fn: (copy: AssetWorld) => T): { world: AssetWorld; out: T } {
++  const copy = JSON.parse(JSON.stringify(w)) as AssetWorld;
++  const out = fn(copy);
++  return { world: copy, out };
++}
+diff --git a/app/lib/i18n.ts b/app/lib/i18n.ts
+index f14b1d9..34ea7af 100644
+--- a/app/lib/i18n.ts
++++ b/app/lib/i18n.ts
+@@ -306,6 +306,61 @@ const en = {
+   seeInvite: "See and join",
+   logoAlt: "Varanasi logo",
+   moreActions: "More",
++  // silver, pledged items (multi-asset, Oct 11)
++  tileSilver: "Silver",
++  tilePledge: "Pledge an item",
++  tileBankDesk: "Bank asset desk",
++  silverTitle: "Silver",
++  mySilver: "My silver",
++  saveSilver: "Save silver",
++  silverHow: "Bring silver bars or coins to the bank. The bank tests them and adds the pure silver here.",
++  silverNote: "Only fine silver of 99.9% is taken for savings.",
++  silverCounterHint: "Demo: the bank tests 100 g of fine silver and adds it.",
++  doSilverDeposit: "Bank adds 100 g silver (demo)",
++  silverHeld: "Bank holds",
++  silverIssued: "Shown in the app",
++  silverCerts: "Silver certificates",
++  pureSilver: "pure silver",
++  r_silver: "Silver saved at bank",
++  noSilver: "No silver saved yet",
++  pledgeTitle: "Pledge an item",
++  pledgeIntro: "Keep using your car or bike. The bank keeps a lien on its papers and gives you a pledge receipt. You can borrow against it.",
++  pickItem: "What do you want to pledge?",
++  item_car: "Car",
++  item_bike: "Two wheeler",
++  item_land: "Land papers",
++  item_jewellery: "Jewellery set",
++  doPledge: "Bank checks and pledges it (demo)",
++  pledgeReceipt: "Pledge receipt",
++  appraised: "Bank's value",
++  lendable: "Counts for a loan",
++  validTill: "Value valid till",
++  lienNote: "The bank holds a lien. Only a coded fingerprint of the papers is stored, never the number.",
++  cannotSell: "This receipt cannot be sold or sent. Only the bank can approve a change.",
++  canBorrow: "You can borrow up to",
++  borrowAgainst: "Borrow against it",
++  borrowAmount: "Amount in rupees",
++  itemLoanActive: "Loan running",
++  owedBack: "To pay back",
++  payBackItem: "Pay back",
++  itemFree: "Paid back. Your receipt is free again.",
++  newPledge: "Pledge another item",
++  r_itemPledge: "Item pledged at bank",
++  r_itemLoan: "Loan against item",
++  r_itemRepay: "Item loan paid back",
++  err_SILVER_PURITY: "The bank takes only fine silver of 99.9% for savings.",
++  err_ITEM_LOAN_TOO_LARGE: "That is more than the bank lends on this item.",
++  err_ITEM_LOAN_TOO_LONG: "The loan must end before the bank checks the value again.",
++  err_ITEM_BUSY: "This item already has a loan.",
++  err_NO_SUCH_ITEM: "This item was not found.",
++  err_DeskNotApprovedBuyer: "Only approved banks and dealers can bid.",
++  err_DeskBidTooLow: "The bid is too low.",
++  err_DeskWindowOpen: "The borrower can still pay. Wait till the window ends.",
++  err_DeskAuctionRunning: "The auction is still running.",
++  err_DeskWindowClosed: "The time to pay and take it back is over.",
++  err_DeskBiddingClosed: "Bidding has closed.",
++  err_DeskNotListed: "This item is no longer on sale.",
++  err_DeskSellerCannotBid: "The selling bank cannot bid.",
+ };
+ 
+ export type Dict = typeof en;
+@@ -601,6 +656,61 @@ const te: Dict = {
+   err_WL_SLOW_DOWN: "చాలా ప్రయత్నాలు. కొన్ని నిమిషాలు ఆగండి.",
+   err_WAITLIST_NOT_CONFIGURED: "ఈ సైట్‌లో వెయిట్‌లిస్ట్ ఇంకా తెరవలేదు. ఏమీ సేవ్ చేయలేదు.",
+   err_STORE_DOWN: "ఇప్పుడు సేవ్ చేయలేకపోయాము. ఏమీ సేవ్ కాలేదు. తర్వాత ప్రయత్నించండి.",
++  // వెండి, తాకట్టు వస్తువులు (needs native review)
++  tileSilver: "వెండి",
++  tilePledge: "వస్తువు తాకట్టు",
++  tileBankDesk: "బ్యాంకు ఆస్తుల డెస్క్",
++  silverTitle: "వెండి",
++  mySilver: "నా వెండి",
++  saveSilver: "వెండి దాచండి",
++  silverHow: "వెండి కడ్డీలు లేదా నాణేలు బ్యాంకుకు తీసుకెళ్ళండి. బ్యాంకు పరీక్షించి స్వచ్ఛమైన వెండిని ఇక్కడ జమ చేస్తుంది.",
++  silverNote: "పొదుపుకు 99.9% స్వచ్ఛమైన వెండి మాత్రమే తీసుకుంటారు.",
++  silverCounterHint: "డెమో: బ్యాంకు 100 గ్రా స్వచ్ఛమైన వెండిని పరీక్షించి జమ చేస్తుంది.",
++  doSilverDeposit: "బ్యాంకు 100 గ్రా వెండి జమ (డెమో)",
++  silverHeld: "బ్యాంకు వద్ద ఉన్నది",
++  silverIssued: "యాప్‌లో చూపేది",
++  silverCerts: "వెండి సర్టిఫికేట్లు",
++  pureSilver: "స్వచ్ఛమైన వెండి",
++  r_silver: "బ్యాంకులో వెండి జమ",
++  noSilver: "ఇంకా వెండి దాచలేదు",
++  pledgeTitle: "వస్తువు తాకట్టు",
++  pledgeIntro: "మీ కారు లేదా బైక్ మీరే వాడుకోండి. బ్యాంకు దాని పత్రాలపై హక్కు ఉంచుకుని తాకట్టు రసీదు ఇస్తుంది. దానిపై రుణం తీసుకోవచ్చు.",
++  pickItem: "ఏది తాకట్టు పెడతారు?",
++  item_car: "కారు",
++  item_bike: "ద్విచక్ర వాహనం",
++  item_land: "భూమి పత్రాలు",
++  item_jewellery: "నగల సెట్",
++  doPledge: "బ్యాంకు చూసి తాకట్టు తీసుకుంటుంది (డెమో)",
++  pledgeReceipt: "తాకట్టు రసీదు",
++  appraised: "బ్యాంకు విలువ",
++  lendable: "రుణానికి లెక్కించేది",
++  validTill: "విలువ చెల్లుబాటు వరకు",
++  lienNote: "బ్యాంకు వద్ద హక్కు ఉంది. పత్రాల కోడ్ ముద్ర మాత్రమే దాచుతాం, నంబర్ ఎప్పుడూ కాదు.",
++  cannotSell: "ఈ రసీదును అమ్మలేరు, పంపలేరు. బ్యాంకు ఒప్పుకుంటేనే మార్పు.",
++  canBorrow: "మీరు తీసుకోగలిగేది",
++  borrowAgainst: "దీనిపై రుణం తీసుకోండి",
++  borrowAmount: "రూపాయల్లో మొత్తం",
++  itemLoanActive: "రుణం నడుస్తోంది",
++  owedBack: "తిరిగి కట్టాల్సింది",
++  payBackItem: "తిరిగి కట్టండి",
++  itemFree: "కట్టేశారు. మీ రసీదు మళ్ళీ ఖాళీ.",
++  newPledge: "ఇంకో వస్తువు తాకట్టు",
++  r_itemPledge: "బ్యాంకులో వస్తువు తాకట్టు",
++  r_itemLoan: "వస్తువుపై రుణం",
++  r_itemRepay: "వస్తువు రుణం తీరింది",
++  err_SILVER_PURITY: "పొదుపుకు 99.9% స్వచ్ఛమైన వెండి మాత్రమే బ్యాంకు తీసుకుంటుంది.",
++  err_ITEM_LOAN_TOO_LARGE: "ఈ వస్తువుపై బ్యాంకు ఇచ్చే దానికంటే ఎక్కువ.",
++  err_ITEM_LOAN_TOO_LONG: "బ్యాంకు మళ్ళీ విలువ చూసే లోపే రుణం ముగియాలి.",
++  err_ITEM_BUSY: "ఈ వస్తువుపై ఇప్పటికే రుణం ఉంది.",
++  err_NO_SUCH_ITEM: "ఈ వస్తువు కనబడలేదు.",
++  err_DeskNotApprovedBuyer: "ఆమోదించిన బ్యాంకులు, డీలర్లు మాత్రమే వేలం వేయగలరు.",
++  err_DeskBidTooLow: "వేలం మొత్తం తక్కువ.",
++  err_DeskWindowOpen: "రుణగ్రహీత ఇంకా కట్టవచ్చు. గడువు ముగిసే వరకు ఆగండి.",
++  err_DeskAuctionRunning: "వేలం ఇంకా నడుస్తోంది.",
++  err_DeskWindowClosed: "కట్టి తిరిగి తీసుకునే గడువు ముగిసింది.",
++  err_DeskBiddingClosed: "వేలం ముగిసింది.",
++  err_DeskNotListed: "ఇది ఇప్పుడు అమ్మకంలో లేదు.",
++  err_DeskSellerCannotBid: "అమ్మే బ్యాంకు వేలం వేయలేదు.",
+ };
+ 
+ export const DICTS: Record<Lang, Dict> = { en, te };
+diff --git a/docs/GOLD.md b/docs/ASSETS.md
+similarity index 100%
+rename from docs/GOLD.md
+rename to docs/ASSETS.md
+-- 
+2.47.3
+
