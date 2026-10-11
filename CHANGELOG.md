@@ -16,6 +16,11 @@ commits follow [Conventional Commits](https://www.conventionalcommits.org).
 - Tooling: API smoke test, demo ledger test, waitlist test, Playwright walk-through on a
   360 px phone screen with axe-core accessibility checks, Docker image and compose stack,
   CI workflow, pre-commit hooks, Dependabot for the app.
+- Multi-asset (`contracts/src/assets/`, docs/ASSETS.md): silver and platinum on a per-metal
+  bank issuer with an asset registry; pledge receipts and loans for vehicles, land papers and
+  jewellery sets; a bank asset desk for auctions of repossessed items. Unit, fuzz and
+  invariant suites. App: Silver, Pledge an item and Bank asset desk screens on a browser test
+  ledger, with unit tests and a phone walk-through.
 
 ### Changed
 - UI pass: clear balance card with a "fully backed" trust line, one primary action per
