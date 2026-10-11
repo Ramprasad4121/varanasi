@@ -116,7 +116,10 @@ st = state();
 ok(st.gold.milli === 8950 + 9160, `bank counter: 10 g of 22 carat -> +${g(dep.milli)} pure`);
 const b = st.reserve.banks[0];
 ok(b.fullyBacked && b.heldMilli === b.owedMilli + b.awaitingMilli, `proof: bank holds ${g(b.heldMilli)}, app shows ${g(b.owedMilli)}, fully backed`);
-ok(st.reserve.certificates.some((c) => c.mine && c.milli === 9160), "new certificate listed as mine");
+ok(
+  st.reserve.certificates.some((c) => c.mine && c.milli === 9160),
+  "new certificate listed as mine"
+);
 
 // ---- gold loan
 const goldBefore = st.gold.milli;
@@ -167,12 +170,18 @@ demo("bankApproveLoan", { id: String(L4.id) });
 act("loan.draw", { id: String(L4.id) });
 demo("loanTermEnds", { id: String(L4.id) });
 st = state();
-ok(st.loans.list.find((l) => l.id === L4.id).status === "DEFAULTED" && st.gold.milli === goldBefore - 4000, "loan: 90 days pass unpaid, bank keeps the 4.000 g pledge (demo rule)");
+ok(
+  st.loans.list.find((l) => l.id === L4.id).status === "DEFAULTED" && st.gold.milli === goldBefore - 4000,
+  "loan: 90 days pass unpaid, bank keeps the 4.000 g pledge (demo rule)"
+);
 
 // ---- totals never drift (test money only)
 const totalGold = Object.values(world.gold).reduce((a, v) => a + v, 0);
 ok(totalGold <= world.bank.attested, `all gold in the ledger (${g(totalGold)}) is within what the bank attested (${g(world.bank.attested)})`);
-ok(Object.values(world.rupee).every((v) => v >= 0), "no negative rupee balance anywhere");
+ok(
+  Object.values(world.rupee).every((v) => v >= 0),
+  "no negative rupee balance anywhere"
+);
 
 console.log(failures ? `\n${failures} check(s) failed, ${passes} passed` : `\nall ${passes} checks passed`);
 process.exit(failures ? 1 : 0);

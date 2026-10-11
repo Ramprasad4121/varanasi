@@ -2,44 +2,40 @@
 import { useState } from "react";
 import { day, grams, rupees, when } from "@/lib/format";
 import { Back, nowOf, type P } from "./shared";
+import { BalanceCard } from "./HomeScreens";
+import { Icon } from "./Icon";
 
 export function Gold({ t, lang, state, go }: P) {
-  const bank = state.reserve.banks[0];
   return (
     <div>
       <h1>{t.goldTitle}</h1>
-      <div className="card gold">
-        <div className="label">{t.myGoldList}</div>
-        <div className="big">{grams(state.gold.milli)}</div>
-        <div className="mid">{rupees(state.gold.valuePaise, false)}</div>
-        {state.gold.pledgedMilli > 0 && (
-          <div className="muted">
-            + {grams(state.gold.pledgedMilli)} {t.goldPledged}
-          </div>
-        )}
-        <div className="muted">
-          {t.pureGold} · {bank?.name}
-        </div>
-      </div>
+      <BalanceCard t={t} state={state} go={go} />
+      <button className="btn" onClick={() => go("gold/deposit")}>
+        {t.saveGold}
+      </button>
       <div className="tiles">
-        <button className="tile" onClick={() => go("gold/deposit")}>
-          <span className="ic">🏦</span>
-          {t.howDeposit}
-        </button>
         <button className="tile" onClick={() => go("gold/send")}>
-          <span className="ic">📲</span>
+          <span className="ic">
+            <Icon name="send" />
+          </span>
           {t.sendGold}
         </button>
         <button className="tile" onClick={() => go("gold/redeem")}>
-          <span className="ic">🙌</span>
+          <span className="ic">
+            <Icon name="out" />
+          </span>
           {t.takeGold}
         </button>
         <button className="tile" onClick={() => go("gold/loan")}>
-          <span className="ic">🤝</span>
+          <span className="ic">
+            <Icon name="loan" />
+          </span>
           {t.loanTitle}
         </button>
-        <button className="tile wide" onClick={() => go("gold/proof")}>
-          <span className="ic">✅</span>
+        <button className="tile" onClick={() => go("gold/proof")}>
+          <span className="ic">
+            <Icon name="check" />
+          </span>
           {t.proofTitle}
         </button>
       </div>
@@ -242,7 +238,9 @@ export function GoldProof({ t, lang, state, go }: P) {
         const pct = b.owedMilli + b.awaitingMilli > 0 ? Math.min(100, Math.round((b.heldMilli / (b.owedMilli + b.awaitingMilli)) * 100)) : 100;
         return (
           <div key={b.bankId} className={"card " + (b.fullyBacked ? "ok" : "warn")}>
-            <div className="mid">🏦 {b.name}</div>
+            <div className="mid with-ic">
+              <Icon name="bank" /> {b.name}
+            </div>
             <div className="row">
               <span>{t.bankHolds}</span>
               <span className="v">{grams(b.heldMilli)}</span>

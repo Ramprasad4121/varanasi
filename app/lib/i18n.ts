@@ -73,7 +73,8 @@ const en = {
   awaiting: "Waiting to be handed over",
   fullyBacked: "Fully backed",
   notBacked: "Not fully backed: new deposits stopped",
-  proofExplain: "Every gram in this app has a bank certificate. The bank signs each deposit with its own digital signature. Nobody, not even us, can add grams without the bank.",
+  proofExplain:
+    "Every gram in this app has a bank certificate. The bank signs each deposit with its own digital signature. Nobody, not even us, can add grams without the bank.",
   certificates: "Bank certificates",
   certNo: "Certificate",
   purity: "Purity",
@@ -186,7 +187,8 @@ const en = {
   bannerLocal: "LOCAL DEMO · test money on this computer. No real gold, rupees or bank.",
   bannerPublic: "PUBLIC DEMO · test money in your browser. No real gold, rupees or bank.",
   landTitle: "Gold savings and chits you can check yourself",
-  landIntro: "Varanasi is an app we are building for families in Telangana and Andhra Pradesh, and for salaried savers. Keep pure gold at a partner bank and see it in grams, join chits with clear rules, and borrow against your gold.",
+  landIntro:
+    "Varanasi is an app we are building for families in Telangana and Andhra Pradesh, and for salaried savers. Keep pure gold at a partner bank and see it in grams, join chits with clear rules, and borrow against your gold.",
   landGold: "Gold at a bank",
   landGoldText: "The bank tests and keeps your gold. You see every gram and can check the bank holds it all.",
   landChit: "Chits with clear rules",
@@ -194,7 +196,8 @@ const en = {
   landLoan: "Loan against gold",
   landLoanText: "Borrow money without selling your gold. Repay and the gold comes back.",
   landStatusTitle: "Not launched yet",
-  landStatus: "This is a demo with test money. A real launch needs a partner bank to keep the gold and pay out, and a legal review of the gold, chit and lending rules in India. Until then nobody can put in real money.",
+  landStatus:
+    "This is a demo with test money. A real launch needs a partner bank to keep the gold and pay out, and a legal review of the gold, chit and lending rules in India. Until then nobody can put in real money.",
   landMadeUp: "All names, banks and amounts in the demo are made up.",
   tryDemo: "Try the demo",
   joinWaitlist: "Join the waitlist",
@@ -215,6 +218,7 @@ const en = {
   wlChits: "Chits",
   wlBoth: "Both",
   wlConsent: "Varanasi may contact me about the launch. My details are not sold or shared.",
+  wlUpdates: "Send me a short weekly update (optional, stop any time)",
   wlSubmit: "Add me to the waitlist",
   wlDone: "You are on the list. We will contact you only about the launch.",
   wlAlready: "You are already on the list. Thank you.",
@@ -228,7 +232,8 @@ const en = {
   loanRateText: "about {y}% a year, counted by the day",
   loanTerm: "Time to repay",
   loanDays: "{d} days",
-  loanWarn: "If you do not repay in time, the bank keeps the pledged gold. In this demo the whole pledge goes to the bank; a real loan must give back any value above what you owe.",
+  loanWarn:
+    "If you do not repay in time, the bank keeps the pledged gold. In this demo the whole pledge goes to the bank; a real loan must give back any value above what you owe.",
   loanPledge: "Grams to pledge",
   loanCanBorrow: "You can borrow up to",
   loanAmount: "Loan amount (₹)",
@@ -290,11 +295,33 @@ const en = {
   err_WL_SLOW_DOWN: "Too many tries. Please wait a few minutes.",
   err_WAITLIST_NOT_CONFIGURED: "The waitlist is not open on this site yet. Nothing was saved.",
   err_STORE_DOWN: "We could not save that right now. Nothing was saved. Please try later.",
+  // home actions + trust (UI pass Oct 11)
+  saveGold: "Save gold",
+  sendShort: "Send",
+  takeOutShort: "Take out",
+  keptAt: "Kept at",
+  checkProof: "See proof",
+  loading: "Opening your account...",
+  invitedBy: "A chit group invited you",
+  seeInvite: "See and join",
+  logoAlt: "Varanasi logo",
+  moreActions: "More",
 };
 
 export type Dict = typeof en;
 
 const te: Dict = {
+  // home actions + trust (UI pass Oct 11, needs native review)
+  saveGold: "బంగారం దాచండి",
+  sendShort: "పంపండి",
+  takeOutShort: "బయటకు తీయండి",
+  keptAt: "భద్రంగా ఉన్నది",
+  checkProof: "రుజువు చూడండి",
+  loading: "మీ ఖాతా తెరుస్తున్నాం...",
+  invitedBy: "ఒక చిట్ గ్రూప్ మిమ్మల్ని ఆహ్వానించింది",
+  seeInvite: "చూసి చేరండి",
+  logoAlt: "వారణాసి లోగో",
+  moreActions: "ఇంకా",
   appName: "వారణాసి",
   tagline: "మీరే చూసుకోగల బంగారం పొదుపు, చిట్టీలు",
   switchLang: "English",
@@ -359,7 +386,8 @@ const te: Dict = {
   awaiting: "అందజేయడానికి వేచి ఉన్నది",
   fullyBacked: "పూర్తి భరోసా ఉంది",
   notBacked: "పూర్తి భరోసా లేదు: కొత్త జమలు ఆపారు",
-  proofExplain: "ఈ యాప్‌లోని ప్రతి గ్రాముకు బ్యాంకు సర్టిఫికేట్ ఉంది. ప్రతి జమపై బ్యాంకు తన డిజిటల్ సంతకం చేస్తుంది. బ్యాంకు లేకుండా ఎవరూ, మేము కూడా, గ్రాములు కలపలేరు.",
+  proofExplain:
+    "ఈ యాప్‌లోని ప్రతి గ్రాముకు బ్యాంకు సర్టిఫికేట్ ఉంది. ప్రతి జమపై బ్యాంకు తన డిజిటల్ సంతకం చేస్తుంది. బ్యాంకు లేకుండా ఎవరూ, మేము కూడా, గ్రాములు కలపలేరు.",
   certificates: "బ్యాంకు సర్టిఫికేట్లు",
   certNo: "సర్టిఫికేట్",
   purity: "స్వచ్ఛత",
@@ -468,7 +496,8 @@ const te: Dict = {
   bannerLocal: "లోకల్ డెమో · ఈ కంప్యూటర్‌లో పరీక్ష డబ్బు మాత్రమే. నిజమైన బంగారం, రూపాయలు, బ్యాంకు లేవు.",
   bannerPublic: "పబ్లిక్ డెమో · మీ బ్రౌజర్‌లో పరీక్ష డబ్బు మాత్రమే. నిజమైన బంగారం, రూపాయలు, బ్యాంకు లేవు.",
   landTitle: "మీరే చూసుకోగల బంగారం పొదుపు, చిట్టీలు",
-  landIntro: "వారణాసి అనేది తెలంగాణ, ఆంధ్రప్రదేశ్ కుటుంబాల కోసం, జీతం పొందే పొదుపరుల కోసం మేము తయారు చేస్తున్న యాప్. స్వచ్ఛమైన బంగారాన్ని భాగస్వామి బ్యాంకులో ఉంచి గ్రాముల్లో చూడండి, స్పష్టమైన నియమాలతో చిట్టీల్లో చేరండి, మీ బంగారంపై రుణం తీసుకోండి.",
+  landIntro:
+    "వారణాసి అనేది తెలంగాణ, ఆంధ్రప్రదేశ్ కుటుంబాల కోసం, జీతం పొందే పొదుపరుల కోసం మేము తయారు చేస్తున్న యాప్. స్వచ్ఛమైన బంగారాన్ని భాగస్వామి బ్యాంకులో ఉంచి గ్రాముల్లో చూడండి, స్పష్టమైన నియమాలతో చిట్టీల్లో చేరండి, మీ బంగారంపై రుణం తీసుకోండి.",
   landGold: "బ్యాంకులో బంగారం",
   landGoldText: "బ్యాంకు మీ బంగారాన్ని పరీక్షించి భద్రంగా ఉంచుతుంది. ప్రతి గ్రాము మీకు కనిపిస్తుంది, బ్యాంకు దగ్గర మొత్తం ఉందో లేదో మీరే చూడవచ్చు.",
   landChit: "స్పష్టమైన నియమాలతో చిట్టీలు",
@@ -476,7 +505,8 @@ const te: Dict = {
   landLoan: "బంగారంపై రుణం",
   landLoanText: "బంగారం అమ్మకుండానే డబ్బు తీసుకోండి. తిరిగి కడితే బంగారం మీకు వస్తుంది.",
   landStatusTitle: "ఇంకా ప్రారంభించలేదు",
-  landStatus: "ఇది పరీక్ష డబ్బుతో డెమో మాత్రమే. నిజమైన ప్రారంభానికి బంగారాన్ని ఉంచి తిరిగి ఇచ్చే భాగస్వామి బ్యాంకు, భారతదేశంలో బంగారం, చిట్టీ, రుణ నియమాలపై న్యాయ సమీక్ష అవసరం. అప్పటివరకు ఎవరూ నిజమైన డబ్బు పెట్టలేరు.",
+  landStatus:
+    "ఇది పరీక్ష డబ్బుతో డెమో మాత్రమే. నిజమైన ప్రారంభానికి బంగారాన్ని ఉంచి తిరిగి ఇచ్చే భాగస్వామి బ్యాంకు, భారతదేశంలో బంగారం, చిట్టీ, రుణ నియమాలపై న్యాయ సమీక్ష అవసరం. అప్పటివరకు ఎవరూ నిజమైన డబ్బు పెట్టలేరు.",
   landMadeUp: "డెమోలోని పేర్లు, బ్యాంకులు, మొత్తాలు అన్నీ కల్పితం.",
   tryDemo: "డెమో చూడండి",
   joinWaitlist: "వెయిట్‌లిస్ట్‌లో చేరండి",
@@ -495,6 +525,7 @@ const te: Dict = {
   wlChits: "చిట్టీలు",
   wlBoth: "రెండూ",
   wlConsent: "ప్రారంభం గురించి వారణాసి నన్ను సంప్రదించవచ్చు. నా వివరాలు అమ్మరు, ఎవరికీ ఇవ్వరు.",
+  wlUpdates: "ప్రతి వారం ఒక చిన్న సమాచారం పంపండి (ఐచ్ఛికం, ఎప్పుడైనా ఆపవచ్చు)",
   wlSubmit: "నన్ను వెయిట్‌లిస్ట్‌లో చేర్చండి",
   wlDone: "మీరు లిస్ట్‌లో ఉన్నారు. ప్రారంభం గురించి మాత్రమే సంప్రదిస్తాము.",
   wlAlready: "మీరు ఇప్పటికే లిస్ట్‌లో ఉన్నారు. ధన్యవాదాలు.",
@@ -507,7 +538,8 @@ const te: Dict = {
   loanRateText: "సంవత్సరానికి సుమారు {y}%, రోజుల లెక్కన",
   loanTerm: "తిరిగి కట్టే గడువు",
   loanDays: "{d} రోజులు",
-  loanWarn: "గడువులోపు తిరిగి కట్టకపోతే, తాకట్టు బంగారం బ్యాంకు ఉంచుకుంటుంది. ఈ డెమోలో తాకట్టు మొత్తం బ్యాంకుకు వెళ్తుంది; నిజమైన రుణంలో మీరు కట్టవలసిన దానికంటే ఎక్కువ విలువ మీకు తిరిగి ఇవ్వాలి.",
+  loanWarn:
+    "గడువులోపు తిరిగి కట్టకపోతే, తాకట్టు బంగారం బ్యాంకు ఉంచుకుంటుంది. ఈ డెమోలో తాకట్టు మొత్తం బ్యాంకుకు వెళ్తుంది; నిజమైన రుణంలో మీరు కట్టవలసిన దానికంటే ఎక్కువ విలువ మీకు తిరిగి ఇవ్వాలి.",
   loanPledge: "తాకట్టు పెట్టే గ్రాములు",
   loanCanBorrow: "మీరు తీసుకోగలిగేది గరిష్ఠంగా",
   loanAmount: "రుణం మొత్తం (₹)",

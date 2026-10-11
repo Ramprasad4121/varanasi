@@ -13,6 +13,7 @@ import { Gold, GoldDeposit, GoldProof, GoldRedeem, GoldSend } from "./GoldScreen
 import { Chits, ChitScreen } from "./ChitScreens";
 import { Loans } from "./Loans";
 import { Home, Receipts, ReceiptSheet } from "./HomeScreens";
+import { Icon } from "./Icon";
 
 export default function App() {
   const [lang, setLang] = useState<Lang>("en");
@@ -103,35 +104,43 @@ export default function App() {
     </div>
   );
   const header = (
-    <div className="top">
-      <div className="brand">{t.appName}</div>
-      <button className="lang" onClick={switchLang} aria-label={lang === "en" ? "తెలుగులో చూడండి" : "Show in English"}>
-        {t.switchLang}
-      </button>
-    </div>
+    <header>
+      {banner}
+      <div className="top">
+        <div className="brand">
+          {/* official gold V mark (docs/logo.png) */}
+          <img src="/logo-v.png" alt={t.logoAlt} width={40} height={40} className="logo" />
+          <span>{t.appName}</span>
+        </div>
+        <button className="lang" onClick={switchLang} aria-label={lang === "en" ? "తెలుగులో చూడండి" : "Show in English"}>
+          {t.switchLang}
+        </button>
+      </div>
+    </header>
   );
 
   if (!session) {
     const s0 = screen.split("/")[0];
     return (
       <div className="shell out">
-        {banner}
         {header}
-        {s0 === "signin" ? (
-          <SignInScreen
-            t={t}
-            back={() => go("home")}
-            onDone={(s) => {
-              LS.set("vr.session", s);
-              setSession(s);
-              go("home");
-            }}
-          />
-        ) : s0 === "waitlist" ? (
-          <Waitlist t={t} lang={lang} back={() => go("home")} />
-        ) : (
-          <Landing t={t} go={go} />
-        )}
+        <main>
+          {s0 === "signin" ? (
+            <SignInScreen
+              t={t}
+              back={() => go("home")}
+              onDone={(s) => {
+                LS.set("vr.session", s);
+                setSession(s);
+                go("home");
+              }}
+            />
+          ) : s0 === "waitlist" ? (
+            <Waitlist t={t} lang={lang} back={() => go("home")} />
+          ) : (
+            <Landing t={t} go={go} />
+          )}
+        </main>
       </div>
     );
   }
@@ -141,14 +150,19 @@ export default function App() {
     <nav className="nav" aria-label="Main">
       <div className="in">
         {[
-          ["home", "🏠", t.navHome],
-          ["gold", "🪙", t.navGold],
-          ["chits", "👥", t.navChits],
-          ["receipts", "🧾", t.navReceipts],
+          ["home", "home", t.navHome],
+          ["gold", "gold", t.navGold],
+          ["chits", "chits", t.navChits],
+          ["receipts", "receipts", t.navReceipts],
         ].map(([k, ic, label]) => (
-          <button key={k} className={screen.split("/")[0] === k ? "on" : ""} onClick={() => go(k)} aria-current={screen.split("/")[0] === k ? "page" : undefined}>
-            <span className="ic" aria-hidden>
-              {ic}
+          <button
+            key={k}
+            className={screen.split("/")[0] === k ? "on" : ""}
+            onClick={() => go(k)}
+            aria-current={screen.split("/")[0] === k ? "page" : undefined}
+          >
+            <span className="ic">
+              <Icon name={ic} size={26} />
             </span>
             {label}
           </button>
@@ -168,7 +182,14 @@ export default function App() {
       </div>
     );
   } else if (!state) {
-    body = <p className="muted">{t.working}</p>;
+    body = (
+      <div aria-busy="true" aria-live="polite">
+        <p className="muted">{t.loading}</p>
+        <div className="skeleton tall" />
+        <div className="skeleton" />
+        <div className="skeleton" />
+      </div>
+    );
   } else {
     const p: P = { t, lang, state, go, busy, run, act, addReceipt, session, refresh, demo: api.demo };
     const [s0, s1] = screen.split("/");
@@ -193,32 +214,33 @@ export default function App() {
 
   return (
     <div className="shell">
-      {banner}
       {header}
-      {body}
-      {(screen === "home" || screen === "") && (
-        <>
-          <button className="btn secondary" onClick={signOut}>
-            {t.signOut}
-          </button>
-          {MODE === "public" && (
-            <div className="demo-box">
-              <p className="muted">{t.resetHint}</p>
-              <button
-                className="btn demo"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await api.reset();
-                  })
-                }
-              >
-                {t.resetDemo}
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <main>
+        {body}
+        {(screen === "home" || screen === "") && (
+          <>
+            <button className="btn quiet" onClick={signOut}>
+              {t.signOut}
+            </button>
+            {MODE === "public" && (
+              <div className="demo-box">
+                <p className="muted">{t.resetHint}</p>
+                <button
+                  className="btn demo"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await api.reset();
+                    })
+                  }
+                >
+                  {t.resetDemo}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
       {err && (
         <div className="toast" role="alert">
           <span>{err}</span>
@@ -237,6 +259,9 @@ export default function App() {
 function Landing({ t, go }: { t: Dict; go: (s: string) => void }) {
   return (
     <div>
+      <div className="hero">
+        <img src="/logo-v.png" alt="" width={72} height={72} />
+      </div>
       <h1>{t.landTitle}</h1>
       <p>{t.landIntro}</p>
       <button className="btn" onClick={() => go("signin")}>
@@ -246,15 +271,21 @@ function Landing({ t, go }: { t: Dict; go: (s: string) => void }) {
         {t.joinWaitlist}
       </button>
       <div className="card gold">
-        <div className="mid">🪙 {t.landGold}</div>
+        <div className="mid with-ic">
+          <Icon name="gold" /> {t.landGold}
+        </div>
         <p>{t.landGoldText}</p>
       </div>
       <div className="card">
-        <div className="mid">👥 {t.landChit}</div>
+        <div className="mid with-ic">
+          <Icon name="chits" /> {t.landChit}
+        </div>
         <p>{t.landChitText}</p>
       </div>
       <div className="card">
-        <div className="mid">🤝 {t.landLoan}</div>
+        <div className="mid with-ic">
+          <Icon name="loan" /> {t.landLoan}
+        </div>
         <p>{t.landLoanText}</p>
       </div>
       <div className="card warn">
@@ -306,7 +337,15 @@ function SignInScreen({ t, onDone, back }: { t: Dict; onDone: (s: SignIn) => voi
       >
         <div className="field">
           <label htmlFor="ph">{t.phoneLabel}</label>
-          <input id="ph" inputMode="numeric" autoComplete="tel" placeholder="98765 43210" value={phone} disabled={sent} onChange={(x) => setPhone(x.target.value)} />
+          <input
+            id="ph"
+            inputMode="numeric"
+            autoComplete="tel"
+            placeholder="98765 43210"
+            value={phone}
+            disabled={sent}
+            onChange={(x) => setPhone(x.target.value)}
+          />
         </div>
         {!sent ? (
           <button className="btn" type="submit" disabled={busy}>
@@ -347,7 +386,7 @@ function SignInScreen({ t, onDone, back }: { t: Dict; onDone: (s: SignIn) => voi
 
 // ---------------------------------------------------------------- waitlist
 function Waitlist({ t, lang, back }: { t: Dict; lang: Lang; back: () => void }) {
-  const [f, setF] = useState({ name: "", contact: "", city: "", interest: "", consent: false, website: "" });
+  const [f, setF] = useState({ name: "", contact: "", city: "", interest: "", consent: false, updates: false, website: "" });
   const [msg, setMsg] = useState("");
   const [e, setE] = useState("");
   const [busy, setBusy] = useState(false);
@@ -431,8 +470,20 @@ function Waitlist({ t, lang, back }: { t: Dict; lang: Lang; back: () => void }) 
             <input type="checkbox" checked={f.consent} onChange={(x) => set("consent", x.target.checked)} />
             <span>{t.wlConsent}</span>
           </label>
+          <label className="consent">
+            <input type="checkbox" checked={f.updates} onChange={(x) => set("updates", x.target.checked)} />
+            <span>{t.wlUpdates}</span>
+          </label>
           {/* hidden from people; bots fill it */}
-          <input className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" name="website" value={f.website} onChange={(x) => set("website", x.target.value)} />
+          <input
+            className="hp"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            name="website"
+            value={f.website}
+            onChange={(x) => set("website", x.target.value)}
+          />
           <button className="btn" type="submit" disabled={busy}>
             {busy ? t.working : t.wlSubmit}
           </button>

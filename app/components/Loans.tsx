@@ -164,7 +164,14 @@ export function Loans({ t, lang, state, go, busy, run, act, addReceipt, demo }: 
                     onClick={() =>
                       run(async () => {
                         const j = await demo("bankApproveLoan", { id: String(l.id) });
-                        addReceipt({ kind: "approve", title: t.r_approve, amount: rupees(l.principalPaise, false), to: lenderName, ref: j.ref, at: nowOf(state) });
+                        addReceipt({
+                          kind: "approve",
+                          title: t.r_approve,
+                          amount: rupees(l.principalPaise, false),
+                          to: lenderName,
+                          ref: j.ref,
+                          at: nowOf(state),
+                        });
                       })
                     }
                   >

@@ -44,7 +44,10 @@ def ok(cond, msg):
 def shot(page, name):
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
+        # full page shot: let the fixed bottom menu sit at the end instead of over the middle
+        page.add_style_tag(content=".nav{position:static!important}")
         page.screenshot(path=os.path.join(SHOTS, f"{name}.png"), full_page=True)
+        page.evaluate("() => document.querySelectorAll('style').forEach(s => { if (s.textContent.includes('.nav{position:static')) s.remove(); })")
 
 
 def axe(page, name):
@@ -109,7 +112,10 @@ def main():
         page.get_by_label("Mobile number or email").fill(f"9{int(time.time()) % 1000000000:09d}")
         page.get_by_label("Town or city").fill("Mahabubnagar")
         page.get_by_text("Both", exact=True).click()
-        page.get_by_role("checkbox").check()
+        updates = page.get_by_role("checkbox", name=re.compile("weekly update"))
+        ok(not updates.is_checked(), "waitlist: weekly update opt in is unticked by default")
+        page.get_by_role("checkbox", name=re.compile("may contact me")).check()
+        updates.check()
         shot(page, "02-waitlist-en")
         axe(page, "waitlist")
         tap(page, "Add me to the waitlist")

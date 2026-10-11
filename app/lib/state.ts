@@ -44,11 +44,13 @@ export async function stateFor(user: Address): Promise<AppState> {
   for (const b of banks) {
     b.capMilli = Number((await rd(d.issuer, "BankGoldIssuer", "bankMintCapMilli", [b.bankId])) as bigint);
   }
-  const [supplyMilli, attestedMilli, pendingMilli, disputedMilli, fullyBacked] = (await rd(
-    d.issuer,
-    "BankGoldIssuer",
-    "proofOfReserve"
-  )) as [bigint, bigint, bigint, bigint, boolean];
+  const [supplyMilli, attestedMilli, pendingMilli, disputedMilli, fullyBacked] = (await rd(d.issuer, "BankGoldIssuer", "proofOfReserve")) as [
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    boolean,
+  ];
 
   // bank certificates (one per deposit), from the bank's signed mint events
   const mintEvent = (abi("BankGoldIssuer") as any[]).find((x) => x.type === "event" && x.name === "GoldMinted");
@@ -85,16 +87,15 @@ export async function stateFor(user: Address): Promise<AppState> {
       rd(a, "ChitFund", "enrolledCount"),
     ]);
     const r = Number(round);
-    const [payDeadline, graceEnd, revealEnd, commissionBps, maxDiscountBps, lateFeeBps, expectedPot] =
-      await Promise.all([
-        rd(a, "ChitFund", "payDeadline"),
-        rd(a, "ChitFund", "graceEnd"),
-        rd(a, "ChitFund", "revealEnd"),
-        rd(a, "ChitFund", "commissionBps"),
-        rd(a, "ChitFund", "maxDiscountBps"),
-        rd(a, "ChitFund", "lateFeeBps"),
-        rd(a, "ChitFund", "expectedPot"),
-      ]);
+    const [payDeadline, graceEnd, revealEnd, commissionBps, maxDiscountBps, lateFeeBps, expectedPot] = await Promise.all([
+      rd(a, "ChitFund", "payDeadline"),
+      rd(a, "ChitFund", "graceEnd"),
+      rd(a, "ChitFund", "revealEnd"),
+      rd(a, "ChitFund", "commissionBps"),
+      rd(a, "ChitFund", "maxDiscountBps"),
+      rd(a, "ChitFund", "lateFeeBps"),
+      rd(a, "ChitFund", "expectedPot"),
+    ]);
     const me = (await rd(a, "ChitFund", "stateOf", [user])) as any[];
     const [enrolled, escrow, credit, escrowFree, liability, allowance] = await Promise.all([
       rd(a, "ChitFund", "enrolled", [user]),
