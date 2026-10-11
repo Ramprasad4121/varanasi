@@ -2,7 +2,7 @@
   "name": "varanasi-people-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Varanasi people app: bank-backed gold savings and chit funds, Telugu + English, local demo",
+  "description": "Varanasi people app: bank-backed gold and silver savings, pledged items and chit funds, Telugu + English, local demo",
   "scripts": {
     "dev": "next dev -p ${APP_PORT:-3100}",
     "build": "next build",
@@ -12,8 +12,8 @@
     "lint": "next lint --dir app --dir components --dir lib",
     "format": "prettier --write \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
     "format:check": "prettier --check \"app/**/*.{ts,tsx,css}\" \"components/**/*.tsx\" \"lib/**/*.ts\" \"scripts/**/*.mjs\"",
-    "test:unit": "node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs && FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs scripts/waitlist-test.mjs",
-    "coverage": "FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs --test --experimental-test-coverage --test-coverage-include=lib/**/*.ts scripts/sim-test.mjs scripts/waitlist-test.mjs"
+    "test:unit": "node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs && node --no-warnings --import ./scripts/ts-hook.mjs --test scripts/assets-test.mjs && FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs scripts/waitlist-test.mjs",
+    "coverage": "FAKE_KV_PORT=18701 node --no-warnings --import ./scripts/ts-hook.mjs --test --experimental-test-coverage --test-coverage-include=lib/**/*.ts scripts/sim-test.mjs scripts/assets-test.mjs scripts/waitlist-test.mjs"
   },
   "dependencies": {
     "next": "14.2.35",

@@ -41,6 +41,8 @@ fi
 if [ "$CHECK" = "1" ]; then
   echo "==> demo ledger test"
   (cd "$APPDIR" && node --no-warnings --import ./scripts/ts-hook.mjs scripts/sim-test.mjs)
+  echo "==> asset ledger test"
+  (cd "$APPDIR" && node --no-warnings --import ./scripts/ts-hook.mjs --test scripts/assets-test.mjs)
 fi
 
 echo "==> build (public mode, into .next-public)"
@@ -71,6 +73,8 @@ if [ "$CHECK" = "1" ]; then
   if [ "${SKIP_E2E:-0}" != "1" ]; then
     echo "==> browser walk-through (public mode)"
     APP="http://127.0.0.1:$APP_PORT" MODE_NAME=public SHOTS="${SHOTS:-}" python3 "$ROOT/app/e2e/e2e.py"
+    echo "==> browser walk-through (silver, pledged items, bank asset desk)"
+    APP="http://127.0.0.1:$APP_PORT" SHOTS="${SHOTS:-}" python3 "$ROOT/app/e2e/assets_e2e.py"
   fi
   echo "==> all good"
   exit 0
