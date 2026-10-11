@@ -50,6 +50,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Co
     error GoldWrongBank(bytes32 certificateId, bytes32 bankId);
     error GoldStaleReport(uint256 seq, uint256 lastSeq);
     error GoldReportInFuture(uint256 asOf);
+    error GoldBankCapReached(bytes32 bankId, uint256 attestedAfter, uint256 cap);
 
     // ------------------------------------------------------------------ events
     event BankAdded(bytes32 indexed bankId, string name, address signer, address operator);
@@ -57,6 +58,7 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Co
     event BankOperatorSet(bytes32 indexed bankId, address operator);
     event BankPaused(bytes32 indexed bankId, address by);
     event BankUnpaused(bytes32 indexed bankId);
+    event BankMintCapSet(bytes32 indexed bankId, uint256 capMilli);
     event GoldMinted(
         bytes32 indexed bankId, bytes32 indexed certificateId, address indexed user, uint256 fineMilli, uint256 purityPermille
     );
@@ -170,6 +172,9 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Co
 
     IGoldPriceFeed public priceFeed; // display only
     mapping(address => uint256[]) internal _redemptionsOf;
+    /// @notice Most fine gold (mg) each bank may have attested at once. 0 = no cap.
+    ///         Bounds the damage of a leaked bank signing key to the cap.
+    mapping(bytes32 => uint256) public bankMintCapMilli;
 
     /// @param forwarder Trusted ERC-2771 forwarder for gasless user actions (address(0) = none).
     constructor(address admin, address goldToken, address goldRegistry, address forwarder)
@@ -207,6 +212,14 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Co
         if (signer == address(0)) revert GoldZeroAddress();
         _bank(bankId).signer = signer;
         emit BankSignerSet(bankId, signer);
+    }
+
+    /// @notice Owner sets a bank's attested gold ceiling in fine milligrams (0 = none).
+    ///         Lowering it below what is already attested only stops new deposits.
+    function setBankMintCap(bytes32 bankId, uint256 capMilli) external onlyOwner {
+        _bank(bankId);
+        bankMintCapMilli[bankId] = capMilli;
+        emit BankMintCapSet(bankId, capMilli);
     }
 
     function setBankOperator(bytes32 bankId, address operator) external onlyOwner {
@@ -263,6 +276,11 @@ contract BankGoldIssuer is Ownable, Pausable, ReentrancyGuard, EIP712, ERC2771Co
         if (block.timestamp > a.expiry) revert GoldExpired(a.expiry);
         if (nonceUsed[a.bankId][a.nonce]) revert GoldNonceUsed(a.bankId, a.nonce);
         if (!SignatureChecker.isValidSignatureNow(b.signer, hashAttestation(a), signature)) revert GoldBadSignature();
+
+        uint256 cap = bankMintCapMilli[a.bankId];
+        if (cap != 0 && b.attestedMilli + a.fineGramsMilli > cap) {
+            revert GoldBankCapReached(a.bankId, b.attestedMilli + a.fineGramsMilli, cap);
+        }
 
         nonceUsed[a.bankId][a.nonce] = true;
         // reverts unless the certificate is fresh (NONE): single use forever

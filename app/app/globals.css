@@ -82,3 +82,20 @@ input:focus { outline: 3px solid #f0c060; border-color: var(--gold); }
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px; letter-spacing: 0.5px; }
 .demo-box { border: 2px dashed #8aa0c0; background: #f6f8fb; border-radius: 16px; padding: 14px; margin: 18px 0; }
 .demo-box .label { color: #24364f; }
+/* demo labels, toast, landing, waitlist */
+.demo-banner { margin: 0 -16px; padding: 8px 16px; background: #24364f; color: #fff; font-size: 15px; font-weight: 700; line-height: 1.35; text-align: center; }
+.tap { width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; display: block; }
+.tile.wide { grid-column: 1 / -1; min-height: 72px; }
+.toast { position: fixed; left: 12px; right: 12px; bottom: 84px; max-width: 456px; margin: 0 auto; background: var(--red); color: #fff; border-radius: 14px; padding: 12px 14px; font-weight: 700; display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; z-index: 30; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+.toast-x { background: none; border: none; color: #fff; font-size: 28px; line-height: 1; min-width: 44px; min-height: 44px; cursor: pointer; }
+.otp-shown { background: #eef1f6; border: 2px dashed #8aa0c0; color: #24364f; border-radius: 12px; padding: 12px 14px; font-size: 19px; margin: 12px 0; }
+.otp-shown .mono { font-size: 24px; letter-spacing: 3px; }
+.choices { border: none; padding: 0; margin: 12px 0; }
+.choices legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
+.choice { display: flex; align-items: center; gap: 12px; border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 12px 14px; margin: 8px 0; min-height: 56px; font-weight: 700; cursor: pointer; }
+.choice.on { border-color: var(--gold); background: var(--gold-soft); }
+.choice input, .consent input { width: 24px; height: 24px; min-height: 0; margin: 0; flex: none; }
+.consent { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; font-size: 17px; cursor: pointer; }
+.consent input { margin-top: 3px; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0; }
+input:disabled { background: #f3f0ea; color: var(--muted); }

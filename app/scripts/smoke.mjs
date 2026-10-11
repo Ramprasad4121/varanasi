@@ -104,6 +104,54 @@ ok(st.gold.milli === 8950 + 9160, `bank deposit 10 g of 22 carat -> +${g(dep.mil
 const b = st.reserve.banks[0];
 ok(b.fullyBacked && b.heldMilli === b.owedMilli + b.awaitingMilli, `proof page: bank holds ${g(b.heldMilli)}, app issued ${g(b.owedMilli)}, fully backed`);
 
+// ---- gold loan (mock bank loan desk, demo rupees)
+const newPos = (tag) => keccak256(toHex("smoke-pos-" + tag + "-" + Date.now()));
+const loanOf = (s2, id) => s2.loans.list.find((l) => l.id === id);
+const goldBefore = st.gold.milli;
+const pos1 = newPos("a");
+await act("loan.allowGold", { grams: "5" });
+await act("loan.pledge", { pos: pos1, grams: "5" });
+await act("loan.ask", { pos: pos1, rupees: "40000" });
+st = await state();
+const L1 = st.loans.list.at(-1);
+ok(L1 && L1.status === "ASKED" && st.gold.milli === goldBefore - 5000 && st.gold.pledgedMilli === 5000, `loan: pledged 5.000 g, asked Rs 40,000 (status ${L1?.status})`);
+await post("/api/demo", { op: "bankApproveLoan", id: String(L1.id) });
+st = await state();
+ok(loanOf(st, L1.id).status === "APPROVED", "loan: mock bank approved (inside 75% of demo value)");
+const cashBefore = BigInt(st.rupeePaise);
+await act("loan.draw", { id: String(L1.id) });
+st = await state();
+const L1d = loanOf(st, L1.id);
+ok(L1d.status === "ACTIVE" && BigInt(st.rupeePaise) - cashBefore === 4000000n && L1d.dueAt > 0, `loan: took Rs 40,000, repay ${rs(L1d.owedNowPaise)} by due date`);
+const owed = BigInt(L1d.owedNowPaise);
+await act("loan.allowRupee", {});
+await act("loan.repay", { id: String(L1.id), max: ((owed * 101n) / 100n + 100n).toString() });
+st = await state();
+ok(loanOf(st, L1.id).status === "REPAID" && st.gold.milli === goldBefore && st.gold.pledgedMilli === 0, `loan: repaid ${rs(owed)}, 5.000 g back (free gold ${g(st.gold.milli)})`);
+
+// 75% cap: 1 g is worth Rs 12,000 (demo price), so the bank lends at most Rs 9,000
+const pos2 = newPos("b");
+await act("loan.allowGold", { grams: "1" });
+await act("loan.pledge", { pos: pos2, grams: "1" });
+await act("loan.ask", { pos: pos2, rupees: "10000" });
+st = await state();
+const L2 = st.loans.list.at(-1);
+const capRes = await fetch(APP + "/api/demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op: "bankApproveLoan", id: String(L2.id) }) }).then((r) => r.json());
+ok(capRes.error === "LOAN_TOO_LARGE" && loanOf(await state(), L2.id).status === "ASKED", `loan above 75% refused by the bank (${capRes.error})`);
+await act("loan.cancel", { id: String(L2.id) });
+st = await state();
+ok(loanOf(st, L2.id).status === "CANCELLED" && st.gold.milli === goldBefore && st.gold.pledgedMilli === 0, "loan: cancelled unfunded request, 1.000 g back");
+
+// phone stopped halfway: grams locked but no loan asked
+const pos3 = newPos("c");
+await act("loan.allowGold", { grams: "2" });
+await act("loan.pledge", { pos: pos3, grams: "2" });
+st = await state();
+ok(st.loans.unusedPledges.length === 1 && st.loans.unusedPledges[0].milli === 2000, "loan: 2.000 g locked without a request shows as unused pledge");
+await act("loan.reclaim", { pos: pos3 });
+st = await state();
+ok(st.loans.unusedPledges.length === 0 && st.gold.milli === goldBefore, "loan: unused pledge taken back");
+
 // ---- error in plain words
 try {
   await act("chit.pay", { fund: B.address });

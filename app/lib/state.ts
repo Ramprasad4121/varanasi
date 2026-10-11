@@ -1,11 +1,14 @@
-// Everything one person sees in the app, read from the local chain in one call.
+// Everything one person sees in the app, read from the LOCAL chain in one call.
+// Same AppState shape as the public demo ledger (lib/sim/engine.ts).
 import { type Address, type Hex } from "viem";
 import { abi, deployment, publicClient, personFor, MG } from "./server";
+import type { AppState, Loan, LoanStatus } from "./types";
+import { LOAN } from "./terms";
 
 type R = Record<string, unknown>;
 const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-export async function stateFor(user: Address) {
+export async function stateFor(user: Address): Promise<AppState> {
   const d = deployment();
   const pub = publicClient();
   const rd = (address: Address, abiName: string, functionName: string, args: unknown[] = []) =>
@@ -36,7 +39,11 @@ export async function stateFor(user: Address) {
     fullyBacked: b.fullyBacked as boolean,
     paused: b.newDepositsPaused as boolean,
     valuePaise: (b.goldHeldValuePaise as bigint).toString(),
+    capMilli: 0,
   }));
+  for (const b of banks) {
+    b.capMilli = Number((await rd(d.issuer, "BankGoldIssuer", "bankMintCapMilli", [b.bankId])) as bigint);
+  }
   const [supplyMilli, attestedMilli, pendingMilli, disputedMilli, fullyBacked] = (await rd(
     d.issuer,
     "BankGoldIssuer",
@@ -159,6 +166,7 @@ export async function stateFor(user: Address) {
       else phase = "results";
     }
     const pot = expectedPot as bigint;
+    const ph = phase as AppState["chits"][number]["phase"];
     const minBid = (pot * (10000n - BigInt(maxDiscountBps)) + 9999n) / 10000n;
 
     chits.push({
@@ -172,7 +180,7 @@ export async function stateFor(user: Address) {
       started,
       finalized,
       round: r,
-      phase,
+      phase: ph,
       payDeadline: Number(payDeadline),
       graceEnd: Number(graceEnd),
       revealEnd: Number(revealEnd),
@@ -217,16 +225,58 @@ export async function stateFor(user: Address) {
     }))
     .sort((x, y) => x.dueAt - y.dueAt);
 
+  // ---- gold loans (CollateralVault + LoanAgreement)
+  const lockEvent = (abi("GaslessCollateralVault") as any[]).find((x) => x.type === "event" && x.name === "CollateralLocked");
+  const lockLogs = await pub.getLogs({ address: d.vault, event: lockEvent, fromBlock: 0n });
+  const lockedMilli: Record<string, number> = {};
+  for (const l of lockLogs as any[]) lockedMilli[String(l.args.positionId).toLowerCase()] = Number((l.args.amount as bigint) / MG);
+  const loanCount = Number((await rd(d.loans, "GaslessLoanAgreement", "loanCount")) as bigint);
+  const LOAN_STATUS: LoanStatus[] = ["ASKED", "APPROVED", "ACTIVE", "REPAID", "DEFAULTED", "CANCELLED"];
+  const loans: Loan[] = [];
+  for (let i = 1; i <= loanCount; i++) {
+    const l = (await rd(d.loans, "GaslessLoanAgreement", "loans", [BigInt(i)])) as any[];
+    if (String(l[1]).toLowerCase() !== user.toLowerCase()) continue;
+    const state = Number(l[13]);
+    const fundedAt = Number(l[10]);
+    const owed = state === 2 ? ((await rd(d.loans, "GaslessLoanAgreement", "outstanding", [BigInt(i)])) as bigint) : state === 1 ? (l[6] as bigint) : 0n;
+    loans.push({
+      id: i,
+      status: LOAN_STATUS[state],
+      goldMilli: lockedMilli[String(l[4]).toLowerCase()] || 0,
+      principalPaise: (l[6] as bigint).toString(),
+      interestBps: Number(l[7]),
+      termSeconds: Number(l[8]),
+      createdAt: Number(l[9]),
+      fundedAt,
+      dueAt: fundedAt ? fundedAt + Number(l[8]) : 0,
+      owedNowPaise: owed.toString(),
+    });
+  }
+  // gold locked to the loan contract by this person with no loan request (phone stopped halfway)
+  const unusedPledges: { positionId: string; milli: number }[] = [];
+  for (const l of lockLogs as any[]) {
+    const pos = String(l.args.positionId);
+    if (String(l.args.owner).toLowerCase() !== d.loans.toLowerCase()) continue;
+    const locker = (await rd(d.vault, "GaslessCollateralVault", "lockedBy", [pos])) as Address;
+    if (locker.toLowerCase() !== user.toLowerCase()) continue;
+    const inUse = (await rd(d.loans, "GaslessLoanAgreement", "positionInUse", [pos])) as boolean;
+    if (!inUse) unusedPledges.push({ positionId: pos, milli: lockedMilli[pos.toLowerCase()] || 0 });
+  }
+  const pledgedMilli = loans.filter((l) => ["ASKED", "APPROVED", "ACTIVE"].includes(l.status)).reduce((a, l) => a + l.goldMilli, 0);
+
   const person = personFor(user);
   return {
+    mode: "local",
+    ledgerId: `local-${d.issuer.slice(2, 10)}-${d.seededAt || 0}`,
     now,
     person: person ? { name: person.name, nameTe: person.nameTe, phone: person.phone } : null,
     gold: {
       milli: Number(mg),
+      pledgedMilli,
       valuePaise: (valuePaise as bigint).toString(),
       pricePaisePerGram: (pricePaise as bigint).toString(),
       priceAt: Number(priceAt || priceAsOf),
-      redemptions,
+      redemptions: redemptions as AppState["gold"]["redemptions"],
     },
     reserve: {
       supplyMilli: Number(supplyMilli),
@@ -241,8 +291,19 @@ export async function stateFor(user: Address) {
     rupeePaise: rupeePaise.toString(),
     chits,
     dues,
-    gramUnits: MG.toString(),
+    loans: {
+      terms: {
+        lender: d.bankName,
+        ltvBps: LOAN.ltvBps,
+        rateBps: LOAN.rateBps,
+        yearlyRatePct: LOAN.yearlyRatePct,
+        termSeconds: LOAN.termSeconds,
+        minPaise: LOAN.minPaise.toString(),
+      },
+      list: loans,
+      unusedPledges,
+    },
   };
 }
 
-export type AppState = Awaited<ReturnType<typeof stateFor>>;
+export type { AppState };

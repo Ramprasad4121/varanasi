@@ -1,11 +1,15 @@
 // Builds the request a member signs on their phone. Only these actions exist.
 import { isAddress, keccak256, maxUint256, toHex, type Address, type Hex } from "viem";
-import { addressForPhone, deployment, json, MG } from "@/lib/server";
+import { addressForPhone, deployment, json, localOnly, MG, refused } from "@/lib/server";
+import { LOAN } from "@/lib/terms";
 import { domain, FORWARD_TYPES, prepare, reasonOf, type Call } from "@/lib/relay";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
-function callFor(action: string, a: Record<string, string>): Call {
+const isB32 = (x: string) => /^0x[0-9a-fA-F]{64}$/.test(x || "");
+
+function callFor(action: string, a: Record<string, string>, from: Address): Call {
   const d = deployment();
   const fund = (x: string) => {
     const f = d.funds.find((f) => f.address.toLowerCase() === (x || "").toLowerCase());
@@ -44,21 +48,56 @@ function callFor(action: string, a: Record<string, string>): Call {
       return { to: fund(a.fund), abiName: "ChitFund", functionName: "revealBid", args: [BigInt(a.bid), a.salt as Hex] };
     case "chit.withdraw":
       return { to: fund(a.fund), abiName: "ChitFund", functionName: "withdraw", args: [] };
+    // ---- gold loan: pledge grams in the vault, ask the bank, take the money, repay
+    case "loan.allowGold":
+      return { to: d.goldToken, abiName: "GoldToken", functionName: "approve", args: [d.vault, milli(a.grams) * MG] };
+    case "loan.pledge":
+      if (!isB32(a.pos)) throw new Error("BAD_AMOUNT");
+      return {
+        to: d.vault,
+        abiName: "GaslessCollateralVault",
+        functionName: "lock",
+        args: [a.pos as Hex, d.goldToken, d.loans, milli(a.grams) * MG],
+      };
+    case "loan.ask": {
+      if (!isB32(a.pos)) throw new Error("BAD_AMOUNT");
+      const paise = Math.round(Number(a.rupees) * 100);
+      if (!Number.isFinite(paise) || paise <= 0) throw new Error("BAD_AMOUNT");
+      return {
+        to: d.loans,
+        abiName: "GaslessLoanAgreement",
+        functionName: "createLoan",
+        args: [d.lender, from, d.rupee, BigInt(paise), BigInt(LOAN.rateBps), BigInt(LOAN.termSeconds), d.goldToken, a.pos as Hex],
+      };
+    }
+    case "loan.cancel":
+      return { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "cancelLoan", args: [BigInt(a.id)] };
+    case "loan.draw":
+      return { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "drawLoan", args: [BigInt(a.id)] };
+    case "loan.allowRupee":
+      return { to: d.rupee, abiName: "MockRupee", functionName: "approve", args: [d.loans, maxUint256] };
+    case "loan.repay":
+      return { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "repayAll", args: [BigInt(a.id), BigInt(a.max)] };
+    case "loan.reclaim":
+      if (!isB32(a.pos)) throw new Error("BAD_AMOUNT");
+      return { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "reclaimUnusedPosition", args: [a.pos as Hex] };
     default:
       throw new Error("UNKNOWN_ACTION");
   }
 }
 
 export async function POST(req: Request) {
+  const off = localOnly();
+  if (off) return off;
   const { from, action, args } = (await req.json()) as { from: string; action: string; args: Record<string, string> };
   if (!isAddress(from)) return json({ error: "BAD_ADDRESS" }, 400);
   try {
-    const call = callFor(action, args || {});
+    const call = callFor(action, args || {}, from as Address);
     const message = await prepare(from as Address, call);
     return json({ domain: domain(), types: FORWARD_TYPES, message });
   } catch (e) {
     const m = (e as Error)?.message || "";
     const own = ["NO_SUCH_CHIT", "BAD_AMOUNT", "BAD_PHONE", "UNKNOWN_ACTION"].find((k) => m === k);
-    return json({ error: own || reasonOf(e) }, 400);
+    return refused(own || reasonOf(e));
   }
 }

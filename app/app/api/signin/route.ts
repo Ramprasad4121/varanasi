@@ -2,15 +2,18 @@
 // Real launch: SMS OTP from a licensed provider, and the key is created and kept
 // on the phone (never sent by a server). See docs/APP.md "What is mocked".
 import { privateKeyToAccount } from "viem/accounts";
-import { json, keyForPhone, normalizePhone, personFor } from "@/lib/server";
+import { json, keyForPhone, localOnly, normalizePhone, personFor, refused } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export async function POST(req: Request) {
+  const off = localOnly();
+  if (off) return off;
   const { phone, code } = (await req.json()) as { phone?: string; code?: string };
   const p = normalizePhone(phone || "");
-  if (p.length !== 10) return json({ error: "BAD_PHONE" }, 400);
-  if (code !== undefined && code !== "123456") return json({ error: "BAD_CODE" }, 400);
+  if (p.length !== 10) return refused("BAD_PHONE");
+  if (code !== undefined && code !== "123456") return refused("BAD_CODE");
   if (code === undefined) return json({ sent: true });
   const key = keyForPhone(p);
   const address = privateKeyToAccount(key).address;

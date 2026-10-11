@@ -5,10 +5,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { encodeAbiParameters, isAddress, keccak256, maxUint256, toHex, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { abi, deployment, json, keyForPhone, publicClient, RUNTIME_DIR, saveDeployment } from "@/lib/server";
+import { abi, deployment, json, keyForPhone, localOnly, MG, publicClient, refused, RUNTIME_DIR, saveDeployment } from "@/lib/server";
+import { maxLoanPaise } from "@/lib/terms";
 import { reasonOf, relayAs, sendFrom } from "@/lib/relay";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 type Bots = Record<string, { bid: string; salt: Hex; round: number }>;
 const botsFile = () => path.join(RUNTIME_DIR, "bots.json");
@@ -63,12 +65,11 @@ async function nextStep(fund: Address, user: Address) {
   const d = deployment();
   const pub = publicClient();
   const now = Number((await pub.getBlock()).timestamp);
-  const [started, finalized, round, payDeadline, graceEnd, revealEnd, members, contribution, maxDiscountBps] =
+  const [started, finalized, round, graceEnd, revealEnd, members, contribution, maxDiscountBps] =
     await Promise.all([
       rdF(fund, "started"),
       rdF(fund, "finalized"),
       rdF(fund, "round"),
-      rdF(fund, "payDeadline"),
       rdF(fund, "graceEnd"),
       rdF(fund, "revealEnd"),
       rdF(fund, "members"),
@@ -155,6 +156,8 @@ async function nextStep(fund: Address, user: Address) {
 }
 
 export async function POST(req: Request) {
+  const off = localOnly();
+  if (off) return off;
   const body = (await req.json()) as Record<string, string>;
   const user = body.addr as Address;
   try {
@@ -178,6 +181,31 @@ export async function POST(req: Request) {
         const ref = await sendFrom(d.keys.gov, { to: d.rupee, abiName: "MockRupee", functionName: "mint", args: [user, 10_000_00n] });
         return json({ ref });
       }
+      case "bankApproveLoan": {
+        // Mock bank underwriting: lend at most 75% of today's demo value of the pledged gold.
+        const id = BigInt(body.id);
+        const l = (await publicClient().readContract({ address: d.loans, abi: abi("GaslessLoanAgreement"), functionName: "loans", args: [id] })) as any[];
+        if (Number(l[13]) !== 0) return refused("LoanFundedAlready");
+        const [, , milli] = (await publicClient().readContract({
+          address: d.vault,
+          abi: abi("GaslessCollateralVault"),
+          functionName: "positionOf",
+          args: [l[4]],
+        })) as [Address, Address, bigint];
+        const [pricePaise] = (await publicClient().readContract({ address: d.priceFeed, abi: abi("MockGoldPriceFeed"), functionName: "pricePaisePerGram" })) as bigint[];
+        if ((l[6] as bigint) > maxLoanPaise(Number(milli / MG), pricePaise)) return refused("LOAN_TOO_LARGE");
+        const ref = await sendFrom(d.keys.lender, { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "fundLoan", args: [id] });
+        return json({ ref });
+      }
+      case "loanTermEnds": {
+        // Demo: the 90 days pass without repayment; the bank declares default and keeps the pledged gold.
+        const id = BigInt(body.id);
+        const l = (await publicClient().readContract({ address: d.loans, abi: abi("GaslessLoanAgreement"), functionName: "loans", args: [id] })) as any[];
+        if (Number(l[13]) !== 2) return refused("LoanNotActive");
+        await warpTo(Number(l[10]) + Number(l[8]) + 1);
+        const ref = await sendFrom(d.keys.lender, { to: d.loans, abiName: "GaslessLoanAgreement", functionName: "declareDefault", args: [id] });
+        return json({ ref });
+      }
       case "nextStep": {
         if (!isAddress(user)) return json({ error: "BAD_ADDRESS" }, 400);
         return json(await nextStep(body.fund as Address, user));
@@ -186,6 +214,6 @@ export async function POST(req: Request) {
         return json({ error: "UNKNOWN_ACTION" }, 400);
     }
   } catch (e) {
-    return json({ error: (e as Error)?.message === "BAD_AMOUNT" ? "BAD_AMOUNT" : reasonOf(e) }, 400);
+    return refused((e as Error)?.message === "BAD_AMOUNT" ? "BAD_AMOUNT" : reasonOf(e));
   }
 }

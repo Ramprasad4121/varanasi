@@ -81,7 +81,7 @@ export async function prepare(from: Address, c: Call): Promise<ForwardMessage> {
 
 export function allowedTargets(): Address[] {
   const d = deployment();
-  return [d.issuer, d.goldToken, d.rupee, ...d.funds.map((f) => f.address)].map((a) => a.toLowerCase() as Address);
+  return [d.issuer, d.goldToken, d.rupee, d.vault, d.loans, ...d.funds.map((f) => f.address)].map((a) => a.toLowerCase() as Address);
 }
 
 /** Relayer submits a signed request through the forwarder. */

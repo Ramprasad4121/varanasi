@@ -26,6 +26,10 @@ export type Deployment = {
   registry: Address;
   priceFeed: Address;
   rupee: Address;
+  vault: Address;
+  loans: Address;
+  lender: Address;
+  seededAt: number;
   bankId: Hex;
   bankName: string;
   bankBranch: string;
@@ -33,7 +37,7 @@ export type Deployment = {
   funds: FundInfo[];
   people: Person[];
   demoPhone: string;
-  keys: { gov: Hex; bankSigner: Hex; bankOps: Hex; relayer: Hex; foreman: Hex };
+  keys: { gov: Hex; bankSigner: Hex; bankOps: Hex; relayer: Hex; foreman: Hex; lender: Hex };
 };
 
 export const RUNTIME_DIR = process.env.VARANASI_RUNTIME || path.join(process.cwd(), "runtime");
@@ -56,12 +60,16 @@ export function abi(name: string): Abi {
   return a;
 }
 
+// Never let Next.js cache a chain read: its fetch cache would otherwise keep JSON-RPC
+// answers (even across restarts, in .next/cache/fetch-cache) and show stale balances.
+const rpc = () => http(deployment().rpc, { fetchOptions: { cache: "no-store" } });
+
 export function publicClient() {
-  return createPublicClient({ chain: foundry, transport: http(deployment().rpc), pollingInterval: 50 });
+  return createPublicClient({ chain: foundry, transport: rpc(), pollingInterval: 50 });
 }
 
 export function walletFor(key: Hex) {
-  return createWalletClient({ account: privateKeyToAccount(key), chain: foundry, transport: http(deployment().rpc), pollingInterval: 50 });
+  return createWalletClient({ account: privateKeyToAccount(key), chain: foundry, transport: rpc(), pollingInterval: 50 });
 }
 
 /** MOCK phone sign-in: a phone number maps to a device key. A real launch uses an
@@ -82,6 +90,23 @@ export function addressForPhone(phone: string): Address {
 
 export function personFor(addr: string): Person | undefined {
   return deployment().people.find((p) => p.address.toLowerCase() === addr.toLowerCase());
+}
+
+/** The chain routes exist only in the LOCAL demo. A public (hosted) build runs its
+ *  demo ledger in the browser and must never look for a local chain. */
+export function localOnly(): Response | null {
+  // Also refuse on Vercel: these routes hand out mock device keys and move demo money,
+  // so they must never run on a public server, even if the mode variable is missing.
+  const off = process.env.NEXT_PUBLIC_VARANASI_MODE === "public" || !!process.env.VERCEL;
+  return off ? json({ error: "PUBLIC_DEMO_NO_CHAIN" }, 404) : null;
+}
+
+/** A refusal the person can act on (a contract rule, a wrong code, a bad amount)
+ *  comes back as 200 with { error: CODE }, so the screen shows it in plain words and
+ *  the browser console stays clean. Only a broken setup (chain down, not deployed,
+ *  unknown failure) is a 5xx. Malformed requests (BAD_ADDRESS) stay 400. */
+export function refused(code: string): Response {
+  return json({ error: code }, ["CHAIN_DOWN", "NOT_DEPLOYED", "UNKNOWN"].includes(code) ? 503 : 200);
 }
 
 export function json(data: unknown, status = 200) {

@@ -28,6 +28,7 @@ const K = {
   relayer: "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
   bankOps: "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
   foreman: "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
+  lender: "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356", // mock bank loan desk
 };
 const pub = createPublicClient({ chain: foundry, transport: http(RPC), pollingInterval: 50 });
 const w = (k) => createWalletClient({ account: privateKeyToAccount(k), chain: foundry, transport: http(RPC), pollingInterval: 50 });
@@ -41,6 +42,8 @@ const A = {
   MockGoldPriceFeed: art("MockGoldPriceFeed.sol", "MockGoldPriceFeed"),
   MockRupee: art("MockRupee.sol", "MockRupee"),
   ChitFund: art("ChitFund.sol", "ChitFund"),
+  GaslessCollateralVault: art("GaslessCollateralVault.sol", "GaslessCollateralVault"),
+  GaslessLoanAgreement: art("GaslessLoanAgreement.sol", "GaslessLoanAgreement"),
 };
 fs.writeFileSync(
   path.join(RUNTIME, "abis.json"),
@@ -133,8 +136,18 @@ async function main() {
     privateKeyToAccount(K.bankSigner).address,
     privateKeyToAccount(K.bankOps).address,
   ]);
+  // per-bank cap: the mock bank may hold at most 1,000 g of gold for the app
+  await send(K.gov, issuer, "BankGoldIssuer", "setBankMintCap", [bankId, 1_000_000n]);
   const rupee = await deploy(K.gov, "MockRupee", [gov, FWD]);
-  console.log("deployed: forwarder", FWD, "issuer", issuer, "rupee", rupee);
+  // gold loans: pledge vGOLD in the vault, the mock bank loan desk lends demo rupees
+  const vault = await deploy(K.gov, "GaslessCollateralVault", [gov, FWD]);
+  const loans = await deploy(K.gov, "GaslessLoanAgreement", [vault, FWD]);
+  await send(K.gov, vault, "GaslessCollateralVault", "admitAsset", [token]);
+  await send(K.gov, vault, "GaslessCollateralVault", "authorizeResolver", [loans]);
+  const lender = privateKeyToAccount(K.lender).address;
+  await send(K.gov, rupee, "MockRupee", "mint", [lender, RS(10_000_000)]);
+  await send(K.lender, rupee, "MockRupee", "approve", [loans, maxUint256]);
+  console.log("deployed: forwarder", FWD, "issuer", issuer, "rupee", rupee, "loans", loans);
 
   // ---- gold deposits: bank assays and signs, relayer mints ----
   const certificates = {};
@@ -220,6 +233,10 @@ async function main() {
     registry,
     priceFeed: feed,
     rupee,
+    vault,
+    loans,
+    lender,
+    seededAt: Date.now(),
     bankId,
     bankName,
     bankBranch: "AMEERPET-01",

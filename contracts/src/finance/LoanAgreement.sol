@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {Context} from "openzeppelin-contracts/contracts/utils/Context.sol";
 import {ICollateral} from "../collateral/ICollateral.sol";
 import {CollateralVault} from "../collateral/CollateralVault.sol";
 
@@ -17,7 +18,7 @@ import {CollateralVault} from "../collateral/CollateralVault.sol";
 ///      positionId = loanId, owned by this contract, and released on repayment or
 ///      foreclosed to the lender on default. This contract must be authorized on
 ///      the vault (only positions it owns can be released).
-contract LoanAgreement is ReentrancyGuard {
+contract LoanAgreement is ReentrancyGuard, Context {
     using SafeERC20 for IERC20;
 
     error LoanZeroAmount();
@@ -79,6 +80,9 @@ contract LoanAgreement is ReentrancyGuard {
     /// @notice Positions already backing a loan (one position, one loan).
     mapping(bytes32 => bool) public positionInUse;
 
+    /// @notice Repayments the lender already took out of this contract, per loan.
+    mapping(uint256 => uint256) public lenderWithdrawn;
+
     /// @param collateralVault Collateral position owner (this contract holds its
     ///        own locks there).
     constructor(address collateralVault) {
@@ -116,10 +120,10 @@ contract LoanAgreement is ReentrancyGuard {
         if (posAmount == 0 || posToken == address(0)) revert LoanZeroAddress();
         if (posToken != collateralToken) revert LoanZeroAddress();
         // L1: the caller is the borrower, the borrower locked it, and it is locked to us.
-        if (msg.sender != borrower) revert LoanNotBorrower(0, msg.sender);
+        if (_msgSender() != borrower) revert LoanNotBorrower(0, _msgSender());
         (, address posOwner,) = vaultC.positionOf(collateralPositionId);
         if (posOwner != address(this) || vaultC.lockedBy(collateralPositionId) != borrower) {
-            revert LoanNotCollateralOwner(collateralPositionId, msg.sender);
+            revert LoanNotCollateralOwner(collateralPositionId, _msgSender());
         }
         if (positionInUse[collateralPositionId]) revert LoanPositionInUse(collateralPositionId);
         positionInUse[collateralPositionId] = true;
@@ -157,18 +161,18 @@ contract LoanAgreement is ReentrancyGuard {
     function fundLoan(uint256 loanId) external nonReentrant {
         Loan storage l = loans[loanId];
         if (l.state != 0) revert LoanFundedAlready(loanId);
-        if (msg.sender != l.lender) revert LoanNotLender(loanId, msg.sender);
-        l.token.safeTransferFrom(msg.sender, address(this), l.principal);
+        if (_msgSender() != l.lender) revert LoanNotLender(loanId, _msgSender());
+        l.token.safeTransferFrom(_msgSender(), address(this), l.principal);
         l.state = 1;
         l.fundedAt = block.timestamp;
-        emit LoanFunded(loanId, msg.sender, l.principal);
+        emit LoanFunded(loanId, _msgSender(), l.principal);
     }
 
     /// @notice Borrower withdraws a loan nobody funded yet and gets the collateral back.
     function cancelLoan(uint256 loanId) external nonReentrant {
         Loan storage l = loans[loanId];
         if (l.state != 0 || l.borrower == address(0)) revert LoanFundedAlready(loanId);
-        if (msg.sender != l.borrower) revert LoanNotBorrower(loanId, msg.sender);
+        if (_msgSender() != l.borrower) revert LoanNotBorrower(loanId, _msgSender());
         l.state = 5;
         positionInUse[l.collateralPositionId] = false;
         emit LoanCancelled(loanId);
@@ -176,13 +180,27 @@ contract LoanAgreement is ReentrancyGuard {
         emit LoanCollateralReleased(loanId, l.collateralToken, l.borrower);
     }
 
+    /// @notice Get back collateral that was locked to this contract but never used
+    ///         for a loan (for example the phone lost signal between "pledge" and
+    ///         "ask for loan"). Only the person who locked it can call, and only
+    ///         while no loan uses the position; it goes back to that person.
+    function reclaimUnusedPosition(bytes32 positionId) external nonReentrant {
+        if (positionInUse[positionId]) revert LoanPositionInUse(positionId);
+        CollateralVault vaultC = CollateralVault(address(vault));
+        (, address posOwner, uint256 posAmount) = vaultC.positionOf(positionId);
+        if (posAmount == 0 || posOwner != address(this)) revert LoanZeroAmount();
+        address locker = vaultC.lockedBy(positionId);
+        if (_msgSender() != locker) revert LoanNotCollateralOwner(positionId, _msgSender());
+        vault.release(positionId, locker);
+    }
+
     /// @notice Borrower draws the principal to spend it (e.g. towards a mandate).
     function drawLoan(uint256 loanId) external nonReentrant loanState(loanId, 1) {
         Loan storage l = loans[loanId];
-        if (msg.sender != l.borrower) revert LoanNotBorrower(loanId, msg.sender);
+        if (_msgSender() != l.borrower) revert LoanNotBorrower(loanId, _msgSender());
         l.state = 2; // Active
-        emit LoanDrawn(loanId, msg.sender, l.principal);
-        l.token.safeTransfer(msg.sender, l.principal);
+        emit LoanDrawn(loanId, _msgSender(), l.principal);
+        l.token.safeTransfer(_msgSender(), l.principal);
     }
 
     /// @notice Repay principal + running interest. Fully repaying closes the loan
@@ -208,13 +226,36 @@ contract LoanAgreement is ReentrancyGuard {
 
         l.repaidPrincipal += principalShare;
         l.repaidInterest += interestShare;
-        l.token.safeTransferFrom(msg.sender, address(this), amount);
+        l.token.safeTransferFrom(_msgSender(), address(this), amount);
 
-        emit LoanRepaid(loanId, msg.sender, principalShare, interestShare);
+        emit LoanRepaid(loanId, _msgSender(), principalShare, interestShare);
 
         if ((l.repaidPrincipal + l.repaidInterest) >= owedNow) {
             _close(loanId);
         }
+    }
+
+    /// @notice Repay everything owed at this block and close the loan. Interest
+    ///         accrues every second, so an amount quoted a moment earlier can fall a
+    ///         few paise short and leave the loan open; this pays the exact balance
+    ///         at execution. Anyone may pay a borrower's loan off (a family member);
+    ///         the collateral always goes back to the borrower.
+    /// @param maxAmount Most the payer accepts to pay (slippage guard on interest).
+    function repayAll(uint256 loanId, uint256 maxAmount) external nonReentrant returns (uint256 amount) {
+        Loan storage l = loans[loanId];
+        if (l.state != 2) revert LoanNotActive(loanId);
+        uint256 owedNow = _totalOwed(l);
+        uint256 alreadyRepaid = l.repaidPrincipal + l.repaidInterest;
+        amount = owedNow > alreadyRepaid ? owedNow - alreadyRepaid : 0;
+        if (amount == 0) revert LoanZeroAmount();
+        if (amount > maxAmount) revert LoanOverpay(loanId, amount, maxAmount);
+        uint256 principalShare = l.principal - l.repaidPrincipal;
+        uint256 interestShare = amount - principalShare;
+        l.repaidPrincipal += principalShare;
+        l.repaidInterest += interestShare;
+        l.token.safeTransferFrom(_msgSender(), address(this), amount);
+        emit LoanRepaid(loanId, _msgSender(), principalShare, interestShare);
+        _close(loanId);
     }
 
     function _close(uint256 loanId) private {
@@ -247,17 +288,20 @@ contract LoanAgreement is ReentrancyGuard {
         }
     }
 
-    /// @notice Lender withdraws repaid principal + interest that has settled in
-    ///         this contract (called after each partial repayment or on close).
+    /// @notice Lender withdraws repayments that have settled in this contract
+    ///         (after each partial repayment or on close). Only what was repaid and
+    ///         not yet withdrawn is paid out; the borrower's repaid counters are
+    ///         never touched, so a withdrawal can never make the borrower owe the
+    ///         same money again (fix: the old version zeroed repaidPrincipal and
+    ///         repaidInterest, which re-opened the debt and let a lender default a
+    ///         borrower who had already paid).
     function withdrawRepaid(uint256 loanId) external nonReentrant {
         Loan storage l = loans[loanId];
-        if (msg.sender != l.lender) revert LoanNotLender(loanId, msg.sender);
-        uint256 repayments = l.repaidPrincipal + l.repaidInterest;
-        if (repayments == 0) revert LoanZeroAmount();
-        // Track credit ledger via balance accounting: reset repaid counters and pay out.
-        l.repaidPrincipal = 0;
-        l.repaidInterest = 0;
-        l.token.safeTransfer(msg.sender, repayments);
+        if (_msgSender() != l.lender) revert LoanNotLender(loanId, _msgSender());
+        uint256 available = l.repaidPrincipal + l.repaidInterest - lenderWithdrawn[loanId];
+        if (available == 0) revert LoanZeroAmount();
+        lenderWithdrawn[loanId] += available;
+        l.token.safeTransfer(l.lender, available);
     }
 
     function _interestOn(Loan storage l) private view returns (uint256) {

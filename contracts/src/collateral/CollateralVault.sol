@@ -101,12 +101,12 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         if (amount == 0) revert CollateralZeroAmount();
         if (!_allowedAssets.contains(token)) revert CollateralNotAllowedAsset(token);
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
 
         p.token = token;
         p.owner = owner;
         p.amount = amount;
-        lockedBy[positionId] = msg.sender;
+        lockedBy[positionId] = _msgSender();
         emit CollateralLocked(positionId, token, owner, amount);
     }
 
@@ -114,19 +114,20 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     function unlock(bytes32 positionId) external {
         Position storage p = positions[positionId];
         if (p.amount == 0) revert CollateralEmpty(positionId);
-        if (p.owner != msg.sender) revert CollateralNotOwner(msg.sender, p.owner);
+        if (p.owner != _msgSender()) revert CollateralNotOwner(_msgSender(), p.owner);
         IERC20 token = IERC20(p.token);
         uint256 amount = p.amount;
         delete positions[positionId];
         delete lockedBy[positionId];
-        token.safeTransfer(msg.sender, amount);
-        emit CollateralUnlocked(positionId, msg.sender, amount);
+        token.safeTransfer(_msgSender(), amount);
+        emit CollateralUnlocked(positionId, _msgSender(), amount);
     }
 
     /// @notice Authorized-release path for protocol resolvers: moves a position
     ///         balance to an arbitrary beneficiary (used by LoanAgreement on
     ///         repayment/foreclosure). Only an authorized resolver may call and
     ///         only on positions it owns (msg.sender must be the position owner).
+    /// @dev Uses msg.sender on purpose: resolvers are contracts, never relayed.
     function release(bytes32 positionId, address to) external {
         Position storage p = positions[positionId];
         if (p.amount == 0) revert CollateralEmpty(positionId);
