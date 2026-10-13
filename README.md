@@ -1,4 +1,10 @@
 # varanasi
+
+> **We are spiritual beings who came to Earth to experience being human.**
+>
+> **Mission:** Build the financial and economic infrastructure that lets AI agents work on behalf of humanity, so people can gain more freedom over how they live.
+>
+> *Varanasi is building the financial operating system for the AI-agent era.*
 Author: Ramprasad · License: MIT
 
 <p align="center">
