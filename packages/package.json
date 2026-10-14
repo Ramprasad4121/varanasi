@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @varanasi/sdk && npm run build -w @varanasi/mcp-server",
-    "typecheck": "npm run typecheck -w @varanasi/sdk && npm run typecheck -w @varanasi/mcp-server",
+    "typecheck": "npm run build -w @varanasi/sdk && npm run typecheck -w @varanasi/sdk && npm run typecheck -w @varanasi/mcp-server",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "npm run build && vitest run",
