@@ -87,7 +87,7 @@ jobs:
       - run: npm run build
 
   packages:
-    name: packages (sdk + mcp-server: lint, typecheck, tests, sandbox demo)
+    name: "packages (sdk + mcp-server): lint, typecheck, tests, sandbox demo"
     runs-on: ubuntu-latest
     defaults:
       run:
