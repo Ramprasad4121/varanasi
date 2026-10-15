@@ -22,7 +22,7 @@ Test money only. No real funds move.
 | # | Task | Owner | Due | Status (against PR #128) |
 | --- | --- | --- | --- | --- |
 | T1 | PR/FAQ | Hark | Oct 14 | Done. `docs/prototype/PRFAQ.md`, restored into PR #128 on Oct 15. The Notion copy is still not written because the Notion session expired. |
-| T2 | Spec: mandate, gate, ledger, revoke | Hark | Oct 15 | Open, due today. There is no `docs/prototype/SPEC.md` in PR #128. The behaviour is documented in `packages/sdk/README.md` (mandate type, gate rule order, deny codes, ledger, revoke), which is the starting point for the spec. |
+| T2 | Spec: mandate, gate, ledger, revoke | Hark | Oct 15 | Done. `docs/prototype/SPEC.md` (mandate fields and rules, gate rule order, ledger, revoke, MCP tools, M1 acceptance checks, known limits). Written from the code in PR #128. |
 | T3 | SDK + sandbox + tests | Hark | Oct 17 | Built, in review in PR #128. `@varanasi/sdk`, `packages/sandbox/demo.mjs`, 42 tests in 5 files (unit, property and fuzz with fast-check, on-chain stub, MCP integration, live ledger page). CI green on 80a7d0f. |
 | T4 | MCP server + integration test | Hark | Oct 17 | Built, in review in PR #128. `@varanasi/mcp-server` (stdio) with `create_mandate`, `check_payment`, `record_payment`, `revoke_agent`, `get_ledger`, `list_mandates`, `sandbox_info`, plus a stdio integration test over every tool. |
 | T5 | Live ledger web view | Hark (teammate review) | Oct 19 | Built in PR #128 (`npm run sandbox:live`, page on 127.0.0.1:8787). Needs teammate review. |
