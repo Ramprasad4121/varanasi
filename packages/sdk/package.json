@@ -1,0 +1,28 @@
+{
+  "name": "@varanasi/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent permission layer for Varanasi: signed spend mandates, a payment gate that checks before money moves, an append-only ledger and instant revoke. Sandbox, test money only.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "viem": "^2.57.5"
+  }
+}

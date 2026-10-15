@@ -1,0 +1,32 @@
+{
+  "name": "@varanasi/packages",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Varanasi agent permission layer: SDK, MCP server and local sandbox (test money only).",
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "sdk",
+    "mcp-server"
+  ],
+  "scripts": {
+    "build": "npm run build -w @varanasi/sdk && npm run build -w @varanasi/mcp-server",
+    "typecheck": "npm run build -w @varanasi/sdk && npm run typecheck -w @varanasi/sdk && npm run typecheck -w @varanasi/mcp-server",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "npm run build && vitest run",
+    "sandbox": "npm run build && node sandbox/demo.mjs",
+    "sandbox:live": "npm run build && node sandbox/demo.mjs --serve",
+    "sandbox:anvil": "npm run build && node sandbox/demo.mjs --anvil"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.0.0",
+    "fast-check": "^4.10.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
