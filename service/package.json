@@ -15,7 +15,7 @@
     "@hiero-ledger/sdk": "^2.88.0",
     "@typesafe-ai/sdk": "^0.6.0",
     "@x402/core": "^2.25.0",
-    "@x402/express": "^2.25.0",
+    "@x402/express": "^2.26.0",
     "@x402/hedera": "^2.25.0",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
