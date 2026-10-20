@@ -1,0 +1,43 @@
+# pre-commit hooks: pip install pre-commit && pre-commit install
+# Runs on staged files only. CI runs the same checks on every PR.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(patch|snap)$
+      - id: end-of-file-fixer
+        exclude: \.(patch|png|svg)$
+      - id: check-yaml
+      - id: check-json
+        exclude: tsconfig\.json$
+      - id: check-added-large-files
+        args: ["--maxkb=1500"]
+      - id: detect-private-key
+        exclude: ^(app/scripts/seed\.mjs|contracts/test/)
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (app)
+        entry: bash -c 'cd app && npx prettier --check "$@"' --
+        language: system
+        files: ^app/.*\.(ts|tsx|css|mjs)$
+        pass_filenames: false
+      - id: eslint
+        name: eslint (app)
+        entry: bash -c 'cd app && npx next lint --dir app --dir components --dir lib'
+        language: system
+        files: ^app/.*\.(ts|tsx)$
+        pass_filenames: false
+      - id: forge-fmt
+        name: forge fmt (people app contracts)
+        entry: bash -c 'cd contracts && forge fmt --check src/app test/app'
+        language: system
+        files: ^contracts/(src|test)/app/.*\.sol$
+        pass_filenames: false
+      - id: no-em-dash
+        name: no em or en dashes in user facing copy
+        entry: bash -c '! grep -nP "[\x{2013}\x{2014}]" app/lib/i18n.ts app/components/*.tsx'
+        language: system
+        files: ^app/(lib/i18n\.ts|components/.*\.tsx)$
+        pass_filenames: false

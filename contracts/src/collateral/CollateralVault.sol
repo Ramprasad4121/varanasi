@@ -25,6 +25,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     error CollateralZeroAmount();
     error CollateralZeroAddress();
     error CollateralNotAuthorizedResolver(address caller);
+    error CollateralUnsupportedToken(uint256 expected, uint256 received);
 
     event CollateralLocked(
         bytes32 indexed positionId,
@@ -52,6 +53,10 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     mapping(address => bool) public isAuthorizedResolver;
 
     mapping(bytes32 => Position) public positions;
+    /// @notice Who actually paid the asset into each active position. Protocols that
+    ///         accept a position locked to them (LoanAgreement) must check this so a
+    ///         stranger can never borrow against someone else's collateral (fix L1).
+    mapping(bytes32 => address) public lockedBy;
 
     /// @param admin Owner of the vault (admission + pause control).
     constructor(address admin) Ownable(admin) {}
@@ -97,11 +102,18 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         if (amount == 0) revert CollateralZeroAmount();
         if (!_allowedAssets.contains(token)) revert CollateralNotAllowedAsset(token);
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
+        // effects before the transfer (checks-effects-interactions), then make sure the
+        // vault really received `amount`: a fee-on-transfer token would leave a position
+        // recorded larger than what the vault holds (Slither reentrancy-no-eth, review 2026-10-11)
         p.token = token;
         p.owner = owner;
         p.amount = amount;
+        lockedBy[positionId] = _msgSender();
+
+        uint256 before = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
+        uint256 got = IERC20(token).balanceOf(address(this)) - before;
+        if (got != amount) revert CollateralUnsupportedToken(amount, got);
         emit CollateralLocked(positionId, token, owner, amount);
     }
 
@@ -109,18 +121,20 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
     function unlock(bytes32 positionId) external {
         Position storage p = positions[positionId];
         if (p.amount == 0) revert CollateralEmpty(positionId);
-        if (p.owner != msg.sender) revert CollateralNotOwner(msg.sender, p.owner);
+        if (p.owner != _msgSender()) revert CollateralNotOwner(_msgSender(), p.owner);
         IERC20 token = IERC20(p.token);
         uint256 amount = p.amount;
         delete positions[positionId];
-        token.safeTransfer(msg.sender, amount);
-        emit CollateralUnlocked(positionId, msg.sender, amount);
+        delete lockedBy[positionId];
+        token.safeTransfer(_msgSender(), amount);
+        emit CollateralUnlocked(positionId, _msgSender(), amount);
     }
 
     /// @notice Authorized-release path for protocol resolvers: moves a position
     ///         balance to an arbitrary beneficiary (used by LoanAgreement on
     ///         repayment/foreclosure). Only an authorized resolver may call and
     ///         only on positions it owns (msg.sender must be the position owner).
+    /// @dev Uses msg.sender on purpose: resolvers are contracts, never relayed.
     function release(bytes32 positionId, address to) external {
         Position storage p = positions[positionId];
         if (p.amount == 0) revert CollateralEmpty(positionId);
@@ -130,6 +144,7 @@ contract CollateralVault is ICollateral, Pausable, Ownable {
         IERC20 token = IERC20(p.token);
         uint256 amount = p.amount;
         delete positions[positionId];
+        delete lockedBy[positionId];
         token.safeTransfer(to, amount);
         emit CollateralUnlocked(positionId, to, amount);
     }

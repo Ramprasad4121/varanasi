@@ -1,0 +1,37 @@
+Missing dependencies found. Installing now...
+fatal: destination path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/forge-std' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/forge-std' failed
+Failed to clone 'contracts/lib/forge-std'. Retry scheduled
+fatal: destination path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/v4-core' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/Uniswap/v4-core.git' into submodule path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/v4-core' failed
+Failed to clone 'contracts/lib/v4-core'. Retry scheduled
+fatal: destination path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/v4-periphery' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/Uniswap/v4-periphery.git' into submodule path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/v4-periphery' failed
+Failed to clone 'contracts/lib/v4-periphery'. Retry scheduled
+fatal: destination path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/forge-std' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '/workspace/projects/32d27b7e-476c-47f2-9bfd-b6f7a7080fed/work/varanasi-gold/contracts/lib/forge-std' failed
+Failed to clone 'contracts/lib/forge-std' a second time, aborting
+Warning: Your project has missing dependencies that could not be installed.
+Compiler run successful!
+Ran 7 tests for test/finance/GoldAuditPreFix.t.sol:GoldAuditPreFixTest
+[FAIL: next call did not revert as expected] test_F1_markMintedHasNoAccessControl() (gas: 41683)
+[FAIL: next call did not revert as expected] test_F2_markRedeemedHasNoAccessControl() (gas: 211967)
+[FAIL: minted position revoked, supply unbacked] test_F3_revokeMintedLeavesUnbackedSupply() (gas: 269593)
+[FAIL: GoldPositionNotVerified(0x6d0f436879910d7485b106a91f715475d45b7ed211a4331e3ae1287d6af454b3)] test_F4_reverifiedAssetCannotMint() (gas: 375442)
+[FAIL: 1 token != 1 g fine gold: 10000000000000000000 != 9950000000000000000] test_F5_purityNotApplied() (gas: 183967)
+[FAIL: GoldOnlyPositionOwner(0x6d0f436879910d7485b106a91f715475d45b7ed211a4331e3ae1287d6af454b3, 0x0000000000000000000000000000000000000B0b, 0x00000000000000000000000000000000000A11cE)] test_F6_holderCannotRedeem() (gas: 280181)
+[FAIL: 1 tonne minted with no bank signature: 1000000000000000000000000 != 0] test_F7_attestationWithoutBankSignature() (gas: 368708)
+Suite result: FAILED. 0 passed; 7 failed; 0 skipped; finished in 3.26ms (1.54ms CPU time)
+Ran 1 test suite in 8.43ms (3.26ms CPU time): 0 tests passed, 7 failed, 0 skipped (7 total tests)
+Failing tests:
+Encountered 7 failing tests in test/finance/GoldAuditPreFix.t.sol:GoldAuditPreFixTest
+[FAIL: next call did not revert as expected] test_F1_markMintedHasNoAccessControl() (gas: 41683)
+[FAIL: next call did not revert as expected] test_F2_markRedeemedHasNoAccessControl() (gas: 211967)
+[FAIL: minted position revoked, supply unbacked] test_F3_revokeMintedLeavesUnbackedSupply() (gas: 269593)
+[FAIL: GoldPositionNotVerified(0x6d0f436879910d7485b106a91f715475d45b7ed211a4331e3ae1287d6af454b3)] test_F4_reverifiedAssetCannotMint() (gas: 375442)
+[FAIL: 1 token != 1 g fine gold: 10000000000000000000 != 9950000000000000000] test_F5_purityNotApplied() (gas: 183967)
+[FAIL: GoldOnlyPositionOwner(0x6d0f436879910d7485b106a91f715475d45b7ed211a4331e3ae1287d6af454b3, 0x0000000000000000000000000000000000000B0b, 0x00000000000000000000000000000000000A11cE)] test_F6_holderCannotRedeem() (gas: 280181)
+[FAIL: 1 tonne minted with no bank signature: 1000000000000000000000000 != 0] test_F7_attestationWithoutBankSignature() (gas: 368708)
+Encountered a total of 7 failing tests, 0 tests succeeded
+Tip: Run `forge test --rerun` to retry only the 7 failed tests
+Tip: Run `forge test --debug --match-test <TEST_NAME>` to inspect one failing test in the debugger

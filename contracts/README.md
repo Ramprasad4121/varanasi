@@ -39,7 +39,7 @@ is fully green.
 | `src/finance/LoanAgreement.sol` | LoanAgreement | term-loan between lender + borrower |
 | `src/finance/FinancialReputation.sol` | FinancialReputation | member credit/reputation tracking |
 | `src/collateral/CollateralVault.sol` | CollateralVault | collateral backing community loans |
-| `src/gold/GoldRegistry.sol` + `GoldAttestor.sol` + `GoldToken.sol` | gold stack | gold-backed collateral (registry, attestor, metal token) |
+| `src/gold/BankGoldIssuer.sol` + `GoldRegistry.sol` + `GoldToken.sol` | gold stack | bank-attested gold token: EIP-712 bank signatures, single-use certificates, fungible redemption, disputes, proof of reserve ([docs/GOLD.md](../docs/GOLD.md)) |
 
 Not yet deployed — demo state is address-seeded and simulated; the agent's
 `execute()` throws until they go live. Protocol tests: 54 (see

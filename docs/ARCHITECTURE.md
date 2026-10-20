@@ -78,7 +78,7 @@ The same rail extends into a programmable treasury the agent stewards:
   (periodic contributions, rotating payout), `LoanAgreement` (term loans),
   `FinancialReputation` (credit); `contracts/src/collateral/CollateralVault`
   secures loans; `contracts/src/gold/` (`GoldRegistry` /
-  `GoldAttestor` / `GoldToken`) provides gold-backed collateral; a
+  `BankGoldIssuer` / `GoldToken`) provides bank-attested gold collateral (docs/GOLD.md); a
   non-breaking `RiskGuard` `authorize()` hook gates writes.
 - `service /v1/finance*` — deterministic, **address-seeded** portfolio +
   recommendations (free; simulated).

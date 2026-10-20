@@ -1,0 +1,171 @@
+# People app CI (app/ + the contracts it uses). Runs from a clean checkout with zero
+# secrets: the local demo uses anvil dev keys, the public demo a browser test ledger,
+# and the waitlist test a fake Upstash server. Nothing here deploys anything.
+name: people-app
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "contracts/**"
+      - "scripts/app-*.sh"
+      - "docker/**"
+      - "compose.yaml"
+      - ".github/workflows/people-app.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "contracts/**"
+
+concurrency:
+  group: people-app-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: app (lint, format, typecheck, unit tests, coverage, builds)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npx tsc --noEmit --noUnusedLocals --noUnusedParameters
+      - name: unit tests (demo ledger + waitlist)
+        run: npm run test:unit
+      - name: coverage (app logic)
+        run: npm run coverage | tee coverage.txt
+      - name: next build (local mode)
+        run: NEXT_PUBLIC_VARANASI_MODE=local npx next build
+      - name: next build (public mode, the default a host deploys with no settings)
+        run: npx next build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-coverage
+          path: app/coverage.txt
+
+  contracts:
+    name: contracts (forge test, gas snapshot, coverage, slither)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: forge fmt --check src/app test/app
+      - run: forge test
+      - name: gas snapshot (people app contracts)
+        run: forge snapshot --match-path "test/app/*" --no-match-contract Invariant --check .gas-snapshot --tolerance 5
+      - name: coverage (people app contracts)
+        run: forge coverage --ir-minimum --match-path "test/app/*" --report summary --report lcov | tee coverage.txt
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forge-coverage
+          path: |
+            contracts/coverage.txt
+            contracts/lcov.info
+      - name: slither (people app contracts)
+        uses: crytic/slither-action@v0.4.0
+        continue-on-error: true
+        with:
+          target: contracts
+          slither-args: --filter-paths "lib/|test/|script/" --exclude-dependencies
+          fail-on: none
+
+  e2e-local:
+    name: e2e on a local chain (API smoke + browser walk-through)
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install playwright==1.48.0 && python3 -m playwright install --with-deps chromium
+      - run: cd app && npm ci --ignore-scripts
+      - run: npm i --no-save --prefix /tmp/tools axe-core@4.10.2
+      - name: scripts/app-demo.sh --e2e
+        run: AXE_JS=/tmp/tools/node_modules/axe-core/axe.min.js SHOTS=/tmp/shots-local scripts/app-demo.sh --e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-local
+          path: /tmp/shots-local
+
+  e2e-public:
+    name: e2e public demo (waitlist, demo ledger, walk-through, axe)
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install playwright==1.48.0 && python3 -m playwright install --with-deps chromium
+      - run: cd app && npm ci --ignore-scripts
+      - run: npm i --no-save --prefix /tmp/tools axe-core@4.10.2 lighthouse@12
+      - name: scripts/app-public.sh --check
+        run: AXE_JS=/tmp/tools/node_modules/axe-core/axe.min.js SHOTS=/tmp/shots-public scripts/app-public.sh --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-public
+          path: /tmp/shots-public
+
+  docker:
+    name: docker image + compose stack (smoke test against compose)
+    runs-on: ubuntu-latest
+    needs: [checks]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/people-app.Dockerfile
+      - uses: docker/setup-buildx-action@v3
+      - name: build image
+        run: docker build -f docker/people-app.Dockerfile -t varanasi-people-app:ci .
+      - name: compose up
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: smoke test against compose
+        run: docker compose --profile test run --rm smoke
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --no-color | tail -200
+      - run: docker compose down -v
+        if: always()
