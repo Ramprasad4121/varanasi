@@ -30,8 +30,8 @@ function Hero() {
   return (
     <section className="border-b border-border bg-bg">
       <div className="mx-auto max-w-[880px] px-4 pb-16 pt-16 text-center sm:px-6 sm:pb-24 sm:pt-24">
-        <p className="font-label text-[11px] uppercase tracking-[0.2em] text-accent font-medium">
-          The arena for agentic commerce
+        <p className="mx-auto max-w-[40rem] font-sans text-[15px] italic leading-relaxed text-accent sm:text-base">
+          We are spiritual beings who came to Earth to experience being human.
         </p>
         <DisplayHeading as="h1" size="hero" className="mt-5">
           Hire an AI agent. Pay only on proof.
